@@ -131,7 +131,7 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ConnectButton" Content="Desconectar" Click="ConnectButton_Click" />
                     <Button x:Name="ManualButton" Content="Modo manual" Click="ManualButton_Click" />
-                    <Button x:Name="LoadCsvButton" Content="Carregar CSV" Click="LoadCsvButton_Click" />
+                    <Button x:Name="LoadCsvButton" Content="Carregar CSV" Click="LoadCsvButton_Click" PreviewMouseLeftButtonDown="LoadCsvButton_PreviewMouseLeftButtonDown" />
                     <Button x:Name="RecalcButton" Content="Calcular" Click="RecalcButton_Click" />
                 </StackPanel>
             </Grid>
@@ -145,11 +145,25 @@
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
                 <StackPanel>
-                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                    <Border x:Name="CsvDropZone"
+                            Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="12"
+                            Margin="0,0,0,10"
+                            AllowDrop="True"
+                            Drop="CsvDropZone_Drop"
+                            MouseLeftButtonDown="CsvDropZone_MouseLeftButtonDown">
                         <StackPanel>
                             <TextBlock Text="CSV diario" FontSize="15" FontWeight="Bold" />
                             <TextBlock x:Name="CsvFileText" Text="Nenhum arquivo carregado" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,4" />
                             <TextBlock x:Name="CsvCountText" Text="0 pregoes" Foreground="{StaticResource Muted}" />
+                            <TextBlock Text="Arraste um CSV aqui, duplo clique ou use Ctrl+O." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,6" />
+                            <TextBox x:Name="CsvPathInput" Margin="0,0,0,6" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="SelectCsvPanelButton" Content="Selecionar arquivo" Click="SelectCsvPanelButton_Click" PreviewMouseLeftButtonDown="SelectCsvPanelButton_PreviewMouseLeftButtonDown" />
+                                <Button x:Name="LoadCsvPathButton" Content="Carregar caminho" Click="LoadCsvPathButton_Click" PreviewMouseLeftButtonDown="LoadCsvPathButton_PreviewMouseLeftButtonDown" Margin="0" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

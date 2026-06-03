@@ -13,6 +13,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - assinatura dos campos RTD completos configurados em `appsettings.json`;
 - UI WPF com DOM, tape, niveis, abertura, POC, variacao percentual, volume profile, confluencia, backtest proxy e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
+- carregamento de CSV por botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
 - calculos de volatilidade, ATR, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais e confluencias;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
 
@@ -44,6 +45,14 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 5. Feche o Profit ou rode sem o Profit aberto para validar que o app continua vivo e mostra reconexao/erro.
 
 Logs ficam em `logs/rtd-dolar-native.log`.
+
+## CSV diario
+
+O app tenta carregar automaticamente o CSV mais recente em `%USERPROFILE%\Downloads\Dados_Dolar` ou em `Documentos` quando o nome contem o ativo configurado ou `WDO`.
+
+Tambem e possivel carregar manualmente pelo botao `Carregar CSV`, pelo painel lateral `Selecionar arquivo`, com duplo clique no painel de CSV, arrastando um arquivo para o painel, usando `Ctrl+O`, ou colando o caminho e clicando em `Carregar caminho`.
+
+O parser aceita CSV em `UTF-8` e `Windows-1252`, incluindo exportacoes do Profit com cabecalho em portugues como `Ativo;Data;Abertura;Maximo;Minimo;Fechamento;Volume;Quantidade`.
 
 ## Instalador
 

@@ -91,16 +91,18 @@ namespace RtdDolarNative.Csv
 
         private static string Decode(byte[] bytes, out string encodingName)
         {
-            string utf8 = new UTF8Encoding(false, true).GetString(bytes);
-
-            if (utf8.IndexOf('\uFFFD') < 0)
+            try
             {
+                string utf8 = new UTF8Encoding(false, true).GetString(bytes);
                 encodingName = "UTF-8";
                 return utf8;
             }
+            catch (DecoderFallbackException)
+            {
+                encodingName = "Windows-1252";
+                return Encoding.GetEncoding(1252).GetString(bytes);
+            }
 
-            encodingName = "Windows-1252";
-            return Encoding.GetEncoding(1252).GetString(bytes);
         }
 
         private static char DetectDelimiter(string text)

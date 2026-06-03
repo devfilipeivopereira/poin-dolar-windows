@@ -5,8 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Input;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
@@ -61,6 +61,7 @@ namespace RtdDolarNative
             _chartTimer.Tick += ChartTimer_Tick;
 
             InitializeStaticText();
+            KeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
         }
@@ -71,6 +72,7 @@ namespace RtdDolarNative
             _quantTimer.Start();
             _chartTimer.Start();
             StartRtd();
+            TryAutoLoadCsv();
         }
 
         private void MainWindow_Closed(object sender, EventArgs e)
@@ -116,35 +118,189 @@ namespace RtdDolarNative
 
         private void LoadCsvButton_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Title = "Carregar CSV diario";
-            dialog.Filter = "CSV ou texto|*.csv;*.txt|Todos os arquivos|*.*";
+            OpenCsvDialog();
+        }
 
-            if (dialog.ShowDialog(this) != true)
+        private void LoadCsvButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenCsvDialog();
+        }
+
+        private void SelectCsvPanelButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCsvDialog();
+        }
+
+        private void SelectCsvPanelButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenCsvDialog();
+        }
+
+        private void LoadCsvPathButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadCsvFromPath(CsvPathInput.Text);
+        }
+
+        private void LoadCsvPathButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            LoadCsvFromPath(CsvPathInput.Text);
+        }
+
+        private void CsvDropZone_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount >= 2)
+            {
+                OpenCsvDialog();
+            }
+        }
+
+        private void CsvDropZone_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 return;
             }
 
-            try
+            string[] files = e.Data.GetData(DataFormats.FileDrop) as string[];
+
+            if (files != null && files.Length > 0)
             {
-                DailyCsvParseResult parsed = DailyCsvParser.ParseFile(dialog.FileName);
-                _dailyBars.Clear();
-                _dailyBars.AddRange(parsed.Bars);
-                CsvFileText.Text = Path.GetFileName(dialog.FileName) + " (" + parsed.EncodingName + ", delim " + parsed.Delimiter + ")";
-                CsvCountText.Text = _dailyBars.Count.ToString(_ptBr) + " pregoes";
-                SetWarnings(parsed.Warnings);
-                Recalculate();
+                LoadCsvFromPath(files[0]);
             }
-            catch (Exception ex)
+        }
+
+        private void MainWindow_KeyDown(object sender, KeyEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control && e.Key == Key.O)
             {
-                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
-                SetWarnings(new[] { "Falha ao carregar CSV: " + ex.Message });
+                e.Handled = true;
+                OpenCsvDialog();
             }
         }
 
         private void RecalcButton_Click(object sender, RoutedEventArgs e)
         {
             Recalculate();
+        }
+
+        private void OpenCsvDialog()
+        {
+            string previousText = CsvFileText.Text;
+            Brush previousBrush = CsvFileText.Foreground;
+
+            try
+            {
+                _log.Info("Abrindo seletor de CSV.");
+                CsvFileText.Text = "Abrindo seletor de CSV...";
+                CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(255, 184, 0));
+                CsvDropZone.UpdateLayout();
+
+                using (System.Windows.Forms.OpenFileDialog dialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    dialog.Title = "Carregar CSV diario";
+                    dialog.Filter = "CSV ou texto (*.csv;*.txt)|*.csv;*.txt|Todos os arquivos (*.*)|*.*";
+                    dialog.CheckFileExists = true;
+                    dialog.Multiselect = false;
+
+                    System.Windows.Forms.DialogResult result = dialog.ShowDialog();
+
+                    if (result == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(dialog.FileName))
+                    {
+                        LoadCsvFromPath(dialog.FileName);
+                    }
+                    else
+                    {
+                        CsvFileText.Text = _dailyBars.Count > 0 ? previousText : "Nenhum arquivo carregado";
+                        CsvFileText.Foreground = _dailyBars.Count > 0 ? previousBrush : new SolidColorBrush(Color.FromRgb(169, 179, 191));
+                        _log.Info("Selecao de CSV cancelada.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
+                CsvFileText.Text = "Falha ao abrir seletor de CSV.";
+                CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48));
+                SetWarnings(new[] { "Falha ao abrir seletor de CSV: " + ex.Message });
+                _log.Error("Falha ao abrir seletor de CSV.", ex);
+            }
+        }
+
+        private void LoadCsvFromPath(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    throw new InvalidOperationException("Informe o caminho do CSV.");
+                }
+
+                path = path.Trim().Trim('"');
+
+                if (!File.Exists(path))
+                {
+                    throw new FileNotFoundException("CSV nao encontrado.", path);
+                }
+
+                _log.Info("Carregando CSV: " + path);
+                DailyCsvParseResult parsed = DailyCsvParser.ParseFile(path);
+                _dailyBars.Clear();
+                _dailyBars.AddRange(parsed.Bars);
+                CsvPathInput.Text = path;
+                CsvFileText.Text = Path.GetFileName(path) + " (" + parsed.EncodingName + ", delim " + parsed.Delimiter + ")";
+                CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118));
+                CsvCountText.Text = _dailyBars.Count.ToString(_ptBr) + " pregoes";
+                SetWarnings(parsed.Warnings);
+                _log.Info("CSV carregado: " + _dailyBars.Count.ToString(_ptBr) + " pregoes, " + parsed.EncodingName + ", delimitador " + parsed.Delimiter + ".");
+                Recalculate();
+            }
+            catch (Exception ex)
+            {
+                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
+                CsvFileText.Text = "Falha ao carregar CSV.";
+                CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48));
+                SetWarnings(new[] { "Falha ao carregar CSV: " + ex.Message });
+                _log.Error("Falha ao carregar CSV.", ex);
+            }
+        }
+
+        private void TryAutoLoadCsv()
+        {
+            try
+            {
+                string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string downloadsData = Path.Combine(profile, "Downloads", "Dados_Dolar");
+                string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                List<string> candidates = new List<string>();
+
+                if (Directory.Exists(downloadsData))
+                {
+                    candidates.AddRange(Directory.GetFiles(downloadsData, "*.csv"));
+                }
+
+                if (Directory.Exists(documents))
+                {
+                    candidates.AddRange(Directory.GetFiles(documents, "*.csv"));
+                }
+
+                string asset = string.IsNullOrWhiteSpace(_config.Rtd.Asset) ? "WDOFUT_F_0" : _config.Rtd.Asset;
+                string best = candidates
+                    .Where(x => Path.GetFileName(x).IndexOf(asset, StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetFileName(x).IndexOf("WDO", StringComparison.OrdinalIgnoreCase) >= 0)
+                    .OrderByDescending(x => File.GetLastWriteTimeUtc(x))
+                    .FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(best))
+                {
+                    LoadCsvFromPath(best);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Warn("Auto-load CSV ignorado: " + ex.Message);
+            }
         }
 
         private void ProbeService_StatusChanged(string status, Exception error)

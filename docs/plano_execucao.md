@@ -26,7 +26,7 @@
 - [x] Engine RTD assinando todos os campos padrao.
 - [x] Tape em ring buffer.
 - [x] DOM nativo com marcacoes de niveis.
-- [x] CSV diario com parser C#.
+- [x] CSV diario com parser C#, auto-load, drag/drop, caminho manual, `Ctrl+O` e fallback `Windows-1252`.
 - [x] Motor quant em C# para volatilidade, ATR, POC/VAH/VAL, HVN/LVN, AVWAP, suportes/resistencias, percentuais e confluencias.
 - [x] Telas nativas para DOM, niveis, abertura, POC, variacao %, volume profile, confluencia, backtest proxy, grafico e diagnostico.
 - [x] Grafico nativo por `FrameworkElement.OnRender`.
