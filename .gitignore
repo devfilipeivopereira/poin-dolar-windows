@@ -7,5 +7,6 @@ obj/
 *.log
 logs/
 data/
-dist/
+dist/*
+!dist/PoinDolarWindowsSetup.exe
 *.zip

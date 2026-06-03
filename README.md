@@ -31,6 +31,22 @@ Este projeto implementa os Marcos 0 e 1 do plano nativo low-latency:
 
 Logs ficam em `logs/rtd-dolar-native.log`.
 
+## Instalador
+
+O instalador local e gerado em:
+
+```text
+dist\PoinDolarWindowsSetup.exe
+```
+
+Para regerar:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
+```
+
+O setup instala em `%LOCALAPPDATA%\PoinDolarWindows`, cria atalhos no Menu Iniciar e na area de trabalho, e registra desinstalacao em "Aplicativos instalados" do Windows. Ele inclui builds `x64` e `x86`; em Windows 64-bit o atalho principal usa `x64`.
+
 ## Projeto antigo
 
 O projeto antigo em `D:\OneDrive\Documentos\RTD_C#` deve permanecer intacto. Este projeto copia/adapta apenas contratos e ideias ja validados.
