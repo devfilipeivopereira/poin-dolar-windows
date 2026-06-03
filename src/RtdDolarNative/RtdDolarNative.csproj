@@ -112,8 +112,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <Content Include="Assets\AppIcon.ico" />
-    <Content Include="Assets\AppIcon.svg" />
+    <Resource Include="Assets\AppIcon.ico" />
+    <None Include="Assets\AppIcon.svg" />
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
