@@ -25,6 +25,7 @@ namespace RtdDolarNative.Rtd
         private string _status;
         private Exception _lastError;
         private long _updatesReceived;
+        private decimal? _lastTradePrice;
 
         public RtdProbeService(RtdConfig config, DiagnosticsConfig diagnostics, Logger log, LatestSnapshotBuffer snapshotBuffer)
         {
@@ -36,6 +37,7 @@ namespace RtdDolarNative.Rtd
         }
 
         public event Action<string, Exception> StatusChanged;
+        public event Action<TickEvent> TickReceived;
 
         public bool IsRunning
         {
@@ -150,7 +152,7 @@ namespace RtdDolarNative.Rtd
                     throw new InvalidOperationException("ServerStart falhou. Codigo: " + startResult);
                 }
 
-                SubscribeProbeFields(server);
+                SubscribeConfiguredFields(server);
                 SetStatus("connected", null);
 
                 DateTime nextHeartbeat = DateTime.UtcNow.AddSeconds(1);
@@ -186,18 +188,18 @@ namespace RtdDolarNative.Rtd
             }
         }
 
-        private void SubscribeProbeFields(IRtdServer server)
+        private void SubscribeConfiguredFields(IRtdServer server)
         {
             int topicId = 1;
             IEnumerable<string> fields;
 
-            if (_config.ProbeFields == null || _config.ProbeFields.Count == 0)
+            if (_config.Fields == null || _config.Fields.Count == 0)
             {
                 fields = new[] { "HOR", "ULT", "VOL" };
             }
             else
             {
-                fields = _config.ProbeFields;
+                fields = _config.Fields;
             }
 
             foreach (string field in fields.Select(x => x.Trim().ToUpperInvariant()).Distinct())
@@ -294,10 +296,47 @@ namespace RtdDolarNative.Rtd
             MarketSnapshot snapshot = _state.Update(topic.Asset, topic.Field, value, Status);
             _snapshotBuffer.Publish(snapshot);
             Interlocked.Increment(ref _updatesReceived);
+            PublishTickIfNeeded(topic, snapshot);
 
             if (_diagnostics != null && _diagnostics.LogEveryTick)
             {
                 _log.Debug("Update " + topic.Key + " = " + (value == null ? "<null>" : value.ToString()));
+            }
+        }
+
+        private void PublishTickIfNeeded(RtdTopic topic, MarketSnapshot snapshot)
+        {
+            if (!string.Equals(topic.Field, "ULT", StringComparison.OrdinalIgnoreCase) || !snapshot.Ultimo.HasValue)
+            {
+                return;
+            }
+
+            decimal price = snapshot.Ultimo.Value;
+            decimal threshold = Math.Max(0.0001m, _config.TickSize / 2m);
+
+            if (_lastTradePrice.HasValue && Math.Abs(price - _lastTradePrice.Value) < threshold)
+            {
+                return;
+            }
+
+            decimal delta = _lastTradePrice.HasValue ? price - _lastTradePrice.Value : 0m;
+            TickEvent tick = new TickEvent();
+            tick.LocalTimestamp = snapshot.LocalTimestamp;
+            tick.ProfitTime = snapshot.HoraProfit;
+            tick.Price = price;
+            tick.Quantity = snapshot.QuantidadeUltimoNegocio;
+            tick.Volume = snapshot.Volume;
+            tick.Delta = delta;
+            tick.Side = !_lastTradePrice.HasValue ? "Inicial" : delta > 0m ? "Subiu" : delta < 0m ? "Caiu" : "Neutro";
+            tick.Bid = snapshot.OfertaCompra;
+            tick.Ask = snapshot.OfertaVenda;
+            _lastTradePrice = price;
+
+            Action<TickEvent> handler = TickReceived;
+
+            if (handler != null)
+            {
+                handler(tick);
             }
         }
 

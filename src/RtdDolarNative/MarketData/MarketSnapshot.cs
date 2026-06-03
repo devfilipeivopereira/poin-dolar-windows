@@ -34,9 +34,74 @@ namespace RtdDolarNative.MarketData
             get { return GetDecimal("ULT"); }
         }
 
+        public decimal? Abertura
+        {
+            get { return GetDecimal("ABE"); }
+        }
+
+        public decimal? Maxima
+        {
+            get { return GetDecimal("MAX"); }
+        }
+
+        public decimal? Minima
+        {
+            get { return GetDecimal("MIN"); }
+        }
+
+        public decimal? FechamentoAnterior
+        {
+            get { return GetDecimal("FEC"); }
+        }
+
+        public decimal? Media
+        {
+            get { return GetDecimal("MED"); }
+        }
+
         public decimal? Volume
         {
             get { return GetDecimal("VOL"); }
+        }
+
+        public decimal? Quantidade
+        {
+            get { return GetDecimal("QTT"); }
+        }
+
+        public decimal? QuantidadeUltimoNegocio
+        {
+            get { return GetDecimal("QUL"); }
+        }
+
+        public decimal? Negocios
+        {
+            get { return GetDecimal("NEG"); }
+        }
+
+        public decimal? OfertaCompra
+        {
+            get { return GetDecimal("OCP"); }
+        }
+
+        public decimal? OfertaVenda
+        {
+            get { return GetDecimal("OVD"); }
+        }
+
+        public decimal? VolumeOfertaCompra
+        {
+            get { return GetDecimal("VOC"); }
+        }
+
+        public decimal? VolumeOfertaVenda
+        {
+            get { return GetDecimal("VOV"); }
+        }
+
+        public decimal? VolumeProjetado
+        {
+            get { return GetDecimal("VPJ"); }
         }
 
         public MarketSnapshot Clone()

@@ -21,9 +21,14 @@
 
 ## Proximos Marcos
 
-1. Engine RTD completa com todos os campos padrao.
-2. DOM nativo.
-3. CSV diario.
-4. Motor quant em C#.
-5. Grafico nativo.
-6. Persistencia SQLite opcional e diagnostico.
+## Porte do dashboard `rtd_dolar`
+
+- [x] Engine RTD assinando todos os campos padrao.
+- [x] Tape em ring buffer.
+- [x] DOM nativo com marcacoes de niveis.
+- [x] CSV diario com parser C#.
+- [x] Motor quant em C# para volatilidade, ATR, POC/VAH/VAL, HVN/LVN, AVWAP, suportes/resistencias, percentuais e confluencias.
+- [x] Telas nativas para DOM, niveis, abertura, POC, variacao %, volume profile, confluencia, backtest proxy, grafico e diagnostico.
+- [x] Grafico nativo por `FrameworkElement.OnRender`.
+- [ ] SQLite opcional em segundo plano.
+- [ ] Testes automatizados de paridade com fixtures reais do HTML.

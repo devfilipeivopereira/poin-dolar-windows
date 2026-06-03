@@ -4,15 +4,29 @@ Aplicativo Windows nativo para ler o RTD do Profit diretamente via COM, sem Exce
 
 ## Marco atual
 
-Este projeto implementa os Marcos 0 e 1 do plano nativo low-latency:
+Este projeto implementa a base nativa low-latency e um porte inicial amplo do dashboard `rtd_dolar`:
 
 - solucao WPF C# `.NET Framework 4.8`;
 - configuracoes `x64` e `x86`;
 - thread RTD `STA` dedicada;
 - assinatura COM reaproveitando a assinatura validada em `RTD_C#`;
-- prova RTD com `WDOFUT_F_0` e campos `HOR`, `ULT`, `VOL`;
-- UI WPF com status, arquitetura do processo, hora do Profit, ultimo preco, volume e idade do snapshot;
+- assinatura dos campos RTD completos configurados em `appsettings.json`;
+- UI WPF com DOM, tape, niveis, abertura, POC, variacao percentual, volume profile, confluencia, backtest proxy e grafico nativo;
+- parser CSV diario com delimitadores `;`, `,` e tab;
+- calculos de volatilidade, ATR, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais e confluencias;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
+
+## Telas nativas
+
+- `DOM`: escada por tick, volumes bid/ask, marcacoes por preco e tape recente.
+- `Niveis`: todos os pontos calculados ordenaveis.
+- `Abertura`: desvios da abertura por sigma.
+- `POC`: desvios do POC proxy por sigma.
+- `Variacao %`: mapas percentuais por fechamento anterior, abertura e POC.
+- `Volume Profile`: bins, POC, VAH, VAL, HVN e LVN.
+- `Confluencia`: clusters de niveis com score e evidencia.
+- `Backtest Proxy`: toque/reversao de desvios historicos.
+- `Grafico`: candles diarios, candle atual e linhas horizontais de niveis.
 
 ## Como compilar
 
