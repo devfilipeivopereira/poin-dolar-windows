@@ -5,7 +5,7 @@
 1. Abrir `RtdDolarNative.sln`.
 2. Selecionar `Debug|x64`.
 3. Rodar com o Profit Pro aberto.
-4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Ativos`, `Cotacao`, `DOM / Book`, `Tape` e `Diagnostico` antes de conectar.
+4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Mesa`, `Ativos`, `Cotacao`, `DOM / Book`, `Tape` e `Diagnostico` antes de conectar.
 5. Clicar em `Conectar`.
 6. Confirmar que `ServerStart` retorna valor positivo no log.
 7. Confirmar que `ULT` e `VOL` aparecem na janela.
@@ -44,16 +44,17 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
    - `Times-*` com indices `0..99`.
 8. Confirmar que trocar o ativo em foco troca tambem o CSV historico carregado.
 9. Confirmar que `Cotacao` mostra os campos de preco/indicadores.
-10. Confirmar que `DOM / Book` preenche linhas reais quando `Book` esta ligado.
-11. Confirmar que `Tape` mostra linhas reais quando `Times` esta ligado; se `Times` estiver desligado ou vazio, deve mostrar tape derivado.
-12. Confirmar `Order Flow` com delta, cumulative delta, imbalance, microbias e janelas.
-13. Confirmar `Volume Profile` com POC, VAH, VAL, HVN e LVN quando houver prints suficientes ou fallback por CSV.
-14. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
+10. Confirmar que `Mesa` mostra grafico, DOM compacto, tape compacto, oportunidades, niveis e janelas de fluxo do ativo em foco.
+11. Confirmar que `DOM / Book` preenche linhas reais quando `Book` esta ligado.
+12. Confirmar que `Tape` mostra linhas reais quando `Times` esta ligado; se `Times` estiver desligado ou vazio, deve mostrar tape derivado.
+13. Confirmar `Order Flow` com delta, cumulative delta, imbalance, microbias e janelas.
+14. Confirmar `Volume Profile` com POC, VAH, VAL, HVN e LVN quando houver prints suficientes ou fallback por CSV.
+15. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
    - RSI14, EMAs, SMA, MACD, Bollinger, z-score e ATR/VWAP aparecem quando ha CSV/snapshot suficiente.
    - A tela mostra fonte tecnica, amostra, CSV carregado, status RTD e qualidade do fluxo.
    - Sinais quant mostram score ajustado, nivel, edge estatistico, estado tecnico e motivos.
    - Quando `Times`/`Book` nao estao reais, a qualidade informa tape derivado/top-of-book e o score fica limitado.
-15. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
+16. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
 
 ## Performance
 

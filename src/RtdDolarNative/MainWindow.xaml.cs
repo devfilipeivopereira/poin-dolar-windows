@@ -326,7 +326,7 @@ namespace RtdDolarNative
             switch (index)
             {
                 case TabDashboard:
-                    return "Painel";
+                    return "Mesa";
                 case TabAssets:
                     return "Ativos";
                 case TabQuote:
@@ -368,7 +368,7 @@ namespace RtdDolarNative
                 case TabIndicators:
                     return "Indicadores";
                 default:
-                    return "Painel";
+                    return "Mesa";
             }
         }
 
@@ -377,7 +377,7 @@ namespace RtdDolarNative
             switch (index)
             {
                 case TabDashboard:
-                    return "Resumo do ativo em foco";
+                    return "Mesa operacional de analise";
                 case TabAssets:
                     return "Cadastro de ativo, RTDs e CSV";
                 case TabQuote:
@@ -419,7 +419,7 @@ namespace RtdDolarNative
                 case TabIndicators:
                     return "Indicadores tecnicos, estatistica e sinais quant";
                 default:
-                    return "Resumo do ativo em foco";
+                    return "Mesa operacional de analise";
             }
         }
 
@@ -1968,6 +1968,21 @@ namespace RtdDolarNative
             UpdateDashboardProfile(snapshot, metrics);
             DashboardLevelsGrid.ItemsSource = BuildOpportunityLevelRows(snapshot).Take(40).ToList();
             DashboardSignalsGrid.ItemsSource = BuildOpportunityRows().Take(40).ToList();
+
+            if (DashboardChartControl != null)
+            {
+                DashboardChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+            }
+
+            if (DashboardDomGrid != null)
+            {
+                DashboardDomGrid.ItemsSource = BuildDashboardDomRows(snapshot);
+            }
+
+            if (DashboardTapeGrid != null)
+            {
+                DashboardTapeGrid.ItemsSource = BuildDashboardTapeRows(snapshot);
+            }
         }
 
         private void RenderMonitor()
@@ -2117,7 +2132,7 @@ namespace RtdDolarNative
             AddShortcut(rows, "F9", "Risco", "Abrir Risco", "Ver checklist de risco operacional e qualidade dos dados.");
             AddShortcut(rows, "F10", "Historico", "Abrir Historico", "Ver eventos locais do app, RTD e CSV.");
             AddShortcut(rows, "F11", "Monitor", "Abrir Monitor", "Acompanhar todos os ativos cadastrados.");
-            AddShortcut(rows, "Ctrl+1", "Painel", "Abrir Painel", "Resumo principal do ativo em foco.");
+            AddShortcut(rows, "Ctrl+1", "Mesa", "Abrir Mesa", "Grafico, DOM, tape, fluxo e sinais do ativo em foco.");
             AddShortcut(rows, "Ctrl+2", "Ativos", "Abrir Ativos", "Cadastrar ativos, RTDs e CSV historico.");
             AddShortcut(rows, "Ctrl+3", "DOM / Book", "Abrir DOM / Book", "Ver ladder, book e marcacoes de niveis.");
             AddShortcut(rows, "Ctrl+4", "Tape", "Abrir Tape", "Ver times and trades real ou derivado.");
@@ -3156,6 +3171,92 @@ namespace RtdDolarNative
                 row.SellVolume = window.SellVolume.ToString("N0", _ptBr);
                 row.Delta = window.Delta.ToString("N0", _ptBr);
                 row.DeltaRatio = window.DeltaRatio.ToString("N3", _ptBr);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private List<DomRow> BuildDashboardDomRows(MarketSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return new List<DomRow>();
+            }
+
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (_result != null)
+            {
+                levels.AddRange(_result.KeyLevels);
+                levels.AddRange(_result.Confluence);
+            }
+            else
+            {
+                levels.AddRange(BasicLevels(snapshot));
+            }
+
+            levels.AddRange(FlowProfileKeyLevels(snapshot));
+            levels.AddRange(FlowSignalKeyLevels(snapshot));
+
+            int eachSide = Math.Max(4, Math.Min(10, _config.Ui.DomTicksEachSide));
+            return DomLadderModel.Build(snapshot, levels, _config.Rtd.TickSize, eachSide);
+        }
+
+        private List<DashboardTapeRow> BuildDashboardTapeRows(MarketSnapshot snapshot)
+        {
+            List<DashboardTapeRow> rows = new List<DashboardTapeRow>();
+            List<TimesTradeRow> realTimes = BuildTimesRows(snapshot);
+
+            foreach (TimesTradeRow trade in realTimes.Take(60))
+            {
+                DashboardTapeRow row = new DashboardTapeRow();
+                row.Time = EmptyToDash(trade.Data);
+                row.Price = EmptyToDash(trade.Preco);
+                row.Quantity = EmptyToDash(trade.Quantidade);
+                row.Aggressor = EmptyToDash(trade.Agressor);
+                row.Quality = "Times";
+                rows.Add(row);
+            }
+
+            if (rows.Count > 0)
+            {
+                return rows;
+            }
+
+            string focused = FocusedAsset();
+
+            foreach (TradePrint trade in _flowProcessor.GetTrades(focused, 60))
+            {
+                DashboardTapeRow row = new DashboardTapeRow();
+                row.Time = trade.LocalTimeText;
+                row.Price = trade.Price.ToString("N2", _ptBr);
+                row.Quantity = trade.Quantity.ToString("N0", _ptBr);
+                row.Aggressor = TranslateDirection(trade.Aggressor);
+                row.Quality = trade.DataQuality.ToString();
+                rows.Add(row);
+            }
+
+            if (rows.Count > 0)
+            {
+                return rows;
+            }
+
+            IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
+
+            if (!string.IsNullOrWhiteSpace(focused))
+            {
+                ticks = ticks.Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+            }
+
+            foreach (TickEvent tick in ticks.Take(60))
+            {
+                DashboardTapeRow row = new DashboardTapeRow();
+                row.Time = tick.LocalTimeText;
+                row.Price = tick.Price.ToString("N2", _ptBr);
+                row.Quantity = tick.Quantity.HasValue ? tick.Quantity.Value.ToString("N0", _ptBr) : "-";
+                row.Aggressor = EmptyToDash(tick.Side);
+                row.Quality = "Tick";
                 rows.Add(row);
             }
 
@@ -5894,6 +5995,15 @@ namespace RtdDolarNative
             public string SellVolume { get; set; }
             public string Delta { get; set; }
             public string DeltaRatio { get; set; }
+        }
+
+        private sealed class DashboardTapeRow
+        {
+            public string Time { get; set; }
+            public string Price { get; set; }
+            public string Quantity { get; set; }
+            public string Aggressor { get; set; }
+            public string Quality { get; set; }
         }
 
         private sealed class HistoryRow

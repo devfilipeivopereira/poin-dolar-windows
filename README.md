@@ -12,6 +12,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - assinatura COM reaproveitando a assinatura validada em `RTD_C#`;
 - assinatura dos campos RTD completos configurados em `appsettings.json`;
 - menu superior em abas para separar cadastro, cotacao, book, tape, order flow, volume profile, setups, indicadores, niveis, grafico, backtest e diagnostico;
+- `Mesa` inicial com grafico, DOM, tape, janelas de fluxo, niveis e oportunidades no mesmo workspace;
 - tela `Ativos` para cadastrar `Codigo Cotacao`, `Canal Book`, `Canal Times`, CSV historico e ligar/desligar `Cotacao`, `Book` e `Times` por ativo;
 - UI WPF com cotacao, DOM/book real, tape real ou derivado, niveis, volume profile, setups, backtest e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
@@ -23,6 +24,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD.
 
+- `Mesa`: primeira tela operacional com grafico, DOM, tape, fluxo, niveis e oportunidades.
 - `Ativos`: cadastro de ativo, canais RTD e CSV historico.
 - `Cotacao`: campos RTD de preco, volume e indicadores.
 - `DOM / Book`: escada por tick, book real `0..49`, volumes bid/ask, marcacoes por preco e tape recente.

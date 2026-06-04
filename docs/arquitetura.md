@@ -13,7 +13,7 @@ Profit Pro
   -> FlowProcessor em background com fila bounded/drop-old
   -> FlowEngine / VolumeProfileEngine / SetupDetector
   -> DispatcherTimer WPF
-  -> Ativos / Cotacao / DOM Book / Tape / Order Flow / Volume Profile / Setups / Indicadores / Niveis / Grafico
+  -> Mesa / Ativos / Cotacao / DOM Book / Tape / Order Flow / Volume Profile / Setups / Indicadores / Niveis / Grafico
 ```
 
 Regras aplicadas desde o primeiro marco:
@@ -41,6 +41,7 @@ O historico diario e carregado por ativo na aba `Ativos` e alimenta o motor quan
 
 Telas principais:
 
+- `Mesa`: workspace inicial com grafico, DOM compacto, tape compacto, janelas de fluxo, niveis e oportunidades.
 - `Ativos`: cadastro de nome, codigo de cotacao, canal book, canal times, CSV historico e liga/desliga por canal.
 - `Cotacao`: ultimo preco, volume, indicadores RTD e campos de cotacao.
 - `DOM / Book`: ladder por tick, profundidade real do book e niveis.
