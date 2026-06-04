@@ -123,7 +123,13 @@ namespace RtdDolarNative.Flow
                     }
                 }
 
-                FlowUpdate update = engine.ProcessTrade(trade, snapshot);
+                FlowUpdate update;
+
+                lock (engine)
+                {
+                    update = engine.ProcessTrade(trade, snapshot);
+                }
+
                 ApplyUpdate(trade.Asset, update);
                 Interlocked.Increment(ref _processed);
             }
@@ -289,7 +295,13 @@ namespace RtdDolarNative.Flow
                 }
             }
 
-            FlowUpdate update = engine.Process(snapshot);
+            FlowUpdate update;
+
+            lock (engine)
+            {
+                update = engine.Process(snapshot);
+            }
+
             ApplyUpdate(snapshot.Asset, update);
             Interlocked.Increment(ref _processed);
         }

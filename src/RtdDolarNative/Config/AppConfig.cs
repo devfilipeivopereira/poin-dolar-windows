@@ -352,14 +352,6 @@ namespace RtdDolarNative.Config
 
             if (enabledSources.Count == 0)
             {
-                foreach (string asset in enabledAssets)
-                {
-                    foreach (string field in NormalizeFieldList(Fields, RtdFieldCatalog.DefaultLiveFields))
-                    {
-                        AddSubscription(byKey, specs, asset, field, "Legacy", "PriceVolume");
-                    }
-                }
-
                 return specs;
             }
 

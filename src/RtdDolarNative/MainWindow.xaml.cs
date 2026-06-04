@@ -160,6 +160,35 @@ namespace RtdDolarNative
             OpenCsvDialog();
         }
 
+        private void TopNavButton_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            int index;
+
+            if (button == null || button.Tag == null || !int.TryParse(button.Tag.ToString(), out index))
+            {
+                return;
+            }
+
+            if (MainTabs == null || index < 0 || index >= MainTabs.Items.Count)
+            {
+                return;
+            }
+
+            MainTabs.SelectedIndex = index;
+            UpdateTopNavigation();
+        }
+
+        private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (!ReferenceEquals(e.OriginalSource, MainTabs))
+            {
+                return;
+            }
+
+            UpdateTopNavigation();
+        }
+
         private void SelectCsvPanelButton_Click(object sender, RoutedEventArgs e)
         {
             OpenCsvDialog();
@@ -245,7 +274,10 @@ namespace RtdDolarNative
 
         private void StartAssetButton_Click(object sender, RoutedEventArgs e)
         {
-            SetSelectedAssetEnabled(true);
+            if (SetSelectedAssetEnabled(true) && !_probeService.IsRunning && !_manualMode)
+            {
+                StartRtd();
+            }
         }
 
         private void StopAssetButton_Click(object sender, RoutedEventArgs e)
@@ -402,14 +434,14 @@ namespace RtdDolarNative
             ApplyFocusedSnapshot();
         }
 
-        private void SetSelectedAssetEnabled(bool enabled)
+        private bool SetSelectedAssetEnabled(bool enabled)
         {
             string asset = SelectedAsset();
 
             if (string.IsNullOrWhiteSpace(asset))
             {
                 SetWarnings(new[] { "Selecione um ativo RTD." });
-                return;
+                return false;
             }
 
             RtdAssetConfig item = _config.Rtd.FindAsset(asset);
@@ -417,7 +449,7 @@ namespace RtdDolarNative
             if (item == null)
             {
                 SetWarnings(new[] { "Ativo RTD nao encontrado: " + asset + "." });
-                return;
+                return false;
             }
 
             item.Enabled = enabled;
@@ -437,6 +469,7 @@ namespace RtdDolarNative
             }
 
             ApplyRtdAssetChange((enabled ? "Ativo RTD ligado: " : "Ativo RTD desligado: ") + asset + ".");
+            return true;
         }
 
         private void RemoveSelectedAsset()
@@ -500,6 +533,13 @@ namespace RtdDolarNative
 
             if (_probeService.IsRunning && !_manualMode)
             {
+                if (_config.Rtd.GetEnabledAssets().Count == 0 || _config.Rtd.GetSubscriptions().Count == 0)
+                {
+                    StopRtd();
+                    SetWarnings(new[] { warning, "Conexao RTD parada: nenhum ativo/canal esta ligado." });
+                    return;
+                }
+
                 StatusText.Text = "restarting";
                 StatusBadgeBorder.Background = StatusBrush("reconnecting");
                 _probeService.Restart();
@@ -606,6 +646,10 @@ namespace RtdDolarNative
                 StatusBadgeBorder.Background = StatusBrush("reconnecting");
                 _probeService.Restart();
             }
+            else if (enabled && !_manualMode)
+            {
+                StartRtd();
+            }
 
             SetWarnings(new[] { (enabled ? "Fonte RTD ligada: " : "Fonte RTD desligada: ") + sourceName + "." });
         }
@@ -661,6 +705,10 @@ namespace RtdDolarNative
                 StatusText.Text = "restarting";
                 StatusBadgeBorder.Background = StatusBrush("reconnecting");
                 _probeService.Restart();
+            }
+            else if (enabled && !_manualMode)
+            {
+                StartRtd();
             }
 
             SetWarnings(new[] { "Canal " + channel + " " + (enabled ? "ligado" : "desligado") + " para " + row.Asset + "." });
@@ -1327,10 +1375,20 @@ namespace RtdDolarNative
 
         private void StartRtd()
         {
-            if (_config.Rtd.GetEnabledAssets().Count == 0)
+            List<string> enabledAssets = _config.Rtd.GetEnabledAssets();
+            List<RtdSubscriptionSpec> subscriptions = _config.Rtd.GetSubscriptions();
+
+            if (enabledAssets.Count == 0)
             {
                 SetIdleDisconnectedStatus();
                 SetWarnings(new[] { "Cadastre e ligue pelo menos um ativo antes de conectar o RTD." });
+                return;
+            }
+
+            if (subscriptions.Count == 0)
+            {
+                SetIdleDisconnectedStatus();
+                SetWarnings(new[] { "Ligue pelo menos um canal em Ativos: Cotacao, Book ou Times." });
                 return;
             }
 
@@ -1338,7 +1396,14 @@ namespace RtdDolarNative
             ManualButton.Content = "Modo manual";
             ConnectButton.IsEnabled = true;
             ConnectButton.Content = "Desconectar";
+            StatusText.Text = "connecting";
+            StatusBadgeBorder.Background = StatusBrush("connecting");
+            LastErrorText.Text = "-";
+            SetWarnings(new[] { "Conectando RTD: " + enabledAssets.Count.ToString(_ptBr) + " ativo(s), " + subscriptions.Count.ToString(_ptBr) + " assinatura(s)." });
+            _log.Info("Solicitando conexao RTD: " + enabledAssets.Count.ToString(_ptBr) + " ativo(s), " + subscriptions.Count.ToString(_ptBr) + " assinatura(s).");
             RenderRtdAssets();
+            RenderRtdChannels();
+            RenderRtdSources();
             _probeService.Start();
         }
 
@@ -1375,6 +1440,36 @@ namespace RtdDolarNative
             RenderRtdAssets();
             RenderRtdChannels();
             RenderRtdSources();
+            UpdateTopNavigation();
+        }
+
+        private void UpdateTopNavigation()
+        {
+            if (TopNavigation == null || MainTabs == null)
+            {
+                return;
+            }
+
+            Brush selectedBackground = FindResource("InputBg") as Brush;
+            Brush normalBackground = FindResource("Panel2") as Brush;
+            Brush selectedBorder = FindResource("Accent") as Brush;
+            Brush normalBorder = FindResource("Border") as Brush;
+
+            foreach (object child in TopNavigation.Children)
+            {
+                System.Windows.Controls.Button button = child as System.Windows.Controls.Button;
+                int index;
+
+                if (button == null || button.Tag == null || !int.TryParse(button.Tag.ToString(), out index))
+                {
+                    continue;
+                }
+
+                bool selected = index == MainTabs.SelectedIndex;
+                button.Background = selected ? selectedBackground : normalBackground;
+                button.BorderBrush = selected ? selectedBorder : normalBorder;
+                button.FontWeight = selected ? FontWeights.Bold : FontWeights.Normal;
+            }
         }
 
         private string FocusedAsset()

@@ -5,7 +5,7 @@
 1. Abrir `RtdDolarNative.sln`.
 2. Selecionar `Debug|x64`.
 3. Rodar com o Profit Pro aberto.
-4. Confirmar que a janela abre em `idle`, sem travar, e que as abas navegam antes de conectar.
+4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Ativos`, `Cotacao`, `DOM / Book`, `Tape` e `Diagnostico` antes de conectar.
 5. Clicar em `Conectar`.
 6. Confirmar que `ServerStart` retorna valor positivo no log.
 7. Confirmar que `ULT` e `VOL` aparecem na janela.

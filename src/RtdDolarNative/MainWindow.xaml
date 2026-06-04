@@ -93,6 +93,17 @@
             <Setter Property="Padding" Value="12,7" />
             <Setter Property="MinHeight" Value="34" />
         </Style>
+
+        <Style x:Key="TopNavButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinWidth" Value="78" />
+            <Setter Property="Margin" Value="0,0,0,0" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
@@ -166,7 +177,27 @@
             </Grid>
         </Border>
 
-        <TabControl x:Name="MainTabs" Margin="12">
+        <StackPanel x:Name="TopNavigation"
+                    DockPanel.Dock="Top"
+                    Orientation="Horizontal"
+                    Margin="12,12,12,0">
+            <Button Content="Ativos" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Cotacao" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="DOM / Book" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+            <Button Content="Tape" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Order Flow" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+            <Button Content="Volume Profile" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
+            <Button Content="Setups" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Niveis" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Grafico" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Backtest" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+            <Button Content="Diagnostico" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
+        </StackPanel>
+
+        <TabControl x:Name="MainTabs"
+                    Margin="12,6,12,12"
+                    ItemContainerStyle="{StaticResource HiddenMainTabItemStyle}"
+                    SelectionChanged="MainTabs_SelectionChanged">
             <TabItem Header="Ativos">
                 <Grid Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>

@@ -21,6 +21,8 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 ## Telas nativas
 
+Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD.
+
 - `Ativos`: cadastro de ativo, canais RTD e CSV historico.
 - `Cotacao`: campos RTD de preco, volume e indicadores.
 - `DOM / Book`: escada por tick, book real `0..49`, volumes bid/ask, marcacoes por preco e tape recente.
