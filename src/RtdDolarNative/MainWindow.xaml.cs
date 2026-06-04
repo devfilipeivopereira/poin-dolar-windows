@@ -22,6 +22,19 @@ namespace RtdDolarNative
 {
     public partial class MainWindow : Window
     {
+        private const int TabDashboard = 0;
+        private const int TabAssets = 1;
+        private const int TabQuote = 2;
+        private const int TabDomBook = 3;
+        private const int TabTape = 4;
+        private const int TabOrderFlow = 5;
+        private const int TabVolumeProfile = 6;
+        private const int TabSetups = 7;
+        private const int TabLevels = 8;
+        private const int TabChart = 9;
+        private const int TabBacktest = 10;
+        private const int TabDiagnostics = 11;
+
         private readonly AppConfig _config;
         private readonly string _configPath;
         private readonly Logger _log;
@@ -284,14 +297,17 @@ namespace RtdDolarNative
 
             switch (CurrentMainTabIndex())
             {
-                case 0:
+                case TabDashboard:
+                    RenderDashboard(snapshot);
+                    break;
+                case TabAssets:
                     RenderRtdAssets();
                     RenderRtdChannels();
                     break;
-                case 1:
+                case TabQuote:
                     RenderQuoteFields(snapshot);
                     break;
-                case 2:
+                case TabDomBook:
                     if (snapshot != null)
                     {
                         RenderDom(snapshot);
@@ -300,18 +316,18 @@ namespace RtdDolarNative
 
                     RenderTape();
                     break;
-                case 3:
+                case TabTape:
                     RenderTape();
                     break;
-                case 4:
-                case 5:
-                case 6:
+                case TabOrderFlow:
+                case TabVolumeProfile:
+                case TabSetups:
                     RenderFlow(snapshot);
                     break;
-                case 8:
+                case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
                     break;
-                case 10:
+                case TabDiagnostics:
                     RenderRtdSources();
                     break;
             }
@@ -427,34 +443,34 @@ namespace RtdDolarNative
             {
                 case Key.D1:
                 case Key.NumPad1:
-                    return 0;
+                    return TabDashboard;
                 case Key.D2:
                 case Key.NumPad2:
-                    return 1;
+                    return TabAssets;
                 case Key.D3:
                 case Key.NumPad3:
-                    return 2;
+                    return TabDomBook;
                 case Key.D4:
                 case Key.NumPad4:
-                    return 3;
+                    return TabTape;
                 case Key.D5:
                 case Key.NumPad5:
-                    return 4;
+                    return TabOrderFlow;
                 case Key.D6:
                 case Key.NumPad6:
-                    return 5;
+                    return TabVolumeProfile;
                 case Key.D7:
                 case Key.NumPad7:
-                    return 6;
+                    return TabSetups;
                 case Key.D8:
                 case Key.NumPad8:
-                    return 7;
+                    return TabLevels;
                 case Key.D9:
                 case Key.NumPad9:
-                    return 8;
+                    return TabChart;
                 case Key.D0:
                 case Key.NumPad0:
-                    return 10;
+                    return TabDiagnostics;
                 default:
                     return -1;
             }
@@ -1334,12 +1350,13 @@ namespace RtdDolarNative
             bool flowChanged = flowVersion != _lastFlowProcessed;
             DateTimeOffset now = DateTimeOffset.Now;
             int selectedTab = CurrentMainTabIndex();
-            bool showAssets = selectedTab == 0;
-            bool showQuote = selectedTab == 1;
-            bool showDomBook = selectedTab == 2;
-            bool showTape = selectedTab == 2 || selectedTab == 3;
-            bool showFlow = selectedTab == 4 || selectedTab == 5 || selectedTab == 6;
-            bool showDiagnostics = selectedTab == 10;
+            bool showDashboard = selectedTab == TabDashboard;
+            bool showAssets = selectedTab == TabAssets;
+            bool showQuote = selectedTab == TabQuote;
+            bool showDomBook = selectedTab == TabDomBook;
+            bool showTape = selectedTab == TabDomBook || selectedTab == TabTape;
+            bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
+            bool showDiagnostics = selectedTab == TabDiagnostics;
 
             if (snapshot != null)
             {
@@ -1366,6 +1383,11 @@ namespace RtdDolarNative
 
             if ((changed || flowChanged) && (now - _lastGridRefresh).TotalMilliseconds >= 500)
             {
+                if (showDashboard)
+                {
+                    RenderDashboard(snapshot);
+                }
+
                 if (snapshot != null && showDomBook)
                 {
                     RenderDom(snapshot);
@@ -1391,6 +1413,11 @@ namespace RtdDolarNative
 
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
+                if (showDashboard)
+                {
+                    RenderDashboard(snapshot);
+                }
+
                 if (showAssets)
                 {
                     RenderRtdAssets();
@@ -1421,7 +1448,123 @@ namespace RtdDolarNative
 
         private void ChartTimer_Tick(object sender, EventArgs e)
         {
+            if (CurrentMainTabIndex() != TabChart)
+            {
+                return;
+            }
+
             ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+        }
+
+        private void RenderDashboard(MarketSnapshot snapshot)
+        {
+            if (DashboardAssetText == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+
+            if (snapshot == null)
+            {
+                snapshot = FocusedSnapshot() ?? _lastSnapshot;
+            }
+
+            DashboardAssetText.Text = EmptyToDash(focused);
+            DashboardPriceText.Text = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+            DashboardBidAskText.Text = snapshot == null
+                ? "Bid / Ask -"
+                : "Bid / Ask " + FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
+            DashboardVolumeText.Text = snapshot == null ? "Volume -" : "Volume " + FormatDecimal(snapshot.Volume, "N0");
+            DashboardSnapshotText.Text = snapshot == null
+                ? "Snapshot -"
+                : "Snapshot " + Math.Max(0, (int)(DateTimeOffset.Now - snapshot.LocalTimestamp).TotalMilliseconds).ToString(_ptBr) + " ms";
+
+            DashboardRtdText.Text = "RTD " + EmptyToDash(_probeService.Status) + " | Updates " + _probeService.UpdatesReceived.ToString(_ptBr);
+            DashboardCsvText.Text = "CSV " + FocusedAssetCsvText(asset);
+            DashboardChannelsGrid.ItemsSource = BuildDashboardChannelRows(asset, snapshot);
+
+            if (metrics == null)
+            {
+                DashboardFlowText.Text = "Qualidade -";
+                DashboardDeltaText.Text = "Delta -";
+                DashboardMicroText.Text = "Microbias -";
+                DashboardVwapText.Text = "VWAP -";
+                DashboardWindowsGrid.ItemsSource = null;
+            }
+            else
+            {
+                DashboardFlowText.Text = "Qualidade " + metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+                DashboardDeltaText.Text = "Delta " + metrics.LastDelta.ToString("N0", _ptBr) + " | CD " + metrics.CumulativeDelta.ToString("N0", _ptBr);
+                DashboardMicroText.Text = "Microbias " + FormatDecimal(metrics.MicroBias, "N3") + " | Imbalance " + FormatDecimal(metrics.TopBookImbalance, "N3");
+                DashboardVwapText.Text = "VWAP " + FormatDecimal(metrics.Vwap, "N2") + " | Dist " + FormatDecimal(metrics.VwapDistance, "N2");
+                DashboardWindowsGrid.ItemsSource = metrics.Windows == null ? null : metrics.Windows.ToList();
+            }
+
+            UpdateDashboardProfile(snapshot, metrics);
+            DashboardLevelsGrid.ItemsSource = BuildDashboardLevels(snapshot);
+            DashboardSignalsGrid.ItemsSource = _flowProcessor.GetSignals(focused, 30);
+        }
+
+        private List<NameValueRow> BuildDashboardChannelRows(RtdAssetConfig asset, MarketSnapshot snapshot)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+
+            AddRow(rows, "Cotacao", ChannelTopicText(asset, "Cotacao"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Cotacao"), snapshot));
+            AddRow(rows, "Book", ChannelTopicText(asset, "Book"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Book"), snapshot));
+            AddRow(rows, "Times", ChannelTopicText(asset, "Times"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Times"), snapshot));
+
+            return rows;
+        }
+
+        private void UpdateDashboardProfile(MarketSnapshot snapshot, FlowMetrics metrics)
+        {
+            VolumeProfileMetrics flowProfile = metrics == null ? null : metrics.Profile;
+            VolumeProfileResult proxy = _result == null ? null : _result.Profile;
+
+            if (flowProfile != null && flowProfile.Poc.HasValue)
+            {
+                DashboardProfileText.Text = "POC " + flowProfile.Poc.Value.ToString("N2", _ptBr) + " | " + EmptyToDash(flowProfile.Source);
+                DashboardProfileDetailText.Text = "VAH / VAL " + FormatDecimal(flowProfile.Vah, "N2") + " / " + FormatDecimal(flowProfile.Val, "N2") +
+                                                  " | " + DistanceText(snapshot, flowProfile.Poc);
+                return;
+            }
+
+            if (proxy != null && proxy.Poc != null)
+            {
+                DashboardProfileText.Text = "POC " + proxy.Poc.Price.ToString("N2", _ptBr) + " | CSV proxy";
+                DashboardProfileDetailText.Text = "VAH / VAL " + proxy.Vah.ToString("N2", _ptBr) + " / " + proxy.Val.ToString("N2", _ptBr) +
+                                                  " | " + DistanceText(snapshot, proxy.Poc.Price);
+                return;
+            }
+
+            DashboardProfileText.Text = "POC -";
+            DashboardProfileDetailText.Text = "VAH / VAL -";
+        }
+
+        private List<KeyLevel> BuildDashboardLevels(MarketSnapshot snapshot)
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (_result != null)
+            {
+                levels.AddRange(_result.Confluence);
+            }
+            else
+            {
+                levels.AddRange(BasicLevels(snapshot));
+            }
+
+            levels.AddRange(FlowProfileKeyLevels(snapshot));
+            levels.AddRange(FlowSignalKeyLevels(snapshot));
+
+            return levels
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => Math.Abs(x.Distance))
+                .Take(40)
+                .ToList();
         }
 
         private void RenderTape()
@@ -1756,6 +1899,7 @@ namespace RtdDolarNative
             RenderRtdSources();
             UpdateTopNavigation();
             UpdateRuntimeStatusBar(null);
+            RenderActiveTab();
         }
 
         private void UpdateRuntimeStatusBar(MarketSnapshot snapshot)

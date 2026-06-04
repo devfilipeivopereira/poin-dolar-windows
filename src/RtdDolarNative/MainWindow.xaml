@@ -192,26 +192,27 @@
             </MenuItem>
             <MenuItem Header="RTD">
                 <MenuItem Header="Conectar / Desconectar" InputGestureText="F5" Click="MenuConnect_Click" />
-                <MenuItem Header="Ativos" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Ativos" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Focar ativo selecionado" InputGestureText="Ctrl+F" Click="MenuFocusAsset_Click" />
                 <MenuItem Header="Fontes padrao" Click="MenuDefaultSources_Click" />
                 <Separator />
-                <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="10" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="11" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Mercado">
-                <MenuItem Header="Cotacao" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="2" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="3" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Painel" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Fluxo">
-                <MenuItem Header="Order Flow" InputGestureText="Ctrl+5" Tag="4" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Volume Profile" InputGestureText="Ctrl+6" Tag="5" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="6" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Order Flow" InputGestureText="Ctrl+5" Tag="5" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Volume Profile" InputGestureText="Ctrl+6" Tag="6" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="7" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Analise">
-                <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="7" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="8" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Backtest" Tag="9" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Janela">
                 <MenuItem Header="Aba anterior" InputGestureText="Ctrl+Shift+Tab" Click="MenuPreviousTab_Click" />
@@ -314,22 +315,24 @@
                       Margin="12,12,12,0">
             <StackPanel x:Name="TopNavigation"
                         Orientation="Horizontal">
+                <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" Margin="0,0,6,0" />
+                <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                 <TextBlock Text="Cadastro" Style="{StaticResource TopNavGroupStyle}" Margin="0,0,6,0" />
-                <Button Content="Ativos" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                 <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Cotacao" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="DOM / Book" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-                <Button Content="Tape" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+                <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                 <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Order Flow" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-                <Button Content="Volume Profile" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
-                <Button Content="Setups" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+                <Button Content="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
+                <Button Content="Setups" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                 <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Niveis" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="Grafico" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="Backtest" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                 <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Diagnostico" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
+                <Button Content="Diagnostico" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
             </StackPanel>
         </ScrollViewer>
 
@@ -337,6 +340,71 @@
                     Margin="12,6,12,12"
                     ItemContainerStyle="{StaticResource HiddenMainTabItemStyle}"
                     SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem Header="Painel">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="168" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <UniformGrid Columns="4" Margin="0,0,0,10">
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
+                            <StackPanel>
+                                <TextBlock Text="Mercado" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="DashboardAssetText" Text="-" FontSize="18" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock x:Name="DashboardPriceText" Text="-" Foreground="{StaticResource Accent}" FontSize="24" FontWeight="Bold" Margin="0,6,0,0" />
+                                <TextBlock x:Name="DashboardBidAskText" Text="Bid / Ask -" Foreground="{StaticResource Muted}" Margin="0,5,0,0" />
+                                <TextBlock x:Name="DashboardVolumeText" Text="Volume -" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                                <TextBlock x:Name="DashboardSnapshotText" Text="Snapshot -" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="RTD" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="DashboardRtdText" Grid.Row="1" Text="-" FontWeight="Bold" Margin="0,5,0,8" />
+                                <DataGrid x:Name="DashboardChannelsGrid" Grid.Row="2" AutoGenerateColumns="True" HeadersVisibility="Column" />
+                            </Grid>
+                        </Border>
+
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
+                            <StackPanel>
+                                <TextBlock Text="Fluxo" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="DashboardFlowText" Text="Qualidade -" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock x:Name="DashboardDeltaText" Text="Delta -" Foreground="{StaticResource Muted}" Margin="0,6,0,0" />
+                                <TextBlock x:Name="DashboardMicroText" Text="Microbias -" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                                <TextBlock x:Name="DashboardVwapText" Text="VWAP -" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="Volume Profile" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="DashboardProfileText" Text="POC -" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock x:Name="DashboardProfileDetailText" Text="VAH / VAL -" Foreground="{StaticResource Muted}" Margin="0,6,0,0" />
+                                <TextBlock x:Name="DashboardCsvText" Text="CSV -" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="0.9*" />
+                        </Grid.ColumnDefinitions>
+                        <DataGrid x:Name="DashboardLevelsGrid" AutoGenerateColumns="True" Margin="0,0,10,0" />
+                        <DataGrid x:Name="DashboardSignalsGrid" Grid.Column="1" AutoGenerateColumns="True" Margin="0,0,10,0" />
+                        <DataGrid x:Name="DashboardWindowsGrid" Grid.Column="2" AutoGenerateColumns="True" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
             <TabItem Header="Ativos">
                 <Grid Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
