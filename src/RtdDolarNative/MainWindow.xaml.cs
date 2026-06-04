@@ -33,8 +33,9 @@ namespace RtdDolarNative
         private const int TabLevels = 8;
         private const int TabChart = 9;
         private const int TabBacktest = 10;
-        private const int TabAlerts = 11;
-        private const int TabDiagnostics = 12;
+        private const int TabRisk = 11;
+        private const int TabAlerts = 12;
+        private const int TabDiagnostics = 13;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -341,6 +342,9 @@ namespace RtdDolarNative
                 case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
                     break;
+                case TabRisk:
+                    RenderRisk(snapshot);
+                    break;
                 case TabAlerts:
                     RenderAlerts(snapshot);
                     break;
@@ -437,6 +441,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabAlerts);
+                return;
+            }
+
+            if (e.Key == Key.F9)
+            {
+                e.Handled = true;
+                NavigateToTab(TabRisk);
                 return;
             }
 
@@ -1388,6 +1399,7 @@ namespace RtdDolarNative
             bool showDomBook = selectedTab == TabDomBook;
             bool showTape = selectedTab == TabDomBook || selectedTab == TabTape;
             bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
+            bool showRisk = selectedTab == TabRisk;
             bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
 
@@ -1435,6 +1447,11 @@ namespace RtdDolarNative
                     RenderFlow(snapshot);
                 }
 
+                if (showRisk)
+                {
+                    RenderRisk(snapshot);
+                }
+
                 if (showAlerts)
                 {
                     RenderAlerts(snapshot);
@@ -1463,6 +1480,11 @@ namespace RtdDolarNative
                 if (showDiagnostics)
                 {
                     RenderRtdSources();
+                }
+
+                if (showRisk)
+                {
+                    RenderRisk(snapshot);
                 }
 
                 if (showAlerts)
@@ -2904,6 +2926,260 @@ namespace RtdDolarNative
             ChartControl.SetData(_dailyBars, snapshot, _result);
         }
 
+        private void RenderRisk(MarketSnapshot snapshot)
+        {
+            if (RiskSummaryGrid == null || RiskChecklistGrid == null || RiskChannelsGrid == null || RiskSignalsGrid == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            MarketSnapshot effective = snapshot ?? FocusedSnapshot();
+
+            if (effective == null &&
+                _lastSnapshot != null &&
+                (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
+            {
+                effective = _lastSnapshot;
+            }
+
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+            List<FlowSignal> signals = _flowProcessor.GetSignals(focused, 250) ?? new List<FlowSignal>();
+            List<AlertRow> alerts = BuildOperationalAlerts(effective, metrics, signals);
+            string severity = HighestRiskSeverity(alerts);
+
+            if (RiskStatusText != null)
+            {
+                RiskStatusText.Text = "Risco " + severity;
+                RiskStatusText.Foreground = SeverityBrush(severity);
+            }
+
+            if (RiskStatusBorder != null)
+            {
+                RiskStatusBorder.BorderBrush = SeverityBrush(severity);
+            }
+
+            if (RiskDetailText != null)
+            {
+                int critical = alerts.Count(x => string.Equals(x.Severity, "Critico", StringComparison.OrdinalIgnoreCase));
+                int warnings = alerts.Count(x => string.Equals(x.Severity, "Aviso", StringComparison.OrdinalIgnoreCase));
+                RiskDetailText.Text = EmptyToDash(focused) +
+                                      " | RTD " + EmptyToDash(_probeService.Status) +
+                                      " | Criticos " + critical.ToString(_ptBr) +
+                                      " | Avisos " + warnings.ToString(_ptBr) +
+                                      " | Snapshot " + (effective == null ? "-" : AgeText(effective.LocalTimestamp));
+            }
+
+            RiskSummaryGrid.ItemsSource = BuildRiskSummaryRows(effective, metrics, alerts, signals);
+            RiskChecklistGrid.ItemsSource = BuildRiskChecklistRows(effective, metrics, signals);
+            RiskChannelsGrid.ItemsSource = BuildDashboardChannelRows(asset, effective);
+            RiskSignalsGrid.ItemsSource = signals
+                .OrderByDescending(x => x.LocalTimestamp)
+                .ThenByDescending(x => x.Score)
+                .Take(120)
+                .ToList();
+        }
+
+        private List<NameValueRow> BuildRiskSummaryRows(MarketSnapshot snapshot, FlowMetrics metrics, List<AlertRow> alerts, List<FlowSignal> signals)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+            List<AlertRow> source = alerts ?? new List<AlertRow>();
+            List<FlowSignal> flowSignals = signals ?? new List<FlowSignal>();
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+
+            AddRow(rows, "Estado", HighestRiskSeverity(source), "prioridade operacional");
+            AddRow(rows, "RTD", EmptyToDash(_probeService.Status), "updates " + _probeService.UpdatesReceived.ToString(_ptBr));
+            AddRow(rows, "Ativo", EmptyToDash(focused), asset == null ? "nao cadastrado" : "cadastrado");
+            AddRow(rows, "Snapshot", snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp), snapshot == null ? "sem dados" : EmptyToDash(snapshot.HoraProfit));
+            AddRow(rows, "Fluxo", metrics == null ? "-" : metrics.DataQuality.ToString(), metrics == null ? "-" : (metrics.Derived ? "derivado" : "real"));
+            AddRow(rows, "CSV", FocusedAssetCsvText(asset), _dailyBars.Count.ToString(_ptBr) + " pregoes");
+            AddRow(rows, "Fila drop", _flowProcessor.Dropped.ToString(_ptBr), "fila bounded");
+            AddRow(rows, "Sinais fortes", flowSignals.Count(x => x.Score >= _config.Flow.StrongSetupScoreThreshold).ToString(_ptBr), "score >= " + _config.Flow.StrongSetupScoreThreshold.ToString(_ptBr));
+            AddRow(rows, "Criticos", source.Count(x => string.Equals(x.Severity, "Critico", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "alertas ativos");
+            AddRow(rows, "Avisos", source.Count(x => string.Equals(x.Severity, "Aviso", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "alertas ativos");
+
+            return rows;
+        }
+
+        private List<RiskRow> BuildRiskChecklistRows(MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> signals)
+        {
+            List<RiskRow> rows = new List<RiskRow>();
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            List<string> enabledAssets = _config.Rtd.GetEnabledAssets();
+            List<RtdSubscriptionSpec> subscriptions = _config.Rtd.GetSubscriptions();
+            List<FlowSignal> flowSignals = signals ?? new List<FlowSignal>();
+
+            AddRiskRow(rows,
+                enabledAssets.Count == 0 ? "Critico" : "Normal",
+                "RTD",
+                "Ativos ligados",
+                enabledAssets.Count.ToString(_ptBr),
+                ">= 1",
+                enabledAssets.Count == 0 ? "Ligar ativo em Ativos" : "OK");
+
+            AddRiskRow(rows,
+                subscriptions.Count == 0 ? "Critico" : "Normal",
+                "RTD",
+                "Assinaturas",
+                subscriptions.Count.ToString(_ptBr),
+                ">= 1 canal",
+                subscriptions.Count == 0 ? "Ligar Cotacao, Book ou Times" : "OK");
+
+            AddRiskRow(rows,
+                _probeService.LastError == null ? "Normal" : "Critico",
+                "RTD",
+                "Ultimo erro",
+                _probeService.LastError == null ? "-" : FormatError(_probeService.LastError),
+                "-",
+                _probeService.LastError == null ? "OK" : "Abrir Diagnostico");
+
+            string snapshotSeverity = "Info";
+            string snapshotValue = "-";
+            string snapshotAction = "Aguardando dados";
+
+            if (snapshot != null)
+            {
+                TimeSpan age = DateTimeOffset.Now - snapshot.LocalTimestamp;
+                snapshotValue = AgeText(snapshot.LocalTimestamp);
+                snapshotAction = "OK";
+
+                if (age.TotalSeconds >= 15)
+                {
+                    snapshotSeverity = "Critico";
+                    snapshotAction = "Reconectar RTD";
+                }
+                else if (age.TotalSeconds >= 5)
+                {
+                    snapshotSeverity = "Aviso";
+                    snapshotAction = "Monitorar feed";
+                }
+                else
+                {
+                    snapshotSeverity = "Normal";
+                }
+            }
+            else if (_probeService.IsRunning)
+            {
+                snapshotSeverity = "Aviso";
+                snapshotAction = "Verificar ativo/canal";
+            }
+
+            AddRiskRow(rows, snapshotSeverity, "Mercado", "Idade snapshot", snapshotValue, "< 5 s", snapshotAction);
+
+            AddRiskRow(rows,
+                asset != null && ChannelEnabled(focused, "Cotacao") ? "Normal" : "Critico",
+                "Canais",
+                "Cotacao",
+                ChannelTopicText(asset, "Cotacao"),
+                "ligado",
+                asset != null && ChannelEnabled(focused, "Cotacao") ? "OK" : "Ligar Cotacao");
+
+            AddRiskRow(rows,
+                asset != null && ChannelEnabled(focused, "Book") ? "Normal" : "Aviso",
+                "Canais",
+                "Book",
+                ChannelTopicText(asset, "Book"),
+                "ligado",
+                asset != null && ChannelEnabled(focused, "Book") ? "OK" : "Ligar Book para DOM");
+
+            AddRiskRow(rows,
+                asset != null && ChannelEnabled(focused, "Times") ? "Normal" : "Aviso",
+                "Canais",
+                "Times",
+                ChannelTopicText(asset, "Times"),
+                "ligado",
+                asset != null && ChannelEnabled(focused, "Times") ? "OK" : "Ligar Times para Tape real");
+
+            string csvSeverity = "Normal";
+            string csvAction = "OK";
+
+            if (asset == null || string.IsNullOrWhiteSpace(asset.CsvPath))
+            {
+                csvSeverity = "Aviso";
+                csvAction = "Selecionar CSV historico";
+            }
+            else if (!File.Exists(asset.CsvPath))
+            {
+                csvSeverity = "Aviso";
+                csvAction = "Corrigir caminho CSV";
+            }
+            else if (_dailyBars.Count == 0)
+            {
+                csvSeverity = "Aviso";
+                csvAction = "Carregar CSV do ativo";
+            }
+
+            AddRiskRow(rows, csvSeverity, "Historico", "CSV", FocusedAssetCsvText(asset), "carregado", csvAction);
+
+            string qualitySeverity = "Info";
+            string qualityValue = "-";
+            string qualityAction = "Aguardando fluxo";
+
+            if (metrics != null)
+            {
+                qualityValue = metrics.DataQuality.ToString();
+                qualityAction = metrics.Derived ? "Confirmar Times/Book reais" : "OK";
+                qualitySeverity = metrics.DataQuality == MarketDataQuality.TopOfBookOnly ? "Aviso" : "Normal";
+            }
+
+            AddRiskRow(rows, qualitySeverity, "Fluxo", "Qualidade", qualityValue, "Times/Book reais", qualityAction);
+
+            AddRiskRow(rows,
+                _flowProcessor.Dropped > 0 ? "Aviso" : "Normal",
+                "Performance",
+                "Fila drop",
+                _flowProcessor.Dropped.ToString(_ptBr),
+                "0",
+                _flowProcessor.Dropped > 0 ? "Reduzir fontes ou revisar carga" : "OK");
+
+            int strongSignals = flowSignals.Count(x => x.Score >= _config.Flow.StrongSetupScoreThreshold);
+            AddRiskRow(rows,
+                strongSignals > 0 ? "Aviso" : "Info",
+                "Setups",
+                "Sinais fortes",
+                strongSignals.ToString(_ptBr),
+                "operacional",
+                strongSignals > 0 ? "Revisar Setups" : "Sem sinal forte");
+
+            return rows
+                .OrderBy(x => AlertSeverityRank(x.Severity))
+                .ThenBy(x => x.Area)
+                .ThenBy(x => x.Item)
+                .ToList();
+        }
+
+        private void AddRiskRow(List<RiskRow> rows, string severity, string area, string item, string value, string limit, string action)
+        {
+            RiskRow row = new RiskRow();
+            row.Severity = EmptyToDash(severity);
+            row.Area = EmptyToDash(area);
+            row.Item = EmptyToDash(item);
+            row.Value = EmptyToDash(value);
+            row.Limit = EmptyToDash(limit);
+            row.Action = EmptyToDash(action);
+            rows.Add(row);
+        }
+
+        private string HighestRiskSeverity(List<AlertRow> alerts)
+        {
+            List<AlertRow> source = alerts ?? new List<AlertRow>();
+
+            if (source.Any(x => string.Equals(x.Severity, "Critico", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "Critico";
+            }
+
+            if (source.Any(x => string.Equals(x.Severity, "Aviso", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "Aviso";
+            }
+
+            return "Normal";
+        }
+
         private void RenderAlerts(MarketSnapshot snapshot)
         {
             if (AlertsSummaryGrid == null || OperationalAlertsGrid == null || AlertSignalsGrid == null)
@@ -3435,6 +3711,26 @@ namespace RtdDolarNative
             return error.GetType().Name + ": " + error.Message;
         }
 
+        private Brush SeverityBrush(string severity)
+        {
+            if (string.Equals(severity, "Critico", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SolidColorBrush(Color.FromRgb(255, 59, 48));
+            }
+
+            if (string.Equals(severity, "Aviso", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SolidColorBrush(Color.FromRgb(255, 184, 0));
+            }
+
+            if (string.Equals(severity, "Normal", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SolidColorBrush(Color.FromRgb(0, 230, 118));
+            }
+
+            return new SolidColorBrush(Color.FromRgb(169, 179, 191));
+        }
+
         private Brush StatusBrush(string status)
         {
             if (string.Equals(status, "connected", StringComparison.OrdinalIgnoreCase))
@@ -3536,6 +3832,16 @@ namespace RtdDolarNative
             public string Message { get; set; }
             public string Detail { get; set; }
             public string AgeText { get; set; }
+        }
+
+        private sealed class RiskRow
+        {
+            public string Severity { get; set; }
+            public string Area { get; set; }
+            public string Item { get; set; }
+            public string Value { get; set; }
+            public string Limit { get; set; }
+            public string Action { get; set; }
         }
 
         private sealed class QuoteFieldRow
