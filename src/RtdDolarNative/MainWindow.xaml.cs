@@ -42,6 +42,7 @@ namespace RtdDolarNative
         private const int TabHistory = 17;
         private const int TabScanner = 18;
         private const int TabFlowMap = 19;
+        private const int TabIndicators = 20;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -364,6 +365,8 @@ namespace RtdDolarNative
                     return "Scanner";
                 case TabFlowMap:
                     return "Mapa de Fluxo";
+                case TabIndicators:
+                    return "Indicadores";
                 default:
                     return "Painel";
             }
@@ -413,6 +416,8 @@ namespace RtdDolarNative
                     return "Ranking de ativos por oportunidade";
                 case TabFlowMap:
                     return "Liquidez, delta e niveis em uma leitura";
+                case TabIndicators:
+                    return "Indicadores tecnicos, estatistica e sinais quant";
                 default:
                     return "Resumo do ativo em foco";
             }
@@ -485,6 +490,9 @@ namespace RtdDolarNative
                     break;
                 case TabFlowMap:
                     RenderFlowMap(snapshot);
+                    break;
+                case TabIndicators:
+                    RenderIndicators(snapshot);
                     break;
                 case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
@@ -591,6 +599,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabFlowMap);
+                return;
+            }
+
+            if (control && shift && e.Key == Key.I)
+            {
+                e.Handled = true;
+                NavigateToTab(TabIndicators);
                 return;
             }
 
@@ -1714,6 +1729,7 @@ namespace RtdDolarNative
             bool showOpportunities = selectedTab == TabOpportunities;
             bool showHistory = selectedTab == TabHistory;
             bool showScanner = selectedTab == TabScanner;
+            bool showIndicators = selectedTab == TabIndicators;
             bool renderedDashboard = false;
             bool renderedMonitor = false;
             bool renderedRisk = false;
@@ -1721,6 +1737,7 @@ namespace RtdDolarNative
             bool renderedOpportunities = false;
             bool renderedScanner = false;
             bool renderedFlowMap = false;
+            bool renderedIndicators = false;
 
             if (snapshot != null)
             {
@@ -1803,6 +1820,12 @@ namespace RtdDolarNative
                     renderedScanner = true;
                 }
 
+                if (showIndicators)
+                {
+                    RenderIndicators(snapshot);
+                    renderedIndicators = true;
+                }
+
                 _lastGridRefresh = now;
                 _lastFlowProcessed = flowVersion;
             }
@@ -1856,6 +1879,11 @@ namespace RtdDolarNative
                 if (showFlowMap && !renderedFlowMap)
                 {
                     RenderFlowMap(snapshot);
+                }
+
+                if (showIndicators && !renderedIndicators)
+                {
+                    RenderIndicators(snapshot);
                 }
 
                 if (showHistory)
@@ -2095,6 +2123,7 @@ namespace RtdDolarNative
             AddShortcut(rows, "Ctrl+4", "Tape", "Abrir Tape", "Ver times and trades real ou derivado.");
             AddShortcut(rows, "Ctrl+5", "Order Flow", "Abrir Order Flow", "Ver delta, microbias, VWAP e janelas.");
             AddShortcut(rows, "Ctrl+Shift+F", "Mapa de Fluxo", "Abrir Mapa de Fluxo", "Ver liquidez, delta, profile e setups na mesma tela.");
+            AddShortcut(rows, "Ctrl+Shift+I", "Indicadores", "Abrir Indicadores", "Auditar RSI, EMAs, MACD, Bollinger, z-score, ATR/VWAP e sinais quant.");
             AddShortcut(rows, "Ctrl+6", "Volume Profile", "Abrir Volume Profile", "Ver POC, VAH, VAL, HVN, LVN e bins.");
             AddShortcut(rows, "Ctrl+7", "Setups", "Abrir Setups", "Ver sinais e motivos do motor de fluxo.");
             AddShortcut(rows, "Ctrl+8", "Niveis", "Abrir Niveis", "Ver niveis calculados e confluencias.");
@@ -2122,12 +2151,13 @@ namespace RtdDolarNative
             AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
             AddWorkflow(rows, "7", "Fluxo", "Mapa de Fluxo", "Usar Ctrl+Shift+F para ler liquidez, delta e niveis em conjunto.");
             AddWorkflow(rows, "8", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
-            AddWorkflow(rows, "9", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
-            AddWorkflow(rows, "10", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
-            AddWorkflow(rows, "11", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
-            AddWorkflow(rows, "12", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
-            AddWorkflow(rows, "13", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
-            AddWorkflow(rows, "14", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
+            AddWorkflow(rows, "9", "Quant", "Indicadores", "Usar Ctrl+Shift+I para auditar tecnicos, estatistica e sinais antes da triagem.");
+            AddWorkflow(rows, "10", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
+            AddWorkflow(rows, "11", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
+            AddWorkflow(rows, "12", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
+            AddWorkflow(rows, "13", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
+            AddWorkflow(rows, "14", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
+            AddWorkflow(rows, "15", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
 
             return rows;
         }
@@ -2155,6 +2185,476 @@ namespace RtdDolarNative
         private void RefreshOpportunitiesButton_Click(object sender, RoutedEventArgs e)
         {
             RenderOpportunities(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RefreshIndicatorsButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderIndicators(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RenderIndicators(MarketSnapshot snapshot)
+        {
+            if (IndicatorsSummaryGrid == null ||
+                IndicatorsTechnicalGrid == null ||
+                IndicatorsSignalsGrid == null ||
+                IndicatorsStatsGrid == null ||
+                IndicatorsBacktestGrid == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            MarketSnapshot effective = snapshot ?? FocusedSnapshot();
+
+            if (effective == null &&
+                _lastSnapshot != null &&
+                (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
+            {
+                effective = _lastSnapshot;
+            }
+
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+            List<QuantSignalAuditRow> quantRows = BuildQuantSignalAuditRows(metrics, effective);
+            int quantCount = _result == null || _result.QuantSignals == null ? 0 : _result.QuantSignals.Count;
+
+            IndicatorsSummaryGrid.ItemsSource = BuildIndicatorSummaryRows(effective, metrics, quantCount);
+            IndicatorsTechnicalGrid.ItemsSource = BuildTechnicalIndicatorRows(effective);
+            IndicatorsSignalsGrid.ItemsSource = quantRows;
+            IndicatorsStatsGrid.ItemsSource = BuildIndicatorStatRows();
+            IndicatorsBacktestGrid.ItemsSource = BuildBacktestAuditRows();
+
+            if (IndicatorsAssetText != null)
+            {
+                IndicatorsAssetText.Text = EmptyToDash(focused);
+            }
+
+            if (IndicatorsRegimeText != null)
+            {
+                IndicatorsRegimeText.Text = _result == null ? "-" : EmptyToDash(_result.Regime);
+            }
+
+            if (IndicatorsSignalCountText != null)
+            {
+                IndicatorsSignalCountText.Text = quantCount.ToString(_ptBr);
+            }
+
+            if (IndicatorsStateText != null)
+            {
+                string source = _result == null || _result.Technicals == null ? "-" : EmptyToDash(_result.Technicals.Source);
+                string quality = metrics == null ? "sem fluxo" : metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+                string sample = _result == null || _result.Technicals == null ? "0" : _result.Technicals.SampleSize.ToString(_ptBr);
+                IndicatorsStateText.Text = "RTD " + EmptyToDash(_probeService.Status) +
+                                           " | CSV " + _dailyBars.Count.ToString(_ptBr) +
+                                           " pregoes | fonte " + source +
+                                           " | fluxo " + quality +
+                                           " | amostra " + sample;
+            }
+        }
+
+        private List<NameValueRow> BuildIndicatorSummaryRows(MarketSnapshot snapshot, FlowMetrics metrics, int quantCount)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            TechnicalIndicatorSnapshot technicals = _result == null ? null : _result.Technicals;
+            string warnings = _result == null || _result.Warnings == null || _result.Warnings.Count == 0
+                ? "-"
+                : _result.Warnings.Count.ToString(_ptBr) + " aviso(s)";
+
+            AddRow(rows, "Ativo", EmptyToDash(focused), asset == null ? "nao cadastrado" : "cadastrado");
+            AddRow(rows, "RTD", EmptyToDash(_probeService.Status), "updates " + _probeService.UpdatesReceived.ToString(_ptBr) + " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)));
+            AddRow(rows, "Canais", IndicatorChannelText(asset), "Cotacao/Book/Times configurados por ativo");
+            AddRow(rows, "CSV", FocusedAssetCsvText(asset), _dailyBars.Count.ToString(_ptBr) + " pregoes carregados");
+            AddRow(rows, "Calculo", _result == null ? "aguardando" : EmptyToDash(_result.Regime), warnings);
+            AddRow(rows, "Fonte tecnica", technicals == null ? "-" : EmptyToDash(technicals.Source), technicals == null ? "sem calculo" : "amostra " + technicals.SampleSize.ToString(_ptBr));
+            AddRow(rows, "Fluxo", metrics == null ? "sem metricas" : metrics.DataQuality.ToString(), metrics == null ? "aguardando RTD" : (metrics.Derived ? "tape derivado" : "tape/book real"));
+            AddRow(rows, "Delta", metrics == null ? "-" : metrics.CumulativeDelta.ToString("N0", _ptBr), metrics == null ? "-" : "imb " + FormatDecimal(metrics.TopBookImbalance, "N3") + " | microbias " + FormatDecimal(metrics.MicroBias, "N3"));
+            AddRow(rows, "Sinais Quant", quantCount.ToString(_ptBr), IndicatorScoreCapText(metrics));
+            AddRow(rows, "Uso", "analise", "plataforma nao envia ordens");
+
+            return rows;
+        }
+
+        private string IndicatorChannelText(RtdAssetConfig asset)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            return "C " + (ChannelEnabled(asset.Asset, "Cotacao") ? "on" : "off") +
+                   " | B " + (ChannelEnabled(asset.Asset, "Book") ? "on" : "off") +
+                   " | T " + (ChannelEnabled(asset.Asset, "Times") ? "on" : "off");
+        }
+
+        private string IndicatorScoreCapText(FlowMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return "score limitado sem confirmacao de fluxo";
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.FullTimesAndTrades ||
+                metrics.DataQuality == MarketDataQuality.FullDepth)
+            {
+                return "score ajustado por fluxo real";
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.DerivedTape)
+            {
+                return "score limitado por tape derivado";
+            }
+
+            return "score limitado por top-of-book";
+        }
+
+        private List<IndicatorAuditRow> BuildTechnicalIndicatorRows(MarketSnapshot snapshot)
+        {
+            List<IndicatorAuditRow> rows = new List<IndicatorAuditRow>();
+
+            if (_result == null || _result.Technicals == null)
+            {
+                AddIndicatorRow(rows, "Calculo", "-", "aguardando", "carregar CSV e calcular");
+                return rows;
+            }
+
+            TechnicalIndicatorSnapshot technicals = _result.Technicals;
+            decimal? price = snapshot == null ? null : snapshot.Ultimo;
+
+            if (!price.HasValue && _result.Intraday != null && _result.Intraday.Price > 0m)
+            {
+                price = _result.Intraday.Price;
+            }
+
+            string source = EmptyToDash(technicals.Source);
+            AddIndicatorRow(rows, "Preco RTD", FormatDecimal(price, "N2"), snapshot == null ? "sem snapshot" : AgeText(snapshot.LocalTimestamp), "ULT");
+            AddIndicatorRow(rows, "RSI14", FormatDecimal(technicals.Rsi14, "N1"), RsiState(technicals.Rsi14), source);
+            AddIndicatorRow(rows, "SMA20", FormatDecimal(technicals.Sma20, "N2"), VsPriceState(technicals.Sma20, price), source);
+            AddIndicatorRow(rows, "SMA50", FormatDecimal(technicals.Sma50, "N2"), VsPriceState(technicals.Sma50, price), source);
+            AddIndicatorRow(rows, "EMA9", FormatDecimal(technicals.Ema9, "N2"), VsPriceState(technicals.Ema9, price), source);
+            AddIndicatorRow(rows, "EMA21", FormatDecimal(technicals.Ema21, "N2"), VsPriceState(technicals.Ema21, price), source);
+            AddIndicatorRow(rows, "EMA50", FormatDecimal(technicals.Ema50, "N2"), VsPriceState(technicals.Ema50, price), source);
+            AddIndicatorRow(rows, "MACD", FormatMacd(technicals), MacdState(technicals), source);
+            AddIndicatorRow(rows, "Bollinger20", FormatBollinger(technicals), BollingerState(technicals, price), source);
+            AddIndicatorRow(rows, "ZScore20", FormatDecimal(technicals.ZScore20, "N2"), ZScoreState(technicals.ZScore20), source);
+            AddIndicatorRow(rows, "ATR/VWAP", FormatDecimal(technicals.AtrVwapDistance, "N2"), AtrVwapState(technicals.AtrVwapDistance), "ATR historico + RTD MED/VWAP");
+            AddIndicatorRow(rows, "Tendencia", EmptyToDash(technicals.TrendState), "estado", source);
+            AddIndicatorRow(rows, "Reversao", EmptyToDash(technicals.ReversionState), "estado", source);
+            AddIndicatorRow(rows, "Amostra", technicals.SampleSize.ToString(_ptBr), "barras usadas", source);
+
+            return rows;
+        }
+
+        private void AddIndicatorRow(List<IndicatorAuditRow> rows, string indicator, string value, string state, string source)
+        {
+            IndicatorAuditRow row = new IndicatorAuditRow();
+            row.Indicator = EmptyToDash(indicator);
+            row.Value = EmptyToDash(value);
+            row.State = EmptyToDash(state);
+            row.Source = EmptyToDash(source);
+            rows.Add(row);
+        }
+
+        private List<QuantSignalAuditRow> BuildQuantSignalAuditRows(FlowMetrics metrics, MarketSnapshot snapshot)
+        {
+            List<QuantSignalAuditRow> rows = new List<QuantSignalAuditRow>();
+
+            if (_result == null || _result.QuantSignals == null || _result.QuantSignals.Count == 0)
+            {
+                QuantSignalAuditRow waiting = new QuantSignalAuditRow();
+                waiting.Setup = "Aguardando sinal quant";
+                waiting.Direction = "-";
+                waiting.Price = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+                waiting.Score = "-";
+                waiting.Level = "-";
+                waiting.Edge = _result == null ? "sem calculo" : "sem setup no contexto atual";
+                waiting.TechnicalState = _result == null || _result.Technicals == null ? "-" : EmptyToDash(_result.Technicals.TrendState) + " / " + EmptyToDash(_result.Technicals.ReversionState);
+                waiting.Reasons = _dailyBars.Count == 0 ? "carregar CSV historico do ativo" : "aguardando confluencia estatistica e fluxo";
+                rows.Add(waiting);
+                return rows;
+            }
+
+            foreach (QuantSignal signal in _result.QuantSignals.OrderByDescending(x => x.Score).Take(30))
+            {
+                QuantSignalAuditRow row = new QuantSignalAuditRow();
+                row.Setup = EmptyToDash(signal.Setup);
+                row.Direction = TranslateDirection(signal.Direction);
+                row.Price = signal.Price.ToString("N2", _ptBr);
+                row.Score = QuantFlowAdjustedScore(signal, metrics).ToString(_ptBr);
+                row.Level = EmptyToDash(signal.LevelName) + (signal.LevelPrice.HasValue ? " @ " + signal.LevelPrice.Value.ToString("N2", _ptBr) : string.Empty);
+                row.Edge = EmptyToDash(signal.StatisticalEdge) + " | amostra " + signal.SampleSize.ToString(_ptBr);
+                row.TechnicalState = EmptyToDash(signal.TechnicalState);
+                row.Reasons = EmptyToDash(signal.Reasons) + "; " + QuantFlowConfirmation(signal, metrics);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private string TranslateDirection(string direction)
+        {
+            if (string.Equals(direction, "Buy", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Compra";
+            }
+
+            if (string.Equals(direction, "Sell", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Venda";
+            }
+
+            return EmptyToDash(direction);
+        }
+
+        private List<MetricAuditRow> BuildIndicatorStatRows()
+        {
+            List<MetricAuditRow> rows = new List<MetricAuditRow>();
+
+            if (_result == null)
+            {
+                AddMetricAuditRow(rows, "Calculo", "-", "-", "-", "-");
+                return rows;
+            }
+
+            List<VolatilityMetric> metrics = new List<VolatilityMetric>();
+
+            if (_result.Metrics != null)
+            {
+                metrics.AddRange(_result.Metrics);
+            }
+
+            if (_result.WindowMetrics != null)
+            {
+                metrics.AddRange(_result.WindowMetrics);
+            }
+
+            foreach (VolatilityMetric metric in metrics.Take(100))
+            {
+                AddMetricAuditRow(
+                    rows,
+                    EmptyToDash(metric.Name),
+                    metric.Window.ToString(_ptBr),
+                    metric.Points.ToString("N2", _ptBr),
+                    metric.Percent.ToString("N2", _ptBr) + "%",
+                    metric.Percentile.ToString("N1", _ptBr));
+            }
+
+            if (rows.Count == 0)
+            {
+                AddMetricAuditRow(rows, "Sem metrica", "-", "-", "-", "CSV insuficiente");
+            }
+
+            return rows;
+        }
+
+        private void AddMetricAuditRow(List<MetricAuditRow> rows, string metric, string window, string points, string percent, string percentile)
+        {
+            MetricAuditRow row = new MetricAuditRow();
+            row.Metric = EmptyToDash(metric);
+            row.Window = EmptyToDash(window);
+            row.Points = EmptyToDash(points);
+            row.Percent = EmptyToDash(percent);
+            row.Percentile = EmptyToDash(percentile);
+            rows.Add(row);
+        }
+
+        private List<BacktestAuditRow> BuildBacktestAuditRows()
+        {
+            List<BacktestAuditRow> rows = new List<BacktestAuditRow>();
+
+            if (_result == null || _result.Backtest == null || _result.Backtest.Count == 0)
+            {
+                BacktestAuditRow waiting = new BacktestAuditRow();
+                waiting.Multiplier = "-";
+                waiting.Samples = _dailyBars.Count.ToString(_ptBr);
+                waiting.Touches = "-";
+                waiting.Reversals = "-";
+                waiting.TouchRate = "-";
+                waiting.ReversalRate = "CSV insuficiente";
+                rows.Add(waiting);
+                return rows;
+            }
+
+            foreach (BacktestRow rowSource in _result.Backtest.OrderByDescending(x => x.ReversalRate).Take(80))
+            {
+                BacktestAuditRow row = new BacktestAuditRow();
+                row.Multiplier = rowSource.Multiplier.ToString("N1", _ptBr);
+                row.Samples = rowSource.Samples.ToString(_ptBr);
+                row.Touches = rowSource.Touches.ToString(_ptBr);
+                row.Reversals = rowSource.Reversals.ToString(_ptBr);
+                row.TouchRate = rowSource.TouchRate.ToString("N1", _ptBr) + "%";
+                row.ReversalRate = rowSource.ReversalRate.ToString("N1", _ptBr) + "%";
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private string FormatMacd(TechnicalIndicatorSnapshot technicals)
+        {
+            if (technicals == null)
+            {
+                return "-";
+            }
+
+            return FormatDecimal(technicals.Macd, "N2") +
+                   " / " +
+                   FormatDecimal(technicals.MacdSignal, "N2") +
+                   " / hist " +
+                   FormatDecimal(technicals.MacdHistogram, "N2");
+        }
+
+        private string FormatBollinger(TechnicalIndicatorSnapshot technicals)
+        {
+            if (technicals == null)
+            {
+                return "-";
+            }
+
+            return FormatDecimal(technicals.BollingerLower20, "N2") +
+                   " / " +
+                   FormatDecimal(technicals.BollingerMiddle20, "N2") +
+                   " / " +
+                   FormatDecimal(technicals.BollingerUpper20, "N2");
+        }
+
+        private string RsiState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value <= 30m)
+            {
+                return "sobrevenda";
+            }
+
+            if (value.Value >= 70m)
+            {
+                return "sobrecompra";
+            }
+
+            if (value.Value <= 40m)
+            {
+                return "pressao vendedora";
+            }
+
+            if (value.Value >= 60m)
+            {
+                return "pressao compradora";
+            }
+
+            return "neutro";
+        }
+
+        private string VsPriceState(decimal? indicator, decimal? price)
+        {
+            if (!indicator.HasValue || !price.HasValue)
+            {
+                return "-";
+            }
+
+            decimal distance = price.Value - indicator.Value;
+
+            if (Math.Abs(distance) < _config.Rtd.TickSize)
+            {
+                return "testando nivel";
+            }
+
+            return distance > 0m ? "preco acima" : "preco abaixo";
+        }
+
+        private string MacdState(TechnicalIndicatorSnapshot technicals)
+        {
+            if (technicals == null || !technicals.MacdHistogram.HasValue)
+            {
+                return "-";
+            }
+
+            if (technicals.MacdHistogram.Value > 0m)
+            {
+                return "momentum comprador";
+            }
+
+            if (technicals.MacdHistogram.Value < 0m)
+            {
+                return "momentum vendedor";
+            }
+
+            return "neutro";
+        }
+
+        private string BollingerState(TechnicalIndicatorSnapshot technicals, decimal? price)
+        {
+            if (technicals == null || !price.HasValue)
+            {
+                return "-";
+            }
+
+            if (technicals.BollingerLower20.HasValue && price.Value <= technicals.BollingerLower20.Value)
+            {
+                return "fora/inferior";
+            }
+
+            if (technicals.BollingerUpper20.HasValue && price.Value >= technicals.BollingerUpper20.Value)
+            {
+                return "fora/superior";
+            }
+
+            return "dentro da banda";
+        }
+
+        private string ZScoreState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value <= -2m)
+            {
+                return "desvio extremo para baixo";
+            }
+
+            if (value.Value >= 2m)
+            {
+                return "desvio extremo para cima";
+            }
+
+            if (value.Value <= -1m)
+            {
+                return "desvio para baixo";
+            }
+
+            if (value.Value >= 1m)
+            {
+                return "desvio para cima";
+            }
+
+            return "centro estatistico";
+        }
+
+        private string AtrVwapState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            decimal distance = Math.Abs(value.Value);
+
+            if (distance >= 2m)
+            {
+                return "distancia elevada";
+            }
+
+            if (distance >= 1m)
+            {
+                return "distancia moderada";
+            }
+
+            return "perto da VWAP";
         }
 
         private void RefreshHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -4021,6 +4521,11 @@ namespace RtdDolarNative
             SetWarnings(_result.Warnings);
             RenderDom(snapshot);
             ChartControl.SetData(_dailyBars, snapshot, _result);
+
+            if (CurrentMainTabIndex() == TabIndicators)
+            {
+                RenderIndicators(snapshot);
+            }
         }
 
         private void RenderRisk(MarketSnapshot snapshot)
@@ -5439,6 +5944,45 @@ namespace RtdDolarNative
             public string Name { get; set; }
             public string Value { get; set; }
             public string Detail { get; set; }
+        }
+
+        private sealed class IndicatorAuditRow
+        {
+            public string Indicator { get; set; }
+            public string Value { get; set; }
+            public string State { get; set; }
+            public string Source { get; set; }
+        }
+
+        private sealed class QuantSignalAuditRow
+        {
+            public string Setup { get; set; }
+            public string Direction { get; set; }
+            public string Price { get; set; }
+            public string Score { get; set; }
+            public string Level { get; set; }
+            public string Edge { get; set; }
+            public string TechnicalState { get; set; }
+            public string Reasons { get; set; }
+        }
+
+        private sealed class MetricAuditRow
+        {
+            public string Metric { get; set; }
+            public string Window { get; set; }
+            public string Points { get; set; }
+            public string Percent { get; set; }
+            public string Percentile { get; set; }
+        }
+
+        private sealed class BacktestAuditRow
+        {
+            public string Multiplier { get; set; }
+            public string Samples { get; set; }
+            public string Touches { get; set; }
+            public string Reversals { get; set; }
+            public string TouchRate { get; set; }
+            public string ReversalRate { get; set; }
         }
 
         private sealed class AlertRow

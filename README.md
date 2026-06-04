@@ -11,12 +11,12 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - thread RTD `STA` dedicada;
 - assinatura COM reaproveitando a assinatura validada em `RTD_C#`;
 - assinatura dos campos RTD completos configurados em `appsettings.json`;
-- menu superior em abas para separar cadastro, cotacao, book, tape, order flow, volume profile, setups, niveis, grafico, backtest e diagnostico;
+- menu superior em abas para separar cadastro, cotacao, book, tape, order flow, volume profile, setups, indicadores, niveis, grafico, backtest e diagnostico;
 - tela `Ativos` para cadastrar `Codigo Cotacao`, `Canal Book`, `Canal Times`, CSV historico e ligar/desligar `Cotacao`, `Book` e `Times` por ativo;
 - UI WPF com cotacao, DOM/book real, tape real ou derivado, niveis, volume profile, setups, backtest e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
 - carregamento de CSV por ativo via botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
-- calculos de volatilidade, ATR, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais e confluencias;
+- calculos de volatilidade, ATR, RSI, medias moveis, MACD, Bollinger, z-score, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais, confluencias e sinais quant;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
 
 ## Telas nativas
@@ -30,6 +30,7 @@ Use o menu superior como navegacao principal; ele seleciona cada tela diretament
 - `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas.
 - `Volume Profile`: bins, POC, VAH, VAL, HVN e LVN.
 - `Setups`: sinais de fluxo, direcao, score, nivel associado e qualidade do dado.
+- `Indicadores`: auditoria de tecnicos, estatistica, score quant, fonte RTD/CSV e confirmacao de fluxo.
 - `Niveis`: niveis principais, abertura, POC, variacao percentual e confluencia em subtabs.
 - `Grafico`: candles diarios, candle atual e linhas horizontais de niveis.
 - `Backtest`: toque/reversao de desvios historicos.
@@ -78,6 +79,19 @@ O app carrega primeiro o `CSV Historico` do ativo em foco. Se o ativo ainda nao 
 Tambem e possivel carregar manualmente pelo botao `Carregar CSV`, pela aba `Ativos`, com duplo clique no painel de CSV, arrastando um arquivo para o painel, usando `Ctrl+O`, ou colando o caminho e clicando em `Carregar caminho`.
 
 O parser aceita CSV em `UTF-8` e `Windows-1252`, incluindo exportacoes do Profit com cabecalho em portugues como `Ativo;Data;Abertura;Maximo;Minimo;Fechamento;Volume;Quantidade`.
+
+## Indicadores e sinais quant
+
+A tela `Indicadores` mostra os calculos que sustentam a triagem:
+
+- RSI14, SMA20/50, EMA9/21/50, MACD, Bollinger20, z-score 20 e distancia ATR/VWAP.
+- volatilidade historica, janelas, percentil, backtest proxy de toque/reversao e amostra usada.
+- sinais quant com score ajustado por fluxo, nivel associado, edge estatistico, estado tecnico e motivos.
+- qualidade da alimentacao: RTD, CSV, canais `Cotacao`, `Book`, `Times`, tape real ou derivado.
+
+O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado.
+
+Detalhes: `docs/quant_trading.md`.
 
 ## Instalador
 

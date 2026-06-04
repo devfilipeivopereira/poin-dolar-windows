@@ -48,7 +48,12 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 11. Confirmar que `Tape` mostra linhas reais quando `Times` esta ligado; se `Times` estiver desligado ou vazio, deve mostrar tape derivado.
 12. Confirmar `Order Flow` com delta, cumulative delta, imbalance, microbias e janelas.
 13. Confirmar `Volume Profile` com POC, VAH, VAL, HVN e LVN quando houver prints suficientes ou fallback por CSV.
-14. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
+14. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
+   - RSI14, EMAs, SMA, MACD, Bollinger, z-score e ATR/VWAP aparecem quando ha CSV/snapshot suficiente.
+   - A tela mostra fonte tecnica, amostra, CSV carregado, status RTD e qualidade do fluxo.
+   - Sinais quant mostram score ajustado, nivel, edge estatistico, estado tecnico e motivos.
+   - Quando `Times`/`Book` nao estao reais, a qualidade informa tape derivado/top-of-book e o score fica limitado.
+15. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
 
 ## Performance
 
@@ -56,3 +61,4 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 - `FlowProcessor` usa fila limitada; o contador `Fila drop` deve ficar estavel em fluxo normal.
 - `ULT`, `QUL` e `VOL` chegando separados nao devem gerar prints duplicados quando `NEG` esta disponivel.
 - Scores acima de 85 devem aparecer apenas quando uma fonte real de times and trades/book profundo for implementada.
+- A aba `Indicadores` deve atualizar sem travar a UI e sem recalcular pesado na thread RTD.

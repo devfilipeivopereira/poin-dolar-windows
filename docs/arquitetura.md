@@ -13,7 +13,7 @@ Profit Pro
   -> FlowProcessor em background com fila bounded/drop-old
   -> FlowEngine / VolumeProfileEngine / SetupDetector
   -> DispatcherTimer WPF
-  -> Ativos / Cotacao / DOM Book / Tape / Order Flow / Volume Profile / Setups / Niveis / Grafico
+  -> Ativos / Cotacao / DOM Book / Tape / Order Flow / Volume Profile / Setups / Indicadores / Niveis / Grafico
 ```
 
 Regras aplicadas desde o primeiro marco:
@@ -33,6 +33,8 @@ Regras aplicadas desde o primeiro marco:
 - `Times` assina `RTD("rtdtrading.rtdserver",, TimesTopic, Field, Index)` com indices `0..99`, alem de `INFO/ATV` e `INFO/TAB`.
 - O tape usa times and trades real quando o canal `Times` traz linhas; caso contrario usa fallback derivado por coalescing de snapshots de preco/volume/top-of-book.
 - Setups baseados apenas em top-of-book/tape derivado tem score limitado; score 100 fica reservado para feeds reais.
+- O motor quant calcula RSI14, SMA20/50, EMA9/21/50, MACD, Bollinger20, z-score 20, ATR/VWAP, volatilidade historica, desvios, confluencias e backtest proxy.
+- A tela `Indicadores` expõe fonte, amostra, qualidade RTD/CSV/fluxo, sinais quant, score ajustado por fluxo e edge estatistico.
 - Logs por tick ficam desligados por padrao.
 
 O historico diario e carregado por ativo na aba `Ativos` e alimenta o motor quant nativo. O carregamento aceita botao, seletor no cadastro, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load do CSV mais recente em `Downloads\Dados_Dolar` ou `Documentos` quando o ativo ainda nao tem `CsvPath`. O parser tenta `UTF-8` e cai para `Windows-1252`, cobrindo exportacoes do Profit com acentos no cabecalho. O RTD preenche abertura, maxima, minima, ultimo preco, VWAP, volume, bid/ask, book real e times real quando os canais estao ligados.
@@ -46,6 +48,7 @@ Telas principais:
 - `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas 1s/5s/15s/60s/300s.
 - `Volume Profile`: grafico horizontal por preco com POC, VAH/VAL 70%, HVN/LVN, tabela de nos e fallback por CSV diario.
 - `Setups`: absorcao, defesa/perda de POC, rompimento com fluxo, rejeicao em LVN e VWAP reversion/continuation.
+- `Indicadores`: auditoria de RSI, medias, MACD, Bollinger, z-score, ATR/VWAP, volatilidade, backtest proxy e sinais quant.
 - `Niveis`: niveis principais, abertura, POC, variacao percentual e confluencia em subtabs.
 - `Grafico`: desenho WPF customizado, com candles e niveis.
 - `Backtest`: toque/reversao dos desvios historicos.
