@@ -85,6 +85,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLine}" />
+            <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLine}" />
             <Setter Property="RowBackground" Value="{StaticResource InputBg}" />
             <Setter Property="AlternatingRowBackground" Value="{StaticResource Panel}" />
             <Setter Property="HeadersVisibility" Value="Column" />
@@ -92,6 +93,61 @@
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="AlternationCount" Value="2" />
+            <Setter Property="EnableRowVirtualization" Value="True" />
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+            <Setter Property="ColumnHeaderHeight" Value="28" />
+            <Setter Property="RowHeight" Value="24" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource Panel2}" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="{StaticResource Panel}" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#111D16" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GridLine}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="TabControl">

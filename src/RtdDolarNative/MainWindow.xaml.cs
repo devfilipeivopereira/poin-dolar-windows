@@ -203,20 +203,13 @@ namespace RtdDolarNative
                 return;
             }
 
+            bool alreadySelected = MainTabs.SelectedIndex == index;
             MainTabs.SelectedIndex = index;
             MainTabs.UpdateLayout();
 
-            if (index == 2)
+            if (alreadySelected)
             {
-                MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
-
-                if (snapshot != null)
-                {
-                    RenderDom(snapshot);
-                    RenderBook(snapshot);
-                }
-
-                RenderTape();
+                RenderActiveTab();
             }
 
             MainTabs.Focus();
@@ -251,6 +244,56 @@ namespace RtdDolarNative
             }
 
             UpdateTopNavigation();
+            RenderActiveTab();
+        }
+
+        private int CurrentMainTabIndex()
+        {
+            return MainTabs == null ? 0 : MainTabs.SelectedIndex;
+        }
+
+        private void RenderActiveTab()
+        {
+            if (_config == null || _probeService == null || _flowProcessor == null)
+            {
+                return;
+            }
+
+            MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
+
+            switch (CurrentMainTabIndex())
+            {
+                case 0:
+                    RenderRtdAssets();
+                    RenderRtdChannels();
+                    break;
+                case 1:
+                    RenderQuoteFields(snapshot);
+                    break;
+                case 2:
+                    if (snapshot != null)
+                    {
+                        RenderDom(snapshot);
+                        RenderBook(snapshot);
+                    }
+
+                    RenderTape();
+                    break;
+                case 3:
+                    RenderTape();
+                    break;
+                case 4:
+                case 5:
+                case 6:
+                    RenderFlow(snapshot);
+                    break;
+                case 8:
+                    ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+                    break;
+                case 10:
+                    RenderRtdSources();
+                    break;
+            }
         }
 
         private void SelectCsvPanelButton_Click(object sender, RoutedEventArgs e)
@@ -1110,6 +1153,13 @@ namespace RtdDolarNative
             bool changed = version != _lastVersion;
             bool flowChanged = flowVersion != _lastFlowProcessed;
             DateTimeOffset now = DateTimeOffset.Now;
+            int selectedTab = CurrentMainTabIndex();
+            bool showAssets = selectedTab == 0;
+            bool showQuote = selectedTab == 1;
+            bool showDomBook = selectedTab == 2;
+            bool showTape = selectedTab == 2 || selectedTab == 3;
+            bool showFlow = selectedTab == 4 || selectedTab == 5 || selectedTab == 6;
+            bool showDiagnostics = selectedTab == 10;
 
             if (snapshot != null)
             {
@@ -1119,8 +1169,11 @@ namespace RtdDolarNative
                 {
                     _lastVersion = version;
                     ApplySnapshot(snapshot);
-                    RenderQuoteFields(snapshot);
-                    RenderBook(snapshot);
+
+                    if (showQuote)
+                    {
+                        RenderQuoteFields(snapshot);
+                    }
                 }
 
                 TimeSpan age = now - snapshot.LocalTimestamp;
@@ -1133,14 +1186,22 @@ namespace RtdDolarNative
 
             if ((changed || flowChanged) && (now - _lastGridRefresh).TotalMilliseconds >= 500)
             {
-                if (snapshot != null)
+                if (snapshot != null && showDomBook)
                 {
                     RenderDom(snapshot);
                     RenderBook(snapshot);
                 }
 
-                RenderTape();
-                RenderFlow(snapshot);
+                if (showTape)
+                {
+                    RenderTape();
+                }
+
+                if (showFlow)
+                {
+                    RenderFlow(snapshot);
+                }
+
                 _lastGridRefresh = now;
                 _lastFlowProcessed = flowVersion;
             }
@@ -1150,9 +1211,17 @@ namespace RtdDolarNative
 
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
-                RenderRtdAssets();
-                RenderRtdChannels();
-                RenderRtdSources();
+                if (showAssets)
+                {
+                    RenderRtdAssets();
+                    RenderRtdChannels();
+                }
+
+                if (showDiagnostics)
+                {
+                    RenderRtdSources();
+                }
+
                 _lastAssetGridRefresh = now;
             }
         }
