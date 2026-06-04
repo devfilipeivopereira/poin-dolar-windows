@@ -41,6 +41,7 @@ namespace RtdDolarNative.Config
             config.Ui = config.Ui ?? new UiConfig();
             config.Storage = config.Storage ?? new StorageConfig();
             config.Diagnostics = config.Diagnostics ?? new DiagnosticsConfig();
+            config.Rtd.NormalizeAssets();
             config.Rtd.Fields = Normalize(config.Rtd.Fields, RtdFieldCatalog.DefaultLiveFields);
             config.Rtd.ProbeFields = Normalize(config.Rtd.ProbeFields, new[] { "HOR", "ULT", "VOL" });
 
@@ -55,6 +56,30 @@ namespace RtdDolarNative.Config
             }
 
             return config;
+        }
+
+        public void Save(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            Rtd = Rtd ?? new RtdConfig();
+            Ui = Ui ?? new UiConfig();
+            Storage = Storage ?? new StorageConfig();
+            Diagnostics = Diagnostics ?? new DiagnosticsConfig();
+            Rtd.NormalizeAssets();
+
+            string directory = Path.GetDirectoryName(path);
+
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string json = new JavaScriptSerializer().Serialize(this);
+            File.WriteAllText(path, json);
         }
 
         private static List<string> Normalize(IEnumerable<string> fields, IEnumerable<string> fallback)
@@ -75,6 +100,7 @@ namespace RtdDolarNative.Config
         {
             ProgId = "RTDTrading.RTDServer";
             Asset = "WDOFUT_F_0";
+            Assets = new List<RtdAssetConfig> { new RtdAssetConfig("WDOFUT_F_0", true) };
             PollIntervalMs = 50;
             ReconnectIntervalMs = 5000;
             TickSize = 0.5m;
@@ -84,11 +110,110 @@ namespace RtdDolarNative.Config
 
         public string ProgId { get; set; }
         public string Asset { get; set; }
+        public List<RtdAssetConfig> Assets { get; set; }
         public int PollIntervalMs { get; set; }
         public int ReconnectIntervalMs { get; set; }
         public decimal TickSize { get; set; }
         public List<string> Fields { get; set; }
         public List<string> ProbeFields { get; set; }
+
+        public void NormalizeAssets()
+        {
+            if (string.IsNullOrWhiteSpace(Asset))
+            {
+                Asset = "WDOFUT_F_0";
+            }
+
+            Asset = NormalizeAsset(Asset);
+
+            List<RtdAssetConfig> normalized = new List<RtdAssetConfig>();
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (Assets != null)
+            {
+                foreach (RtdAssetConfig item in Assets)
+                {
+                    if (item == null || string.IsNullOrWhiteSpace(item.Asset))
+                    {
+                        continue;
+                    }
+
+                    string asset = NormalizeAsset(item.Asset);
+
+                    if (seen.Contains(asset))
+                    {
+                        RtdAssetConfig existing = normalized.FirstOrDefault(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
+
+                        if (existing != null)
+                        {
+                            existing.Enabled = existing.Enabled || item.Enabled;
+                        }
+
+                        continue;
+                    }
+
+                    normalized.Add(new RtdAssetConfig(asset, item.Enabled));
+                    seen.Add(asset);
+                }
+            }
+
+            if (normalized.Count == 0)
+            {
+                normalized.Add(new RtdAssetConfig(Asset, true));
+                seen.Add(Asset);
+            }
+
+            if (!seen.Contains(Asset))
+            {
+                Asset = normalized[0].Asset;
+            }
+
+            Assets = normalized;
+        }
+
+        public List<string> GetEnabledAssets()
+        {
+            NormalizeAssets();
+
+            return Assets
+                .Where(x => x.Enabled)
+                .Select(x => x.Asset)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        public RtdAssetConfig FindAsset(string asset)
+        {
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                return null;
+            }
+
+            NormalizeAssets();
+            string normalized = NormalizeAsset(asset);
+            return Assets.FirstOrDefault(x => string.Equals(x.Asset, normalized, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static string NormalizeAsset(string asset)
+        {
+            return string.IsNullOrWhiteSpace(asset) ? string.Empty : asset.Trim().ToUpperInvariant();
+        }
+    }
+
+    public sealed class RtdAssetConfig
+    {
+        public RtdAssetConfig()
+        {
+        }
+
+        public RtdAssetConfig(string asset, bool enabled)
+        {
+            Asset = asset;
+            Enabled = enabled;
+        }
+
+        public string Asset { get; set; }
+        public bool Enabled { get; set; }
     }
 
     public sealed class UiConfig

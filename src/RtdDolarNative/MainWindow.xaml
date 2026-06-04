@@ -145,6 +145,38 @@
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
                 <StackPanel>
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="RTD ativos" FontSize="15" FontWeight="Bold" />
+                            <TextBlock x:Name="RtdAssetSummaryText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,6" />
+                            <TextBlock Text="Novo ativo" Foreground="{StaticResource Muted}" />
+                            <TextBox x:Name="NewAssetInput" Margin="0,3,0,7" KeyDown="NewAssetInput_KeyDown" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <Button x:Name="AddAssetButton" Content="Adicionar" Click="AddAssetButton_Click" />
+                                <Button x:Name="FocusAssetButton" Content="Focar" Click="FocusAssetButton_Click" Margin="0" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="StartAssetButton" Content="Ligar" Click="StartAssetButton_Click" />
+                                <Button x:Name="StopAssetButton" Content="Desligar" Click="StopAssetButton_Click" />
+                                <Button x:Name="RemoveAssetButton" Content="Remover" Click="RemoveAssetButton_Click" Margin="0" />
+                            </StackPanel>
+                            <DataGrid x:Name="RtdAssetsGrid"
+                                      AutoGenerateColumns="False"
+                                      Height="170"
+                                      Margin="0,8,0,0"
+                                      SelectionMode="Single"
+                                      MouseDoubleClick="RtdAssetsGrid_MouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="95" />
+                                    <DataGridTextColumn Header="On" Binding="{Binding EnabledText}" Width="60" />
+                                    <DataGridTextColumn Header="Foco" Binding="{Binding FocusText}" Width="55" />
+                                    <DataGridTextColumn Header="ULT" Binding="{Binding LastText}" Width="80" />
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
                     <Border x:Name="CsvDropZone"
                             Background="{StaticResource Panel}"
                             BorderBrush="{StaticResource Border}"

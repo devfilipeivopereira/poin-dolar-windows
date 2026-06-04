@@ -11,6 +11,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - thread RTD `STA` dedicada;
 - assinatura COM reaproveitando a assinatura validada em `RTD_C#`;
 - assinatura dos campos RTD completos configurados em `appsettings.json`;
+- painel de ativos RTD para adicionar, focar, ligar, desligar e remover simbolos sem editar arquivo manualmente;
 - UI WPF com DOM, tape, niveis, abertura, POC, variacao percentual, volume profile, confluencia, backtest proxy e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
 - carregamento de CSV por botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
@@ -46,6 +47,17 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 Logs ficam em `logs/rtd-dolar-native.log`.
 
+## Ativos RTD
+
+O painel `RTD ativos` permite adicionar novos codigos de ativo do Profit, ligar/desligar cada assinatura e escolher qual ativo fica em foco no dashboard.
+
+- `Adicionar` cria o ativo, liga a assinatura e coloca o ativo em foco.
+- `Focar` ou duplo clique na grade troca o ativo usado no DOM, tape filtrado, topo e calculos intraday.
+- `Ligar` e `Desligar` reiniciam o loop RTD com a lista atual de ativos habilitados.
+- `Remover` apaga o ativo da lista; se for o ultimo, ele fica apenas desligado.
+
+A lista e persistida em `appsettings.json` na chave `Rtd.Assets`.
+
 ## CSV diario
 
 O app tenta carregar automaticamente o CSV mais recente em `%USERPROFILE%\Downloads\Dados_Dolar` ou em `Documentos` quando o nome contem o ativo configurado ou `WDO`.
@@ -68,7 +80,7 @@ Para regerar:
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
-O setup instala em `%LOCALAPPDATA%\PoinDolarWindows`, cria atalhos no Menu Iniciar e na area de trabalho, e registra desinstalacao em "Aplicativos instalados" do Windows. Ele inclui builds `x64` e `x86`; em Windows 64-bit o atalho principal usa `x64`.
+O setup instala em `%LOCALAPPDATA%\PoinDolarWindows`, cria atalhos no Menu Iniciar e na area de trabalho, e registra desinstalacao em "Aplicativos instalados" do Windows. Ele inclui builds `x64` e `x86`; em Windows 64-bit o atalho principal usa `x64`. Em atualizacoes, o instalador preserva `appsettings.json` existente para manter a lista de ativos RTD configurada no app.
 
 ## Projeto antigo
 

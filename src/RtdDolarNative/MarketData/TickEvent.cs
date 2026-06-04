@@ -4,6 +4,7 @@ namespace RtdDolarNative.MarketData
 {
     public sealed class TickEvent
     {
+        public string Asset { get; set; }
         public DateTimeOffset LocalTimestamp { get; set; }
         public string ProfitTime { get; set; }
         public decimal Price { get; set; }

@@ -16,16 +16,17 @@ namespace RtdDolarNative.Rtd
         private readonly DiagnosticsConfig _diagnostics;
         private readonly Logger _log;
         private readonly LatestSnapshotBuffer _snapshotBuffer;
-        private readonly MarketState _state = new MarketState();
         private readonly object _statusLock = new object();
+        private readonly object _statesLock = new object();
         private readonly Dictionary<int, RtdTopic> _topics = new Dictionary<int, RtdTopic>();
+        private readonly Dictionary<string, MarketState> _states = new Dictionary<string, MarketState>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, decimal?> _lastTradePrices = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
         private Thread _thread;
         private RtdUpdateEvent _callback;
         private volatile bool _stopRequested;
         private string _status;
         private Exception _lastError;
         private long _updatesReceived;
-        private decimal? _lastTradePrice;
 
         public RtdProbeService(RtdConfig config, DiagnosticsConfig diagnostics, Logger log, LatestSnapshotBuffer snapshotBuffer)
         {
@@ -38,6 +39,7 @@ namespace RtdDolarNative.Rtd
 
         public event Action<string, Exception> StatusChanged;
         public event Action<TickEvent> TickReceived;
+        public event Action<MarketSnapshot> SnapshotReceived;
 
         public bool IsRunning
         {
@@ -99,6 +101,12 @@ namespace RtdDolarNative.Rtd
             SetStatus("stopped", null);
         }
 
+        public void Restart()
+        {
+            Stop();
+            Start();
+        }
+
         public void Dispose()
         {
             Stop();
@@ -132,6 +140,22 @@ namespace RtdDolarNative.Rtd
             {
                 SetStatus("connecting", null);
                 _topics.Clear();
+                _lastTradePrices.Clear();
+
+                List<string> activeAssets = _config.GetEnabledAssets();
+
+                if (activeAssets.Count == 0)
+                {
+                    _log.Info("Nenhum ativo RTD ligado. Loop em espera.");
+                    SetStatus("idle", null);
+
+                    while (!_stopRequested)
+                    {
+                        SleepInterruptible(250);
+                    }
+
+                    return;
+                }
 
                 Type rtdType = Type.GetTypeFromProgID(_config.ProgId);
 
@@ -152,7 +176,7 @@ namespace RtdDolarNative.Rtd
                     throw new InvalidOperationException("ServerStart falhou. Codigo: " + startResult);
                 }
 
-                SubscribeConfiguredFields(server);
+                SubscribeConfiguredFields(server, activeAssets);
                 SetStatus("connected", null);
 
                 DateTime nextHeartbeat = DateTime.UtcNow.AddSeconds(1);
@@ -188,7 +212,7 @@ namespace RtdDolarNative.Rtd
             }
         }
 
-        private void SubscribeConfiguredFields(IRtdServer server)
+        private void SubscribeConfiguredFields(IRtdServer server, IEnumerable<string> assets)
         {
             int topicId = 1;
             IEnumerable<string> fields;
@@ -202,21 +226,26 @@ namespace RtdDolarNative.Rtd
                 fields = _config.Fields;
             }
 
-            foreach (string field in fields.Select(x => x.Trim().ToUpperInvariant()).Distinct())
+            foreach (string asset in assets.Select(x => RtdConfig.NormalizeAsset(x)).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                object initialValue = ConnectDataWithFallback(server, topicId, _config.Asset, field);
+                EnsureState(asset);
 
-                RtdTopic topic = new RtdTopic();
-                topic.TopicId = topicId;
-                topic.Asset = _config.Asset;
-                topic.Field = field;
-                topic.LastValue = initialValue;
+                foreach (string field in fields.Select(x => x.Trim().ToUpperInvariant()).Distinct())
+                {
+                    object initialValue = ConnectDataWithFallback(server, topicId, asset, field);
 
-                _topics[topicId] = topic;
-                _log.Info("Assinado RTD " + topic.Key + ".");
-                Publish(topic, initialValue);
+                    RtdTopic topic = new RtdTopic();
+                    topic.TopicId = topicId;
+                    topic.Asset = asset;
+                    topic.Field = field;
+                    topic.LastValue = initialValue;
 
-                topicId++;
+                    _topics[topicId] = topic;
+                    _log.Info("Assinado RTD " + topic.Key + ".");
+                    Publish(topic, initialValue);
+
+                    topicId++;
+                }
             }
         }
 
@@ -293,8 +322,10 @@ namespace RtdDolarNative.Rtd
 
         private void Publish(RtdTopic topic, object value)
         {
-            MarketSnapshot snapshot = _state.Update(topic.Asset, topic.Field, value, Status);
+            MarketState state = EnsureState(topic.Asset);
+            MarketSnapshot snapshot = state.Update(topic.Asset, topic.Field, value, Status);
             _snapshotBuffer.Publish(snapshot);
+            NotifySnapshot(snapshot);
             Interlocked.Increment(ref _updatesReceived);
             PublishTickIfNeeded(topic, snapshot);
 
@@ -313,24 +344,27 @@ namespace RtdDolarNative.Rtd
 
             decimal price = snapshot.Ultimo.Value;
             decimal threshold = Math.Max(0.0001m, _config.TickSize / 2m);
+            decimal? lastTradePrice;
+            _lastTradePrices.TryGetValue(topic.Asset, out lastTradePrice);
 
-            if (_lastTradePrice.HasValue && Math.Abs(price - _lastTradePrice.Value) < threshold)
+            if (lastTradePrice.HasValue && Math.Abs(price - lastTradePrice.Value) < threshold)
             {
                 return;
             }
 
-            decimal delta = _lastTradePrice.HasValue ? price - _lastTradePrice.Value : 0m;
+            decimal delta = lastTradePrice.HasValue ? price - lastTradePrice.Value : 0m;
             TickEvent tick = new TickEvent();
+            tick.Asset = topic.Asset;
             tick.LocalTimestamp = snapshot.LocalTimestamp;
             tick.ProfitTime = snapshot.HoraProfit;
             tick.Price = price;
             tick.Quantity = snapshot.QuantidadeUltimoNegocio;
             tick.Volume = snapshot.Volume;
             tick.Delta = delta;
-            tick.Side = !_lastTradePrice.HasValue ? "Inicial" : delta > 0m ? "Subiu" : delta < 0m ? "Caiu" : "Neutro";
+            tick.Side = !lastTradePrice.HasValue ? "Inicial" : delta > 0m ? "Subiu" : delta < 0m ? "Caiu" : "Neutro";
             tick.Bid = snapshot.OfertaCompra;
             tick.Ask = snapshot.OfertaVenda;
-            _lastTradePrice = price;
+            _lastTradePrices[topic.Asset] = price;
 
             Action<TickEvent> handler = TickReceived;
 
@@ -380,8 +414,7 @@ namespace RtdDolarNative.Rtd
                 _lastError = error;
             }
 
-            MarketSnapshot snapshot = _state.MarkStatus(status);
-            _snapshotBuffer.Publish(snapshot);
+            PublishStatusSnapshots(status);
 
             if (changed)
             {
@@ -392,6 +425,61 @@ namespace RtdDolarNative.Rtd
                 {
                     handler(status, error);
                 }
+            }
+        }
+
+        private MarketState EnsureState(string asset)
+        {
+            string key = RtdConfig.NormalizeAsset(asset);
+
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                key = RtdConfig.NormalizeAsset(_config.Asset);
+            }
+
+            lock (_statesLock)
+            {
+                MarketState state;
+
+                if (!_states.TryGetValue(key, out state))
+                {
+                    state = new MarketState();
+                    _states[key] = state;
+                }
+
+                return state;
+            }
+        }
+
+        private void PublishStatusSnapshots(string status)
+        {
+            List<MarketState> states;
+
+            lock (_statesLock)
+            {
+                if (_states.Count == 0)
+                {
+                    _states[RtdConfig.NormalizeAsset(_config.Asset)] = new MarketState();
+                }
+
+                states = _states.Values.ToList();
+            }
+
+            foreach (MarketState state in states)
+            {
+                MarketSnapshot snapshot = state.MarkStatus(status);
+                _snapshotBuffer.Publish(snapshot);
+                NotifySnapshot(snapshot);
+            }
+        }
+
+        private void NotifySnapshot(MarketSnapshot snapshot)
+        {
+            Action<MarketSnapshot> handler = SnapshotReceived;
+
+            if (handler != null)
+            {
+                handler(snapshot);
             }
         }
 

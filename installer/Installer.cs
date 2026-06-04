@@ -162,10 +162,26 @@ namespace PoinDolarWindowsInstaller
                             Directory.CreateDirectory(directory);
                         }
 
+                        if (ShouldPreserveExistingFile(entry.FullName, destinationPath))
+                        {
+                            continue;
+                        }
+
                         entry.ExtractToFile(destinationPath, true);
                     }
                 }
             }
+        }
+
+        private static bool ShouldPreserveExistingFile(string entryName, string destinationPath)
+        {
+            if (!File.Exists(destinationPath))
+            {
+                return false;
+            }
+
+            string normalized = entryName.Replace('\\', '/');
+            return normalized.EndsWith("/appsettings.json", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void CopySelfForUninstall(string installDir)

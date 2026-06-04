@@ -21,6 +21,7 @@ namespace RtdDolarNative
     public partial class MainWindow : Window
     {
         private readonly AppConfig _config;
+        private readonly string _configPath;
         private readonly Logger _log;
         private readonly LatestSnapshotBuffer _snapshotBuffer;
         private readonly RtdProbeService _probeService;
@@ -30,9 +31,13 @@ namespace RtdDolarNative
         private readonly DispatcherTimer _chartTimer;
         private readonly CultureInfo _ptBr = new CultureInfo("pt-BR");
         private readonly List<DailyBar> _dailyBars = new List<DailyBar>();
+        private readonly object _snapshotsLock = new object();
+        private readonly Dictionary<string, MarketSnapshot> _snapshotsByAsset = new Dictionary<string, MarketSnapshot>(StringComparer.OrdinalIgnoreCase);
         private long _lastVersion = -1;
         private long _lastQuantVersion = -1;
         private bool _manualMode;
+        private string _focusedAsset;
+        private int _assetGridRefreshTicks;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
 
@@ -40,13 +45,16 @@ namespace RtdDolarNative
         {
             InitializeComponent();
 
-            _config = AppConfig.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json"));
+            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+            _config = AppConfig.Load(_configPath);
+            _focusedAsset = _config.Rtd.Asset;
             _log = new Logger(ResolvePath(_config.Diagnostics.LogPath));
             _snapshotBuffer = new LatestSnapshotBuffer();
             _ticks = new RingBuffer<TickEvent>(_config.Ui.TapeCapacity);
             _probeService = new RtdProbeService(_config.Rtd, _config.Diagnostics, _log, _snapshotBuffer);
             _probeService.StatusChanged += ProbeService_StatusChanged;
             _probeService.TickReceived += ProbeService_TickReceived;
+            _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
             _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 16));
@@ -186,6 +194,225 @@ namespace RtdDolarNative
             Recalculate();
         }
 
+        private void AddAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            AddOrEnableAsset(NewAssetInput.Text, true);
+        }
+
+        private void NewAssetInput_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                AddOrEnableAsset(NewAssetInput.Text, true);
+            }
+        }
+
+        private void FocusAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            FocusSelectedAsset();
+        }
+
+        private void StartAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSelectedAssetEnabled(true);
+        }
+
+        private void StopAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSelectedAssetEnabled(false);
+        }
+
+        private void RemoveAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            RemoveSelectedAsset();
+        }
+
+        private void RtdAssetsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            FocusSelectedAsset();
+        }
+
+        private void AddOrEnableAsset(string text, bool focusAfterAdd)
+        {
+            string asset = RtdConfig.NormalizeAsset(text);
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Informe o codigo do ativo RTD." });
+                return;
+            }
+
+            RtdAssetConfig existing = _config.Rtd.FindAsset(asset);
+
+            if (existing == null)
+            {
+                _config.Rtd.Assets.Add(new RtdAssetConfig(asset, true));
+                _log.Info("Ativo RTD adicionado: " + asset + ".");
+            }
+            else
+            {
+                existing.Enabled = true;
+                _log.Info("Ativo RTD ligado: " + asset + ".");
+            }
+
+            if (focusAfterAdd)
+            {
+                SetFocusedAsset(asset);
+            }
+
+            NewAssetInput.Text = string.Empty;
+            ApplyRtdAssetChange("Ativo RTD ligado: " + asset + ".");
+        }
+
+        private void FocusSelectedAsset()
+        {
+            string asset = SelectedAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo RTD." });
+                return;
+            }
+
+            SetFocusedAsset(asset);
+            SaveRuntimeConfig();
+            RenderRtdAssets();
+            ApplyFocusedSnapshot();
+        }
+
+        private void SetSelectedAssetEnabled(bool enabled)
+        {
+            string asset = SelectedAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo RTD." });
+                return;
+            }
+
+            RtdAssetConfig item = _config.Rtd.FindAsset(asset);
+
+            if (item == null)
+            {
+                SetWarnings(new[] { "Ativo RTD nao encontrado: " + asset + "." });
+                return;
+            }
+
+            item.Enabled = enabled;
+
+            if (enabled)
+            {
+                SetFocusedAsset(asset);
+            }
+            else if (string.Equals(_focusedAsset, asset, StringComparison.OrdinalIgnoreCase))
+            {
+                string next = _config.Rtd.Assets.Where(x => x.Enabled && !string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase)).Select(x => x.Asset).FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(next))
+                {
+                    SetFocusedAsset(next);
+                }
+            }
+
+            ApplyRtdAssetChange((enabled ? "Ativo RTD ligado: " : "Ativo RTD desligado: ") + asset + ".");
+        }
+
+        private void RemoveSelectedAsset()
+        {
+            string asset = SelectedAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo RTD." });
+                return;
+            }
+
+            if (_config.Rtd.Assets.Count <= 1)
+            {
+                RtdAssetConfig only = _config.Rtd.FindAsset(asset);
+
+                if (only != null)
+                {
+                    only.Enabled = false;
+                }
+
+                ApplyRtdAssetChange("Ultimo ativo mantido na lista e desligado: " + asset + ".");
+                return;
+            }
+
+            _config.Rtd.Assets.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
+
+            if (string.Equals(_focusedAsset, asset, StringComparison.OrdinalIgnoreCase))
+            {
+                string next = _config.Rtd.Assets.Where(x => x.Enabled).Select(x => x.Asset).FirstOrDefault() ??
+                              _config.Rtd.Assets.Select(x => x.Asset).FirstOrDefault();
+                SetFocusedAsset(next);
+            }
+
+            ApplyRtdAssetChange("Ativo RTD removido: " + asset + ".");
+        }
+
+        private void ApplyRtdAssetChange(string warning)
+        {
+            _config.Rtd.NormalizeAssets();
+            SaveRuntimeConfig();
+            RenderRtdAssets();
+            SetWarnings(new[] { warning });
+
+            if (_probeService.IsRunning && !_manualMode)
+            {
+                StatusText.Text = "restarting";
+                StatusBadgeBorder.Background = StatusBrush("reconnecting");
+                _probeService.Restart();
+            }
+        }
+
+        private void SetFocusedAsset(string asset)
+        {
+            string normalized = RtdConfig.NormalizeAsset(asset);
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                normalized = _config.Rtd.Assets.Select(x => x.Asset).FirstOrDefault();
+            }
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                normalized = "WDOFUT_F_0";
+            }
+
+            _focusedAsset = normalized;
+            _config.Rtd.Asset = normalized;
+            AssetText.Text = normalized;
+        }
+
+        private string SelectedAsset()
+        {
+            RtdAssetRow row = RtdAssetsGrid.SelectedItem as RtdAssetRow;
+
+            if (row != null)
+            {
+                return row.Asset;
+            }
+
+            return _focusedAsset;
+        }
+
+        private void SaveRuntimeConfig()
+        {
+            try
+            {
+                _config.Save(_configPath);
+                _log.Info("Configuracao RTD salva em " + _configPath + ".");
+            }
+            catch (Exception ex)
+            {
+                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
+                _log.Error("Falha ao salvar configuracao RTD.", ex);
+            }
+        }
+
         private void OpenCsvDialog()
         {
             string previousText = CsvFileText.Text;
@@ -286,7 +513,7 @@ namespace RtdDolarNative
                     candidates.AddRange(Directory.GetFiles(documents, "*.csv"));
                 }
 
-                string asset = string.IsNullOrWhiteSpace(_config.Rtd.Asset) ? "WDOFUT_F_0" : _config.Rtd.Asset;
+                string asset = FocusedAsset();
                 string best = candidates
                     .Where(x => Path.GetFileName(x).IndexOf(asset, StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetFileName(x).IndexOf("WDO", StringComparison.OrdinalIgnoreCase) >= 0)
                     .OrderByDescending(x => File.GetLastWriteTimeUtc(x))
@@ -318,12 +545,25 @@ namespace RtdDolarNative
             _ticks.Add(tick);
         }
 
+        private void ProbeService_SnapshotReceived(MarketSnapshot snapshot)
+        {
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.Asset))
+            {
+                return;
+            }
+
+            lock (_snapshotsLock)
+            {
+                _snapshotsByAsset[snapshot.Asset] = snapshot;
+            }
+        }
+
         private void FastTimer_Tick(object sender, EventArgs e)
         {
-            MarketSnapshot snapshot;
-            long version;
+            MarketSnapshot snapshot = FocusedSnapshot();
+            long version = _probeService.UpdatesReceived;
 
-            if (_snapshotBuffer.TryRead(out snapshot, out version))
+            if (snapshot != null)
             {
                 _lastSnapshot = snapshot;
 
@@ -342,8 +582,24 @@ namespace RtdDolarNative
                 SnapshotAgeText.Text = "-";
             }
 
-            TapeGrid.ItemsSource = _ticks.SnapshotNewestFirst().Take(500).ToList();
+            string focused = FocusedAsset();
+            IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
+
+            if (!string.IsNullOrWhiteSpace(focused))
+            {
+                ticks = ticks.Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+            }
+
+            TapeGrid.ItemsSource = ticks.Take(500).ToList();
             UpdatesText.Text = _probeService.UpdatesReceived.ToString(_ptBr);
+
+            _assetGridRefreshTicks++;
+
+            if (_assetGridRefreshTicks >= 30)
+            {
+                _assetGridRefreshTicks = 0;
+                RenderRtdAssets();
+            }
         }
 
         private void QuantTimer_Tick(object sender, EventArgs e)
@@ -370,6 +626,7 @@ namespace RtdDolarNative
             ManualButton.Content = "Modo manual";
             ConnectButton.IsEnabled = true;
             ConnectButton.Content = "Desconectar";
+            RenderRtdAssets();
             _probeService.Start();
         }
 
@@ -377,11 +634,12 @@ namespace RtdDolarNative
         {
             _probeService.Stop();
             ConnectButton.Content = "Conectar";
+            RenderRtdAssets();
         }
 
         private void InitializeStaticText()
         {
-            AssetText.Text = _config.Rtd.Asset;
+            AssetText.Text = FocusedAsset();
             ArchitectureText.Text = Environment.Is64BitProcess ? "x64" : "x86";
             FieldsText.Text = string.Join(", ", _config.Rtd.Fields.ToArray());
             PollText.Text = _config.Rtd.PollIntervalMs.ToString(_ptBr) + " ms";
@@ -390,11 +648,104 @@ namespace RtdDolarNative
             LastErrorText.Text = "-";
             CsvFileText.Text = "Nenhum arquivo carregado";
             CsvCountText.Text = "0 pregoes";
+            RenderRtdAssets();
+        }
+
+        private string FocusedAsset()
+        {
+            if (string.IsNullOrWhiteSpace(_focusedAsset))
+            {
+                _focusedAsset = RtdConfig.NormalizeAsset(_config.Rtd.Asset);
+            }
+
+            if (string.IsNullOrWhiteSpace(_focusedAsset))
+            {
+                _focusedAsset = _config.Rtd.Assets.Select(x => x.Asset).FirstOrDefault();
+            }
+
+            return string.IsNullOrWhiteSpace(_focusedAsset) ? "WDOFUT_F_0" : _focusedAsset;
+        }
+
+        private MarketSnapshot FocusedSnapshot()
+        {
+            string focused = FocusedAsset();
+
+            lock (_snapshotsLock)
+            {
+                MarketSnapshot snapshot;
+
+                if (_snapshotsByAsset.TryGetValue(focused, out snapshot))
+                {
+                    return snapshot;
+                }
+            }
+
+            return null;
+        }
+
+        private void ApplyFocusedSnapshot()
+        {
+            MarketSnapshot snapshot = FocusedSnapshot();
+
+            if (snapshot != null)
+            {
+                _lastSnapshot = snapshot;
+                ApplySnapshot(snapshot);
+                RenderDom(snapshot);
+                Recalculate();
+            }
+            else
+            {
+                AssetText.Text = FocusedAsset();
+            }
+        }
+
+        private void RenderRtdAssets()
+        {
+            if (RtdAssetsGrid == null)
+            {
+                return;
+            }
+
+            string selected = SelectedAsset();
+            string focused = FocusedAsset();
+            List<string> enabled = _config.Rtd.GetEnabledAssets();
+            List<RtdAssetRow> rows = new List<RtdAssetRow>();
+
+            foreach (RtdAssetConfig item in _config.Rtd.Assets)
+            {
+                MarketSnapshot snapshot = null;
+
+                lock (_snapshotsLock)
+                {
+                    _snapshotsByAsset.TryGetValue(item.Asset, out snapshot);
+                }
+
+                RtdAssetRow row = new RtdAssetRow();
+                row.Asset = item.Asset;
+                row.EnabledText = item.Enabled ? "Ligado" : "Off";
+                row.FocusText = string.Equals(item.Asset, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : "";
+                row.LastText = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+                row.Status = snapshot == null ? (item.Enabled ? "aguardando" : "desligado") : EmptyToDash(snapshot.Status);
+                rows.Add(row);
+            }
+
+            RtdAssetsGrid.ItemsSource = rows;
+
+            RtdAssetRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
+                                      rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+
+            if (selectedRow != null)
+            {
+                RtdAssetsGrid.SelectedItem = selectedRow;
+            }
+
+            RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
         }
 
         private void ApplySnapshot(MarketSnapshot snapshot)
         {
-            AssetText.Text = string.IsNullOrWhiteSpace(snapshot.Asset) ? _config.Rtd.Asset : snapshot.Asset;
+            AssetText.Text = string.IsNullOrWhiteSpace(snapshot.Asset) ? FocusedAsset() : snapshot.Asset;
             ProfitTimeText.Text = EmptyToDash(snapshot.HoraProfit);
             PriceText.Text = FormatDecimal(snapshot.Ultimo, "N2");
             VolumeText.Text = FormatDecimal(snapshot.Volume, "N0");
@@ -430,8 +781,9 @@ namespace RtdDolarNative
 
         private MarketSnapshot CurrentSnapshotForCalc()
         {
-            MarketSnapshot snapshot = _lastSnapshot == null ? new MarketSnapshot() : _lastSnapshot.Clone();
-            snapshot.Asset = string.IsNullOrWhiteSpace(snapshot.Asset) ? _config.Rtd.Asset : snapshot.Asset;
+            MarketSnapshot focused = FocusedSnapshot();
+            MarketSnapshot snapshot = focused == null ? (_lastSnapshot == null ? new MarketSnapshot() : _lastSnapshot.Clone()) : focused.Clone();
+            snapshot.Asset = FocusedAsset();
             ApplyInput(snapshot, "ABE", OpenInput.Text);
             ApplyInput(snapshot, "MAX", HighInput.Text);
             ApplyInput(snapshot, "MIN", LowInput.Text);
@@ -579,12 +931,18 @@ namespace RtdDolarNative
             }
 
             if (string.Equals(status, "connecting", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(status, "reconnecting", StringComparison.OrdinalIgnoreCase))
+                string.Equals(status, "reconnecting", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "restarting", StringComparison.OrdinalIgnoreCase))
             {
                 return new SolidColorBrush(Color.FromRgb(255, 184, 0));
             }
 
             if (string.Equals(status, "manual", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SolidColorBrush(Color.FromRgb(48, 56, 68));
+            }
+
+            if (string.Equals(status, "idle", StringComparison.OrdinalIgnoreCase))
             {
                 return new SolidColorBrush(Color.FromRgb(48, 56, 68));
             }
@@ -600,6 +958,15 @@ namespace RtdDolarNative
             }
 
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+        }
+
+        private sealed class RtdAssetRow
+        {
+            public string Asset { get; set; }
+            public string EnabledText { get; set; }
+            public string FocusText { get; set; }
+            public string LastText { get; set; }
+            public string Status { get; set; }
         }
     }
 }

@@ -24,6 +24,7 @@
 ## Porte do dashboard `rtd_dolar`
 
 - [x] Engine RTD assinando todos os campos padrao.
+- [x] Painel para adicionar, focar, ligar, desligar e remover ativos RTD.
 - [x] Tape em ring buffer.
 - [x] DOM nativo com marcacoes de niveis.
 - [x] CSV diario com parser C#, auto-load, drag/drop, caminho manual, `Ctrl+O` e fallback `Windows-1252`.
