@@ -56,7 +56,7 @@ namespace RtdDolarNative.MarketData
 
         public decimal? Media
         {
-            get { return GetDecimal("MED"); }
+            get { return GetDecimal("MED") ?? GetDecimal("67"); }
         }
 
         public decimal? Volume

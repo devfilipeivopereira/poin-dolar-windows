@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -207,6 +208,7 @@ namespace PoinDolarWindowsInstaller
                 }
 
                 MergeMissing(existing, template);
+                ApplySafeStartupDefaults(existing);
                 File.WriteAllText(destinationPath, serializer.Serialize(existing));
             }
             catch
@@ -240,6 +242,86 @@ namespace PoinDolarWindowsInstaller
                     MergeMissing(targetChild, sourceChild);
                 }
             }
+        }
+
+        private static void ApplySafeStartupDefaults(Dictionary<string, object> settings)
+        {
+            Dictionary<string, object> rtd = GetDictionary(settings, "Rtd");
+
+            if (rtd == null)
+            {
+                return;
+            }
+
+            rtd["AutoConnect"] = false;
+
+            foreach (Dictionary<string, object> asset in GetDictionaries(rtd, "Assets"))
+            {
+                asset["BookEnabled"] = false;
+                asset["TimesEnabled"] = false;
+            }
+
+            foreach (Dictionary<string, object> source in GetDictionaries(rtd, "Sources"))
+            {
+                string role = GetText(source, "Role");
+
+                if (string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase))
+                {
+                    source["Enabled"] = false;
+                }
+            }
+        }
+
+        private static Dictionary<string, object> GetDictionary(Dictionary<string, object> parent, string key)
+        {
+            object value;
+
+            if (parent == null || !parent.TryGetValue(key, out value))
+            {
+                return null;
+            }
+
+            return value as Dictionary<string, object>;
+        }
+
+        private static IEnumerable<Dictionary<string, object>> GetDictionaries(Dictionary<string, object> parent, string key)
+        {
+            object value;
+
+            if (parent == null || !parent.TryGetValue(key, out value))
+            {
+                yield break;
+            }
+
+            IEnumerable enumerable = value as IEnumerable;
+
+            if (enumerable == null || value is string)
+            {
+                yield break;
+            }
+
+            foreach (object item in enumerable)
+            {
+                Dictionary<string, object> dictionary = item as Dictionary<string, object>;
+
+                if (dictionary != null)
+                {
+                    yield return dictionary;
+                }
+            }
+        }
+
+        private static string GetText(Dictionary<string, object> parent, string key)
+        {
+            object value;
+
+            if (parent == null || !parent.TryGetValue(key, out value) || value == null)
+            {
+                return string.Empty;
+            }
+
+            return value.ToString();
         }
 
         private static void CopySelfForUninstall(string installDir)

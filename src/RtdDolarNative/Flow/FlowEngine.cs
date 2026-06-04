@@ -68,6 +68,58 @@ namespace RtdDolarNative.Flow
             return update;
         }
 
+        public FlowUpdate ProcessTrade(TradePrint trade, MarketSnapshot snapshot)
+        {
+            FlowUpdate update = new FlowUpdate();
+            update.Signals = new List<FlowSignal>();
+
+            if (trade == null || string.IsNullOrWhiteSpace(trade.Asset) || trade.Price <= 0m)
+            {
+                return update;
+            }
+
+            MarketSnapshot effectiveSnapshot = BuildSnapshotForTrade(trade, snapshot);
+            trade.Derived = false;
+            trade.DataQuality = MarketDataQuality.FullTimesAndTrades;
+            _recentTrades.Add(trade);
+
+            while (_recentTrades.Count > _config.MaxTradeBuffer)
+            {
+                _recentTrades.RemoveAt(0);
+            }
+
+            _profile.AddTrade(trade);
+            _cumulativeDelta += trade.Delta;
+            _vwapVolume += trade.Quantity;
+            _vwapPriceVolume += trade.Price * trade.Quantity;
+            update.Trade = trade;
+
+            FlowMetrics metrics = BuildMetrics(effectiveSnapshot, trade);
+            metrics.DataQuality = MarketDataQuality.FullTimesAndTrades;
+            metrics.Derived = false;
+            update.Metrics = metrics;
+
+            if (metrics != null)
+            {
+                update.Signals = _setups.Detect(metrics, trade);
+            }
+
+            _previousSnapshot = effectiveSnapshot.Clone();
+            return update;
+        }
+
+        private MarketSnapshot BuildSnapshotForTrade(TradePrint trade, MarketSnapshot snapshot)
+        {
+            MarketSnapshot result = snapshot == null ? new MarketSnapshot() : snapshot.Clone();
+            result.Asset = trade.Asset;
+            result.LocalTimestamp = trade.LocalTimestamp;
+            result.Rtd["ULT"] = trade.Price;
+            result.Rtd["QUL"] = trade.Quantity;
+            result.Raw["ULT"] = trade.Price.ToString();
+            result.Raw["QUL"] = trade.Quantity.ToString();
+            return result;
+        }
+
         private TradePrint CreateTradeIfNeeded(MarketSnapshot snapshot)
         {
             if (_previousSnapshot == null || !snapshot.Ultimo.HasValue)

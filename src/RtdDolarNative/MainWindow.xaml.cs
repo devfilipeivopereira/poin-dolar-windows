@@ -44,6 +44,8 @@ namespace RtdDolarNative
         private long _lastFlowProcessed = -1;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
+        private bool _renderingAssets;
+        private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public MainWindow()
         {
@@ -85,7 +87,15 @@ namespace RtdDolarNative
             _quantTimer.Start();
             _chartTimer.Start();
             _flowProcessor.Start();
-            StartRtd();
+            if (_config.Rtd.AutoConnect)
+            {
+                StartRtd();
+            }
+            else
+            {
+                SetIdleDisconnectedStatus();
+            }
+
             TryAutoLoadCsv();
         }
 
@@ -127,7 +137,15 @@ namespace RtdDolarNative
             {
                 ManualButton.Content = "Modo manual";
                 ConnectButton.IsEnabled = true;
-                StartRtd();
+                if (_config.Rtd.AutoConnect)
+                {
+                    StartRtd();
+                }
+                else
+                {
+                    SetIdleDisconnectedStatus();
+                    Recalculate();
+                }
             }
         }
 
@@ -203,7 +221,12 @@ namespace RtdDolarNative
 
         private void AddAssetButton_Click(object sender, RoutedEventArgs e)
         {
-            AddOrEnableAsset(NewAssetInput.Text, true);
+            SaveAssetFromForm(true, true);
+        }
+
+        private void SaveAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAssetFromForm(false, false);
         }
 
         private void NewAssetInput_KeyDown(object sender, KeyEventArgs e)
@@ -211,7 +234,7 @@ namespace RtdDolarNative
             if (e.Key == Key.Enter)
             {
                 e.Handled = true;
-                AddOrEnableAsset(NewAssetInput.Text, true);
+                SaveAssetFromForm(true, true);
             }
         }
 
@@ -276,38 +299,91 @@ namespace RtdDolarNative
             FocusSelectedAsset();
         }
 
-        private void AddOrEnableAsset(string text, bool focusAfterAdd)
+        private void RtdAssetsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            string asset = RtdConfig.NormalizeAsset(text);
-
-            if (string.IsNullOrWhiteSpace(asset))
+            if (_renderingAssets)
             {
-                SetWarnings(new[] { "Informe o codigo do ativo RTD." });
                 return;
             }
 
-            RtdAssetConfig existing = _config.Rtd.FindAsset(asset);
+            string asset = SelectedAsset();
+
+            if (!string.IsNullOrWhiteSpace(asset))
+            {
+                PopulateAssetForm(asset);
+            }
+        }
+
+        private void SaveAssetFromForm(bool addIfMissing, bool focusAfterSave)
+        {
+            string quoteCode = ReadText(QuoteCodeInput);
+
+            if (string.IsNullOrWhiteSpace(quoteCode))
+            {
+                quoteCode = ReadText(NewAssetInput);
+            }
+
+            string asset = RtdConfig.NormalizeAsset(quoteCode);
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Informe o Codigo Cotacao do ativo." });
+                return;
+            }
+
+            string selected = SelectedAsset();
+            RtdAssetConfig existing = addIfMissing ? _config.Rtd.FindAsset(asset) : _config.Rtd.FindAsset(selected);
 
             if (existing == null)
             {
-                _config.Rtd.Assets.Add(new RtdAssetConfig(asset, true));
-                _config.Rtd.EnsureDefaultSourcesForAsset(asset);
-                _log.Info("Ativo RTD adicionado: " + asset + ".");
-            }
-            else
-            {
-                existing.Enabled = true;
-                _config.Rtd.EnsureDefaultSourcesForAsset(asset);
-                _log.Info("Ativo RTD ligado: " + asset + ".");
+                existing = _config.Rtd.FindAsset(asset);
             }
 
-            if (focusAfterAdd)
+            bool isNew = existing == null;
+
+            if (isNew)
             {
-                SetFocusedAsset(asset);
+                existing = new RtdAssetConfig(asset, true);
+                _config.Rtd.Assets.Add(existing);
             }
 
-            NewAssetInput.Text = string.Empty;
-            ApplyRtdAssetChange("Ativo RTD ligado: " + asset + ".");
+            string oldAsset = existing.Asset;
+            bool wasFocused = string.Equals(FocusedAsset(), oldAsset, StringComparison.OrdinalIgnoreCase);
+            existing.Asset = asset;
+            existing.Name = string.IsNullOrWhiteSpace(ReadText(AssetNameInput)) ? asset : ReadText(AssetNameInput);
+            existing.QuoteCode = asset;
+            existing.BookTopic = NormalizeTopic(ReadText(BookTopicInput), "BOOK0");
+            existing.TimesTopic = NormalizeTopic(ReadText(TimesTopicInput), "T&T0");
+            existing.CsvPath = ReadText(CsvPathInput);
+            existing.Enabled = true;
+            existing.QuoteEnabled = QuoteEnabledInput == null || QuoteEnabledInput.IsChecked == true;
+            existing.BookEnabled = BookEnabledInput == null || BookEnabledInput.IsChecked == true;
+            existing.TimesEnabled = TimesEnabledInput != null && TimesEnabledInput.IsChecked == true;
+            existing.Normalize();
+
+            if (!string.IsNullOrWhiteSpace(oldAsset) && !string.Equals(oldAsset, existing.Asset, StringComparison.OrdinalIgnoreCase))
+            {
+                _config.Rtd.Sources.RemoveAll(x => string.Equals(x.Asset, oldAsset, StringComparison.OrdinalIgnoreCase));
+
+                if (string.Equals(_focusedAsset, oldAsset, StringComparison.OrdinalIgnoreCase))
+                {
+                    _focusedAsset = existing.Asset;
+                }
+            }
+
+            _config.Rtd.EnsureDefaultSourcesForAsset(existing.Asset);
+
+            if (focusAfterSave || wasFocused || string.IsNullOrWhiteSpace(_focusedAsset))
+            {
+                SetFocusedAsset(existing.Asset);
+            }
+
+            SaveRuntimeConfig();
+            RenderRtdAssets();
+            RenderRtdChannels();
+            RenderRtdSources();
+            PopulateAssetForm(existing.Asset);
+            ApplyRtdAssetChange((isNew ? "Ativo cadastrado: " : "Ativo salvo: ") + existing.Asset + ".");
         }
 
         private void FocusSelectedAsset()
@@ -365,7 +441,17 @@ namespace RtdDolarNative
 
         private void RemoveSelectedAsset()
         {
-            string asset = SelectedAsset();
+            string asset = SelectedAssetFromGrid();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                asset = RtdConfig.NormalizeAsset(ReadText(QuoteCodeInput));
+            }
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                asset = FocusedAsset();
+            }
 
             if (string.IsNullOrWhiteSpace(asset))
             {
@@ -373,23 +459,27 @@ namespace RtdDolarNative
                 return;
             }
 
-            if (_config.Rtd.Assets.Count <= 1)
+            int removedAssets = _config.Rtd.Assets.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
+            _config.Rtd.Sources.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
+            _postedTimesKeys.RemoveWhere(x => x.StartsWith(asset + "|", StringComparison.OrdinalIgnoreCase));
+
+            if (removedAssets == 0)
             {
-                RtdAssetConfig only = _config.Rtd.FindAsset(asset);
-
-                if (only != null)
-                {
-                    only.Enabled = false;
-                }
-
-                ApplyRtdAssetChange("Ultimo ativo mantido na lista e desligado: " + asset + ".");
+                SetWarnings(new[] { "Ativo RTD nao encontrado: " + asset + "." });
                 return;
             }
 
-            _config.Rtd.Assets.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
-            _config.Rtd.Sources.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
-
-            if (string.Equals(_focusedAsset, asset, StringComparison.OrdinalIgnoreCase))
+            if (_config.Rtd.Assets.Count == 0)
+            {
+                _focusedAsset = string.Empty;
+                _config.Rtd.Asset = string.Empty;
+                _dailyBars.Clear();
+                ClearAssetForm();
+                CsvFileText.Text = "Nenhum arquivo carregado";
+                CsvCountText.Text = "0 pregoes";
+                AssetText.Text = "-";
+            }
+            else if (string.Equals(_focusedAsset, asset, StringComparison.OrdinalIgnoreCase))
             {
                 string next = _config.Rtd.Assets.Where(x => x.Enabled).Select(x => x.Asset).FirstOrDefault() ??
                               _config.Rtd.Assets.Select(x => x.Asset).FirstOrDefault();
@@ -427,15 +517,34 @@ namespace RtdDolarNative
 
             if (string.IsNullOrWhiteSpace(normalized))
             {
-                normalized = "WDOFUT_F_0";
+                _focusedAsset = string.Empty;
+                _config.Rtd.Asset = string.Empty;
+                AssetText.Text = "-";
+                ClearAssetForm();
+                LoadCsvForFocusedAsset();
+                return;
             }
 
             _focusedAsset = normalized;
             _config.Rtd.Asset = normalized;
-            AssetText.Text = normalized;
+            AssetText.Text = EmptyToDash(normalized);
+            PopulateAssetForm(normalized);
+            LoadCsvForFocusedAsset();
         }
 
         private string SelectedAsset()
+        {
+            string selected = SelectedAssetFromGrid();
+
+            if (!string.IsNullOrWhiteSpace(selected))
+            {
+                return selected;
+            }
+
+            return _focusedAsset;
+        }
+
+        private string SelectedAssetFromGrid()
         {
             RtdAssetRow row = RtdAssetsGrid.SelectedItem as RtdAssetRow;
 
@@ -444,7 +553,7 @@ namespace RtdDolarNative
                 return row.Asset;
             }
 
-            return _focusedAsset;
+            return string.Empty;
         }
 
         private string SelectedSourceName()
@@ -485,8 +594,10 @@ namespace RtdDolarNative
             }
 
             source.Enabled = enabled;
+            SetChannelEnabled(source.Asset, ChannelNameForRole(source.Role), enabled);
             _config.Rtd.NormalizeSources();
             SaveRuntimeConfig();
+            RenderRtdChannels();
             RenderRtdSources();
 
             if (_probeService.IsRunning && !_manualMode)
@@ -497,6 +608,27 @@ namespace RtdDolarNative
             }
 
             SetWarnings(new[] { (enabled ? "Fonte RTD ligada: " : "Fonte RTD desligada: ") + sourceName + "." });
+        }
+
+        private string ChannelNameForRole(string role)
+        {
+            if (string.Equals(role, "PriceVolume", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Cotacao";
+            }
+
+            if (string.Equals(role, "TopBook", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Book";
+            }
+
+            if (string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Times";
+            }
+
+            return string.Empty;
         }
 
         private void SetChannelFromCheckBox(object sender, string channel)
@@ -543,32 +675,48 @@ namespace RtdDolarNative
                 return false;
             }
 
+            bool changed = false;
+            RtdAssetConfig assetConfig = _config.Rtd.FindAsset(normalizedAsset);
+
+            if (assetConfig != null)
+            {
+                if (string.Equals(channel, "Cotacao", StringComparison.OrdinalIgnoreCase) && assetConfig.QuoteEnabled != enabled)
+                {
+                    assetConfig.QuoteEnabled = enabled;
+                    changed = true;
+                }
+                else if (string.Equals(channel, "Book", StringComparison.OrdinalIgnoreCase) && assetConfig.BookEnabled != enabled)
+                {
+                    assetConfig.BookEnabled = enabled;
+                    changed = true;
+                }
+                else if (string.Equals(channel, "Times", StringComparison.OrdinalIgnoreCase) && assetConfig.TimesEnabled != enabled)
+                {
+                    assetConfig.TimesEnabled = enabled;
+                    changed = true;
+                }
+            }
+
             _config.Rtd.EnsureDefaultSourcesForAsset(normalizedAsset);
             _config.Rtd.NormalizeSources();
-            bool changed = false;
 
             foreach (RtdSourceConfig source in _config.Rtd.Sources.Where(x => string.Equals(x.Asset, normalizedAsset, StringComparison.OrdinalIgnoreCase)))
             {
-                bool applies = ChannelMatchesRole(channel, source.Role);
-
-                if (!applies)
+                if (!ChannelMatchesRole(channel, source.Role))
                 {
                     continue;
                 }
 
-                bool target = enabled;
-
-                if (enabled && string.Equals(source.Role, "BookDepth", StringComparison.OrdinalIgnoreCase) &&
-                    (source.Fields == null || source.Fields.Count == 0))
+                if (source.Enabled != enabled)
                 {
-                    target = false;
-                }
-
-                if (source.Enabled != target)
-                {
-                    source.Enabled = target;
+                    source.Enabled = enabled;
                     changed = true;
                 }
+            }
+
+            if (string.Equals(normalizedAsset, FocusedAsset(), StringComparison.OrdinalIgnoreCase))
+            {
+                PopulateAssetForm(normalizedAsset);
             }
 
             return changed;
@@ -577,10 +725,29 @@ namespace RtdDolarNative
         private bool ChannelEnabled(string asset, string channel)
         {
             string normalizedAsset = RtdConfig.NormalizeAsset(asset);
+            RtdAssetConfig assetConfig = _config.Rtd.FindAsset(normalizedAsset);
 
-            return _config.Rtd.Sources
-                .Where(x => string.Equals(x.Asset, normalizedAsset, StringComparison.OrdinalIgnoreCase))
-                .Any(x => ChannelMatchesRole(channel, x.Role) && x.Enabled);
+            if (assetConfig == null)
+            {
+                return false;
+            }
+
+            if (string.Equals(channel, "Cotacao", StringComparison.OrdinalIgnoreCase))
+            {
+                return assetConfig.QuoteEnabled;
+            }
+
+            if (string.Equals(channel, "Book", StringComparison.OrdinalIgnoreCase))
+            {
+                return assetConfig.BookEnabled;
+            }
+
+            if (string.Equals(channel, "Times", StringComparison.OrdinalIgnoreCase))
+            {
+                return assetConfig.TimesEnabled;
+            }
+
+            return false;
         }
 
         private bool ChannelMatchesRole(string channel, string role)
@@ -663,6 +830,11 @@ namespace RtdDolarNative
 
         private void LoadCsvFromPath(string path)
         {
+            LoadCsvFromPath(path, true);
+        }
+
+        private void LoadCsvFromPath(string path, bool saveToFocusedAsset)
+        {
             try
             {
                 if (string.IsNullOrWhiteSpace(path))
@@ -685,6 +857,21 @@ namespace RtdDolarNative
                 CsvFileText.Text = Path.GetFileName(path) + " (" + parsed.EncodingName + ", delim " + parsed.Delimiter + ")";
                 CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118));
                 CsvCountText.Text = _dailyBars.Count.ToString(_ptBr) + " pregoes";
+
+                if (saveToFocusedAsset)
+                {
+                    RtdAssetConfig asset = _config.Rtd.FindAsset(FocusedAsset());
+
+                    if (asset != null)
+                    {
+                        asset.CsvPath = path;
+                        asset.Normalize();
+                        SaveRuntimeConfig();
+                        RenderRtdAssets();
+                        PopulateAssetForm(asset.Asset);
+                    }
+                }
+
                 SetWarnings(parsed.Warnings);
                 _log.Info("CSV carregado: " + _dailyBars.Count.ToString(_ptBr) + " pregoes, " + parsed.EncodingName + ", delimitador " + parsed.Delimiter + ".");
                 Recalculate();
@@ -703,6 +890,11 @@ namespace RtdDolarNative
         {
             try
             {
+                if (LoadCsvForFocusedAsset())
+                {
+                    return;
+                }
+
                 string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 string downloadsData = Path.Combine(profile, "Downloads", "Dados_Dolar");
                 string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -733,6 +925,39 @@ namespace RtdDolarNative
             {
                 _log.Warn("Auto-load CSV ignorado: " + ex.Message);
             }
+        }
+
+        private bool LoadCsvForFocusedAsset()
+        {
+            RtdAssetConfig asset = _config.Rtd.FindAsset(FocusedAsset());
+            string path = asset == null ? null : asset.CsvPath;
+
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                LoadCsvFromPath(path, false);
+                return true;
+            }
+
+            _dailyBars.Clear();
+
+            if (CsvPathInput != null)
+            {
+                CsvPathInput.Text = string.IsNullOrWhiteSpace(path) ? string.Empty : path;
+            }
+
+            if (CsvFileText != null)
+            {
+                CsvFileText.Text = string.IsNullOrWhiteSpace(path) ? "Nenhum arquivo carregado" : "CSV nao encontrado: " + path;
+                CsvFileText.Foreground = new SolidColorBrush(string.IsNullOrWhiteSpace(path) ? Color.FromRgb(169, 179, 191) : Color.FromRgb(255, 184, 0));
+            }
+
+            if (CsvCountText != null)
+            {
+                CsvCountText.Text = "0 pregoes";
+            }
+
+            Recalculate();
+            return false;
         }
 
         private void ProbeService_StatusChanged(string status, Exception error)
@@ -782,6 +1007,8 @@ namespace RtdDolarNative
                 {
                     _lastVersion = version;
                     ApplySnapshot(snapshot);
+                    RenderQuoteFields(snapshot);
+                    RenderBook(snapshot);
                 }
 
                 TimeSpan age = now - snapshot.LocalTimestamp;
@@ -797,6 +1024,7 @@ namespace RtdDolarNative
                 if (snapshot != null)
                 {
                     RenderDom(snapshot);
+                    RenderBook(snapshot);
                 }
 
                 RenderTape();
@@ -837,6 +1065,22 @@ namespace RtdDolarNative
         private void RenderTape()
         {
             string focused = FocusedAsset();
+            MarketSnapshot snapshot = FocusedSnapshot();
+            List<TimesTradeRow> realTimes = BuildTimesRows(snapshot);
+
+            if (realTimes.Count > 0)
+            {
+                PostRealTimes(snapshot, realTimes);
+                TapeGrid.ItemsSource = realTimes;
+
+                if (FlowTapeGrid != null)
+                {
+                    FlowTapeGrid.ItemsSource = realTimes;
+                }
+
+                return;
+            }
+
             List<TradePrint> flowTrades = _flowProcessor.GetTrades(focused, 250);
 
             if (flowTrades.Count > 0)
@@ -867,8 +1111,229 @@ namespace RtdDolarNative
             }
         }
 
+        private void RenderQuoteFields(MarketSnapshot snapshot)
+        {
+            if (QuoteFieldsGrid == null)
+            {
+                return;
+            }
+
+            if (snapshot == null)
+            {
+                QuoteFieldsGrid.ItemsSource = null;
+                return;
+            }
+
+            List<QuoteFieldRow> rows = new List<QuoteFieldRow>();
+            IEnumerable<string> fields = RtdConfig.DefaultQuoteFields
+                .Concat(_config.Rtd.Fields ?? new List<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string field in fields)
+            {
+                string value = RawText(snapshot, field);
+
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    value = RtdText(snapshot, field);
+                }
+
+                QuoteFieldRow row = new QuoteFieldRow();
+                row.Campo = field;
+                row.Valor = EmptyToDash(value);
+                row.Fonte = "Cotacao";
+                rows.Add(row);
+            }
+
+            QuoteFieldsGrid.ItemsSource = rows;
+        }
+
+        private void RenderBook(MarketSnapshot snapshot)
+        {
+            if (BookGrid == null)
+            {
+                return;
+            }
+
+            List<BookDepthRow> rows = BuildBookRows(snapshot);
+            BookGrid.ItemsSource = rows;
+        }
+
+        private List<BookDepthRow> BuildBookRows(MarketSnapshot snapshot)
+        {
+            List<BookDepthRow> rows = new List<BookDepthRow>();
+
+            if (snapshot == null)
+            {
+                return rows;
+            }
+
+            for (int index = 0; index <= 49; index++)
+            {
+                BookDepthRow row = new BookDepthRow();
+                row.Nivel = index;
+                row.HoraCompra = RawText(snapshot, BookField("HORC", index));
+                row.Comprador = RawText(snapshot, BookField("ACP", index));
+                row.QtdeCompra = RawText(snapshot, BookField("VOC", index));
+                row.Compra = RawText(snapshot, BookField("OCP", index));
+                row.Venda = RawText(snapshot, BookField("OVD", index));
+                row.QtdeVenda = RawText(snapshot, BookField("VOV", index));
+                row.Vendedor = RawText(snapshot, BookField("AVD", index));
+                row.HoraVenda = RawText(snapshot, BookField("HORV", index));
+
+                if (row.HasData())
+                {
+                    rows.Add(row);
+                }
+            }
+
+            return rows;
+        }
+
+        private List<TimesTradeRow> BuildTimesRows(MarketSnapshot snapshot)
+        {
+            List<TimesTradeRow> rows = new List<TimesTradeRow>();
+
+            if (snapshot == null)
+            {
+                return rows;
+            }
+
+            for (int index = 0; index <= 99; index++)
+            {
+                TimesTradeRow row = new TimesTradeRow();
+                row.Linha = index;
+                row.Data = RawText(snapshot, TimesField("DAT", index));
+                row.Compradora = RawText(snapshot, TimesField("ACP", index));
+                row.Preco = RawText(snapshot, TimesField("PRE", index));
+                row.Quantidade = RawText(snapshot, TimesField("QUL", index));
+                row.Vendedora = RawText(snapshot, TimesField("AVD", index));
+                row.Agressor = RawText(snapshot, TimesField("AGR", index));
+                row.Qualidade = "FullTimesAndTrades";
+
+                if (row.HasData())
+                {
+                    rows.Add(row);
+                }
+            }
+
+            return rows;
+        }
+
+        private void PostRealTimes(MarketSnapshot snapshot, List<TimesTradeRow> rows)
+        {
+            if (snapshot == null || rows == null || rows.Count == 0)
+            {
+                return;
+            }
+
+            if (_postedTimesKeys.Count > 5000)
+            {
+                _postedTimesKeys.Clear();
+            }
+
+            foreach (TimesTradeRow row in rows.OrderByDescending(x => x.Linha))
+            {
+                decimal? price = ValueParser.ToDecimal(row.Preco);
+                decimal? quantity = ValueParser.ToDecimal(row.Quantidade);
+
+                if (!price.HasValue || price.Value <= 0m)
+                {
+                    continue;
+                }
+
+                string key = snapshot.Asset + "|" + row.Data + "|" + row.Compradora + "|" + row.Preco + "|" + row.Quantidade + "|" + row.Vendedora + "|" + row.Agressor;
+
+                if (_postedTimesKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                _postedTimesKeys.Add(key);
+
+                decimal qty = quantity.HasValue && quantity.Value > 0m ? quantity.Value : 1m;
+                string aggressor = NormalizeAggressor(row.Agressor);
+                TradePrint trade = new TradePrint();
+                trade.Asset = snapshot.Asset;
+                trade.LocalTimestamp = snapshot.LocalTimestamp;
+                trade.ProfitTime = row.Data;
+                trade.Price = price.Value;
+                trade.Quantity = qty;
+                trade.Volume = qty;
+                trade.Aggressor = aggressor;
+                trade.Classification = aggressor == "Buy" ? "agressao compra" : (aggressor == "Sell" ? "agressao venda" : "neutro");
+                trade.Delta = aggressor == "Buy" ? qty : (aggressor == "Sell" ? -qty : 0m);
+                trade.Derived = false;
+                trade.DataQuality = MarketDataQuality.FullTimesAndTrades;
+                trade.Bid = snapshot.OfertaCompra;
+                trade.Ask = snapshot.OfertaVenda;
+                _flowProcessor.PostTrade(trade, snapshot);
+            }
+        }
+
+        private string NormalizeAggressor(string aggressor)
+        {
+            if (string.IsNullOrWhiteSpace(aggressor))
+            {
+                return "Neutral";
+            }
+
+            string value = aggressor.Trim().ToUpperInvariant();
+
+            if (value == "C" || value == "COMPRA" || value == "COMPRADOR" || value.Contains("BUY"))
+            {
+                return "Buy";
+            }
+
+            if (value == "V" || value == "VENDA" || value == "VENDEDOR" || value.Contains("SELL"))
+            {
+                return "Sell";
+            }
+
+            return "Neutral";
+        }
+
+        private string BookField(string field, int index)
+        {
+            return "BOOK_" + field + "_" + index.ToString(_ptBr);
+        }
+
+        private string TimesField(string field, int index)
+        {
+            return "TIMES_" + field + "_" + index.ToString(_ptBr);
+        }
+
+        private string RawText(MarketSnapshot snapshot, string field)
+        {
+            if (snapshot == null || snapshot.Raw == null || string.IsNullOrWhiteSpace(field))
+            {
+                return string.Empty;
+            }
+
+            string value;
+            return snapshot.Raw.TryGetValue(field, out value) ? value : string.Empty;
+        }
+
+        private string RtdText(MarketSnapshot snapshot, string field)
+        {
+            if (snapshot == null || snapshot.Rtd == null || string.IsNullOrWhiteSpace(field))
+            {
+                return string.Empty;
+            }
+
+            object value;
+            return snapshot.Rtd.TryGetValue(field, out value) && value != null ? value.ToString() : string.Empty;
+        }
+
         private void StartRtd()
         {
+            if (_config.Rtd.GetEnabledAssets().Count == 0)
+            {
+                SetIdleDisconnectedStatus();
+                SetWarnings(new[] { "Cadastre e ligue pelo menos um ativo antes de conectar o RTD." });
+                return;
+            }
+
             _manualMode = false;
             ManualButton.Content = "Modo manual";
             ConnectButton.IsEnabled = true;
@@ -884,14 +1349,26 @@ namespace RtdDolarNative
             RenderRtdAssets();
         }
 
+        private void SetIdleDisconnectedStatus()
+        {
+            _manualMode = false;
+            ManualButton.Content = "Modo manual";
+            ConnectButton.IsEnabled = true;
+            ConnectButton.Content = "Conectar";
+            StatusText.Text = "idle";
+            StatusBadgeBorder.Background = StatusBrush("idle");
+            LastErrorText.Text = "-";
+            RenderRtdAssets();
+        }
+
         private void InitializeStaticText()
         {
-            AssetText.Text = FocusedAsset();
+            AssetText.Text = EmptyToDash(FocusedAsset());
             ArchitectureText.Text = Environment.Is64BitProcess ? "x64" : "x86";
             FieldsText.Text = string.Join(", ", _config.Rtd.Fields.ToArray());
             PollText.Text = _config.Rtd.PollIntervalMs.ToString(_ptBr) + " ms";
-            StatusText.Text = "starting";
-            StatusBadgeBorder.Background = StatusBrush("starting");
+            StatusText.Text = "idle";
+            StatusBadgeBorder.Background = StatusBrush("idle");
             LastErrorText.Text = "-";
             CsvFileText.Text = "Nenhum arquivo carregado";
             CsvCountText.Text = "0 pregoes";
@@ -912,7 +1389,104 @@ namespace RtdDolarNative
                 _focusedAsset = _config.Rtd.Assets.Select(x => x.Asset).FirstOrDefault();
             }
 
-            return string.IsNullOrWhiteSpace(_focusedAsset) ? "WDOFUT_F_0" : _focusedAsset;
+            return string.IsNullOrWhiteSpace(_focusedAsset) ? string.Empty : _focusedAsset;
+        }
+
+        private void PopulateAssetForm(string asset)
+        {
+            if (AssetNameInput == null || QuoteCodeInput == null || BookTopicInput == null || TimesTopicInput == null)
+            {
+                return;
+            }
+
+            RtdAssetConfig item = _config.Rtd.FindAsset(asset);
+
+            if (item == null)
+            {
+                ClearAssetForm();
+                return;
+            }
+
+            item.Normalize();
+            AssetNameInput.Text = item.Name;
+            QuoteCodeInput.Text = item.QuoteCode;
+            NewAssetInput.Text = item.QuoteCode;
+            BookTopicInput.Text = item.BookTopic;
+            TimesTopicInput.Text = item.TimesTopic;
+            CsvPathInput.Text = item.CsvPath;
+
+            if (QuoteEnabledInput != null)
+            {
+                QuoteEnabledInput.IsChecked = item.QuoteEnabled;
+            }
+
+            if (BookEnabledInput != null)
+            {
+                BookEnabledInput.IsChecked = item.BookEnabled;
+            }
+
+            if (TimesEnabledInput != null)
+            {
+                TimesEnabledInput.IsChecked = item.TimesEnabled;
+            }
+        }
+
+        private void ClearAssetForm()
+        {
+            if (AssetNameInput != null)
+            {
+                AssetNameInput.Text = string.Empty;
+            }
+
+            if (QuoteCodeInput != null)
+            {
+                QuoteCodeInput.Text = string.Empty;
+            }
+
+            if (NewAssetInput != null)
+            {
+                NewAssetInput.Text = string.Empty;
+            }
+
+            if (BookTopicInput != null)
+            {
+                BookTopicInput.Text = "BOOK0";
+            }
+
+            if (TimesTopicInput != null)
+            {
+                TimesTopicInput.Text = "T&T0";
+            }
+
+            if (CsvPathInput != null)
+            {
+                CsvPathInput.Text = string.Empty;
+            }
+
+            if (QuoteEnabledInput != null)
+            {
+                QuoteEnabledInput.IsChecked = true;
+            }
+
+            if (BookEnabledInput != null)
+            {
+                BookEnabledInput.IsChecked = false;
+            }
+
+            if (TimesEnabledInput != null)
+            {
+                TimesEnabledInput.IsChecked = false;
+            }
+        }
+
+        private string ReadText(System.Windows.Controls.TextBox input)
+        {
+            return input == null || input.Text == null ? string.Empty : input.Text.Trim();
+        }
+
+        private string NormalizeTopic(string topic, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(topic) ? fallback : topic.Trim().ToUpperInvariant();
         }
 
         private MarketSnapshot FocusedSnapshot()
@@ -940,6 +1514,8 @@ namespace RtdDolarNative
             {
                 _lastSnapshot = snapshot;
                 ApplySnapshot(snapshot);
+                RenderQuoteFields(snapshot);
+                RenderBook(snapshot);
                 RenderDom(snapshot);
                 Recalculate();
             }
@@ -963,6 +1539,7 @@ namespace RtdDolarNative
 
             foreach (RtdAssetConfig item in _config.Rtd.Assets)
             {
+                item.Normalize();
                 MarketSnapshot snapshot = null;
 
                 lock (_snapshotsLock)
@@ -971,22 +1548,37 @@ namespace RtdDolarNative
                 }
 
                 RtdAssetRow row = new RtdAssetRow();
+                row.Name = item.Name;
                 row.Asset = item.Asset;
+                row.QuoteCode = item.QuoteCode;
+                row.BookTopic = item.BookTopic;
+                row.TimesTopic = item.TimesTopic;
+                row.CsvText = string.IsNullOrWhiteSpace(item.CsvPath) ? "-" : Path.GetFileName(item.CsvPath);
                 row.EnabledText = item.Enabled ? "Ligado" : "Off";
+                row.ChannelsText = (item.QuoteEnabled ? "C" : "-") + "/" + (item.BookEnabled ? "B" : "-") + "/" + (item.TimesEnabled ? "T" : "-");
                 row.FocusText = string.Equals(item.Asset, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : "";
                 row.LastText = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
                 row.Status = snapshot == null ? (item.Enabled ? "aguardando" : "desligado") : EmptyToDash(snapshot.Status);
                 rows.Add(row);
             }
 
-            RtdAssetsGrid.ItemsSource = rows;
+            _renderingAssets = true;
 
-            RtdAssetRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
-                                      rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
-
-            if (selectedRow != null)
+            try
             {
-                RtdAssetsGrid.SelectedItem = selectedRow;
+                RtdAssetsGrid.ItemsSource = rows;
+
+                RtdAssetRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
+                                          rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+
+                if (selectedRow != null)
+                {
+                    RtdAssetsGrid.SelectedItem = selectedRow;
+                }
+            }
+            finally
+            {
+                _renderingAssets = false;
             }
 
             RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
@@ -1011,7 +1603,9 @@ namespace RtdDolarNative
                 row.Cotacao = ChannelEnabled(asset.Asset, "Cotacao");
                 row.Book = ChannelEnabled(asset.Asset, "Book");
                 row.Times = ChannelEnabled(asset.Asset, "Times");
-                row.Status = asset.Enabled ? "ativo ligado" : "ativo desligado";
+                row.Status = asset.Enabled
+                    ? "ativo ligado | cotacao " + (row.Cotacao ? "on" : "off") + " | book " + (row.Book ? "on" : "off") + " | times " + (row.Times ? "on" : "off")
+                    : "ativo desligado";
                 rows.Add(row);
             }
 
@@ -1049,9 +1643,13 @@ namespace RtdDolarNative
                 RtdSourceRow row = new RtdSourceRow();
                 row.Name = source.Name;
                 row.Asset = source.Asset;
+                row.Topic = string.IsNullOrWhiteSpace(source.Topic) ? source.Asset : source.Topic;
                 row.Role = source.Role;
                 row.EnabledText = source.Enabled ? "Ligado" : "Off";
                 row.FieldsText = source.Fields == null || source.Fields.Count == 0 ? "-" : string.Join(", ", source.Fields.ToArray());
+                row.IndexText = source.IndexFrom.HasValue || source.IndexTo.HasValue
+                    ? (source.IndexFrom.HasValue ? source.IndexFrom.Value.ToString(_ptBr) : "0") + ".." + (source.IndexTo.HasValue ? source.IndexTo.Value.ToString(_ptBr) : "0")
+                    : "-";
                 row.PollText = source.PollIntervalMs.ToString(_ptBr) + " ms";
 
                 if (!enabledAssets.Contains(source.Asset))
@@ -1541,8 +2139,14 @@ namespace RtdDolarNative
 
         private sealed class RtdAssetRow
         {
+            public string Name { get; set; }
             public string Asset { get; set; }
+            public string QuoteCode { get; set; }
+            public string BookTopic { get; set; }
+            public string TimesTopic { get; set; }
+            public string CsvText { get; set; }
             public string EnabledText { get; set; }
+            public string ChannelsText { get; set; }
             public string FocusText { get; set; }
             public string LastText { get; set; }
             public string Status { get; set; }
@@ -1552,9 +2156,11 @@ namespace RtdDolarNative
         {
             public string Name { get; set; }
             public string Asset { get; set; }
+            public string Topic { get; set; }
             public string Role { get; set; }
             public string EnabledText { get; set; }
             public string FieldsText { get; set; }
+            public string IndexText { get; set; }
             public string PollText { get; set; }
             public string Status { get; set; }
             public string UpdatesText { get; set; }
@@ -1576,6 +2182,60 @@ namespace RtdDolarNative
             public string Name { get; set; }
             public string Value { get; set; }
             public string Detail { get; set; }
+        }
+
+        private sealed class QuoteFieldRow
+        {
+            public string Campo { get; set; }
+            public string Valor { get; set; }
+            public string Fonte { get; set; }
+        }
+
+        private sealed class BookDepthRow
+        {
+            public int Nivel { get; set; }
+            public string HoraCompra { get; set; }
+            public string Comprador { get; set; }
+            public string QtdeCompra { get; set; }
+            public string Compra { get; set; }
+            public string Venda { get; set; }
+            public string QtdeVenda { get; set; }
+            public string Vendedor { get; set; }
+            public string HoraVenda { get; set; }
+
+            public bool HasData()
+            {
+                return !string.IsNullOrWhiteSpace(HoraCompra) ||
+                       !string.IsNullOrWhiteSpace(Comprador) ||
+                       !string.IsNullOrWhiteSpace(QtdeCompra) ||
+                       !string.IsNullOrWhiteSpace(Compra) ||
+                       !string.IsNullOrWhiteSpace(Venda) ||
+                       !string.IsNullOrWhiteSpace(QtdeVenda) ||
+                       !string.IsNullOrWhiteSpace(Vendedor) ||
+                       !string.IsNullOrWhiteSpace(HoraVenda);
+            }
+        }
+
+        private sealed class TimesTradeRow
+        {
+            public int Linha { get; set; }
+            public string Data { get; set; }
+            public string Compradora { get; set; }
+            public string Preco { get; set; }
+            public string Quantidade { get; set; }
+            public string Vendedora { get; set; }
+            public string Agressor { get; set; }
+            public string Qualidade { get; set; }
+
+            public bool HasData()
+            {
+                return !string.IsNullOrWhiteSpace(Data) ||
+                       !string.IsNullOrWhiteSpace(Compradora) ||
+                       !string.IsNullOrWhiteSpace(Preco) ||
+                       !string.IsNullOrWhiteSpace(Quantidade) ||
+                       !string.IsNullOrWhiteSpace(Vendedora) ||
+                       !string.IsNullOrWhiteSpace(Agressor);
+            }
         }
     }
 }

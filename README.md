@@ -11,24 +11,27 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - thread RTD `STA` dedicada;
 - assinatura COM reaproveitando a assinatura validada em `RTD_C#`;
 - assinatura dos campos RTD completos configurados em `appsettings.json`;
-- painel de ativos RTD para adicionar, focar, ligar, desligar e remover simbolos sem editar arquivo manualmente;
-- UI WPF com DOM, tape, niveis, abertura, POC, variacao percentual, volume profile, confluencia, backtest proxy e grafico nativo;
+- menu superior em abas para separar cadastro, cotacao, book, tape, order flow, volume profile, setups, niveis, grafico, backtest e diagnostico;
+- tela `Ativos` para cadastrar `Codigo Cotacao`, `Canal Book`, `Canal Times`, CSV historico e ligar/desligar `Cotacao`, `Book` e `Times` por ativo;
+- UI WPF com cotacao, DOM/book real, tape real ou derivado, niveis, volume profile, setups, backtest e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
-- carregamento de CSV por botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
+- carregamento de CSV por ativo via botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
 - calculos de volatilidade, ATR, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais e confluencias;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
 
 ## Telas nativas
 
-- `DOM`: escada por tick, volumes bid/ask, marcacoes por preco e tape recente.
-- `Niveis`: todos os pontos calculados ordenaveis.
-- `Abertura`: desvios da abertura por sigma.
-- `POC`: desvios do POC proxy por sigma.
-- `Variacao %`: mapas percentuais por fechamento anterior, abertura e POC.
+- `Ativos`: cadastro de ativo, canais RTD e CSV historico.
+- `Cotacao`: campos RTD de preco, volume e indicadores.
+- `DOM / Book`: escada por tick, book real `0..49`, volumes bid/ask, marcacoes por preco e tape recente.
+- `Tape`: times and trades real quando `Times` estiver ligado; fallback para tape derivado.
+- `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas.
 - `Volume Profile`: bins, POC, VAH, VAL, HVN e LVN.
-- `Confluencia`: clusters de niveis com score e evidencia.
-- `Backtest Proxy`: toque/reversao de desvios historicos.
+- `Setups`: sinais de fluxo, direcao, score, nivel associado e qualidade do dado.
+- `Niveis`: niveis principais, abertura, POC, variacao percentual e confluencia em subtabs.
 - `Grafico`: candles diarios, candle atual e linhas horizontais de niveis.
+- `Backtest`: toque/reversao de desvios historicos.
+- `Diagnostico`: fontes RTD, topicos, indices, erros e metricas.
 
 ## Como compilar
 
@@ -49,20 +52,28 @@ Logs ficam em `logs/rtd-dolar-native.log`.
 
 ## Ativos RTD
 
-O painel `RTD ativos` permite adicionar novos codigos de ativo do Profit, ligar/desligar cada assinatura e escolher qual ativo fica em foco no dashboard.
+A aba `Ativos` permite cadastrar novos ativos e separar os tres canais de RTD vindos do Profit:
+
+- `Codigo Cotacao`, exemplo `WDON26_G_0`: assina `RTD("rtdtrading.rtdserver",, QuoteCode, Field)`.
+- `Canal Book`, exemplo `BOOK0`: assina `RTD("rtdtrading.rtdserver",, BookTopic, Field, Index)` com indices `0..49`.
+- `Canal Times`, exemplo `T&T0`: assina `RTD("rtdtrading.rtdserver",, TimesTopic, Field, Index)` com indices `0..99`.
+- `CSV Historico`: arquivo carregado automaticamente quando o ativo recebe foco.
 
 - `Adicionar` cria o ativo, liga a assinatura e coloca o ativo em foco.
 - `Focar` ou duplo clique na grade troca o ativo usado no DOM, tape filtrado, topo e calculos intraday.
 - `Ligar` e `Desligar` reiniciam o loop RTD com a lista atual de ativos habilitados.
-- `Remover` apaga o ativo da lista; se for o ultimo, ele fica apenas desligado.
+- `Cotacao`, `Book` e `Times` podem ser ligados/desligados separadamente.
+- `Remover` apaga o ativo selecionado ou o `Codigo Cotacao` digitado; se for o ultimo, a lista fica vazia e o RTD permanece em `idle`.
+
+Por padrao o app abre sem conectar automaticamente ao RTD. Isso deixa a aba `Ativos` operavel antes de qualquer assinatura pesada de book/times. Depois de cadastrar e escolher os canais, use `Conectar`.
 
 A lista e persistida em `appsettings.json` na chave `Rtd.Assets`.
 
 ## CSV diario
 
-O app tenta carregar automaticamente o CSV mais recente em `%USERPROFILE%\Downloads\Dados_Dolar` ou em `Documentos` quando o nome contem o ativo configurado ou `WDO`.
+O app carrega primeiro o `CSV Historico` do ativo em foco. Se o ativo ainda nao tiver CSV cadastrado, tenta carregar automaticamente o CSV mais recente em `%USERPROFILE%\Downloads\Dados_Dolar` ou em `Documentos` quando o nome contem o ativo configurado ou `WDO`.
 
-Tambem e possivel carregar manualmente pelo botao `Carregar CSV`, pelo painel lateral `Selecionar arquivo`, com duplo clique no painel de CSV, arrastando um arquivo para o painel, usando `Ctrl+O`, ou colando o caminho e clicando em `Carregar caminho`.
+Tambem e possivel carregar manualmente pelo botao `Carregar CSV`, pela aba `Ativos`, com duplo clique no painel de CSV, arrastando um arquivo para o painel, usando `Ctrl+O`, ou colando o caminho e clicando em `Carregar caminho`.
 
 O parser aceita CSV em `UTF-8` e `Windows-1252`, incluindo exportacoes do Profit com cabecalho em portugues como `Ativo;Data;Abertura;Maximo;Minimo;Fechamento;Volume;Quantidade`.
 

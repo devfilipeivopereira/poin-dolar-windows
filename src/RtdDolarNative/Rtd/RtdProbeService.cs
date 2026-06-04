@@ -233,57 +233,79 @@ namespace RtdDolarNative.Rtd
                     continue;
                 }
 
-                object initialValue = ConnectDataWithFallback(server, topicId, asset, field);
+                object[] arguments = spec.Arguments == null ? new object[] { asset, field } : spec.Arguments.ToArray();
+                object initialValue = ConnectDataWithFallback(server, topicId, asset, field, arguments);
 
                 RtdTopic topic = new RtdTopic();
                 topic.TopicId = topicId;
                 topic.Asset = asset;
+                topic.Topic = string.IsNullOrWhiteSpace(spec.Topic) ? asset : spec.Topic;
                 topic.Field = field;
+                topic.RtdField = string.IsNullOrWhiteSpace(spec.RtdField) ? field : spec.RtdField;
+                topic.Index = spec.Index;
+                topic.InfoField = spec.InfoField;
                 topic.SourceName = spec.SourceName;
                 topic.Role = spec.Role;
+                topic.Arguments = arguments;
                 topic.LastValue = initialValue;
 
                 _topics[topicId] = topic;
-                _log.Info("Assinado RTD " + topic.Key + " fonte " + spec.SourceName + " papel " + spec.Role + ".");
+                _log.Info("Assinado RTD " + topic.Key + " args " + FormatArguments(arguments) + " fonte " + spec.SourceName + " papel " + spec.Role + ".");
                 Publish(topic, initialValue);
 
                 topicId++;
             }
         }
 
-        private object ConnectDataWithFallback(IRtdServer server, int topicId, string asset, string field)
+        private object ConnectDataWithFallback(IRtdServer server, int topicId, string asset, string field, object[] arguments)
         {
             Exception lastError = null;
+            object[] safeArguments = arguments == null || arguments.Length == 0 ? new object[] { asset, field } : arguments;
 
             try
             {
                 bool getNewValues = true;
-                object[] topicArgs = new object[] { asset, field };
+                object[] topicArgs = safeArguments.ToArray();
                 object value = server.ConnectData(topicId, ref topicArgs, ref getNewValues);
-                _log.Info("ConnectData OK " + asset + ":" + field + " usando object[] zero-based.");
+                _log.Info("ConnectData OK " + asset + ":" + field + " args " + FormatArguments(safeArguments) + " usando object[] zero-based.");
                 return value;
             }
             catch (Exception ex)
             {
                 lastError = ex;
-                _log.Warn("ConnectData falhou " + asset + ":" + field + " usando object[] zero-based | " + ex.GetType().Name + ": " + ex.Message);
+                _log.Warn("ConnectData falhou " + asset + ":" + field + " args " + FormatArguments(safeArguments) + " usando object[] zero-based | " + ex.GetType().Name + ": " + ex.Message);
             }
 
             try
             {
                 bool getNewValues = true;
-                object[] topicArgs = new object[] { string.Empty, asset, field };
+                object[] topicArgs = new object[safeArguments.Length + 1];
+                topicArgs[0] = string.Empty;
+                Array.Copy(safeArguments, 0, topicArgs, 1, safeArguments.Length);
                 object value = server.ConnectData(topicId, ref topicArgs, ref getNewValues);
-                _log.Info("ConnectData OK " + asset + ":" + field + " usando object[] com slot vazio.");
+                _log.Info("ConnectData OK " + asset + ":" + field + " args " + FormatArguments(topicArgs) + " usando object[] com slot vazio.");
                 return value;
             }
             catch (Exception ex)
             {
                 lastError = ex;
-                _log.Warn("ConnectData falhou " + asset + ":" + field + " usando object[] com slot vazio | " + ex.GetType().Name + ": " + ex.Message);
+                object[] topicArgs = new object[safeArguments.Length + 1];
+                topicArgs[0] = string.Empty;
+                Array.Copy(safeArguments, 0, topicArgs, 1, safeArguments.Length);
+                _log.Warn("ConnectData falhou " + asset + ":" + field + " args " + FormatArguments(topicArgs) + " usando object[] com slot vazio | " + ex.GetType().Name + ": " + ex.Message);
             }
 
-            throw new InvalidOperationException("Falha ao assinar RTD " + asset + ":" + field + ".", lastError);
+            throw new InvalidOperationException("Falha ao assinar RTD " + asset + ":" + field + " args " + FormatArguments(safeArguments) + ".", lastError);
+        }
+
+        private static string FormatArguments(IEnumerable<object> arguments)
+        {
+            if (arguments == null)
+            {
+                return "-";
+            }
+
+            return string.Join("|", arguments.Select(x => x == null ? string.Empty : x.ToString()).ToArray());
         }
 
         private void PumpRefreshData(IRtdServer server)

@@ -32,10 +32,18 @@
 - [x] Telas nativas para DOM, niveis, abertura, POC, variacao %, volume profile, confluencia, backtest proxy, grafico e diagnostico.
 - [x] Grafico nativo por `FrameworkElement.OnRender`.
 - [x] RTD Manager com fontes por ativo/papel e liga/desliga por fonte.
+- [x] Menu superior em abas por funcionalidade.
+- [x] Tela `Ativos` com cadastro de nome, Codigo Cotacao, Canal Book, Canal Times, CSV historico e canais `Cotacao`, `Book`, `Times`.
+- [x] Abertura em `idle`, sem auto-connect, para permitir navegar e editar ativos antes de assinar RTD pesado.
+- [x] CRUD de ativos revisado: salvar, focar e remover ativo selecionado ou digitado; lista pode ficar vazia.
+- [x] CSV historico por ativo e troca automatica ao focar outro ativo.
+- [x] Assinatura RTD de cotacao no formato `QuoteCode, Field`.
+- [x] Assinatura RTD de book no formato `BookTopic, Field, Index` com indices `0..49`.
+- [x] Assinatura RTD de times and trades no formato `TimesTopic, Field, Index` com indices `0..99`.
+- [x] Prints reais de `Times` alimentando o motor de order flow com deduplicacao por linha/horario/preco.
 - [x] Pipeline de flow em background com fila bounded/drop-old e coalescing.
 - [x] Tape derivado, delta, cumulative delta, imbalance, microbias, VWAP e janelas.
 - [x] Volume Profile intraday com POC, VAH, VAL, HVN, LVN e fallback por CSV diario.
 - [x] Setups MVP: absorcao, defesa/perda de POC, rompimento com fluxo, rejeicao em LVN e VWAP reversion/continuation.
 - [ ] SQLite opcional em segundo plano.
 - [ ] Testes automatizados de paridade com fixtures reais do HTML.
-- [ ] BookDepth e TimesAndTrades reais quando os campos RTD forem confirmados.

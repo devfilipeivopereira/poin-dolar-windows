@@ -103,6 +103,39 @@ namespace RtdDolarNative.Flow
             _wake.Set();
         }
 
+        public void PostTrade(TradePrint trade, MarketSnapshot snapshot)
+        {
+            if (!_config.Enabled || trade == null || string.IsNullOrWhiteSpace(trade.Asset))
+            {
+                return;
+            }
+
+            try
+            {
+                FlowEngine engine;
+
+                lock (_stateLock)
+                {
+                    if (!_engines.TryGetValue(trade.Asset, out engine))
+                    {
+                        engine = new FlowEngine(_tickSize, _config);
+                        _engines[trade.Asset] = engine;
+                    }
+                }
+
+                FlowUpdate update = engine.ProcessTrade(trade, snapshot);
+                ApplyUpdate(trade.Asset, update);
+                Interlocked.Increment(ref _processed);
+            }
+            catch (Exception ex)
+            {
+                if (_log != null)
+                {
+                    _log.Error("Falha ao processar TimesAndTrades real.", ex);
+                }
+            }
+        }
+
         public FlowMetrics GetMetrics(string asset)
         {
             lock (_stateLock)
@@ -257,12 +290,22 @@ namespace RtdDolarNative.Flow
             }
 
             FlowUpdate update = engine.Process(snapshot);
+            ApplyUpdate(snapshot.Asset, update);
+            Interlocked.Increment(ref _processed);
+        }
+
+        private void ApplyUpdate(string asset, FlowUpdate update)
+        {
+            if (update == null)
+            {
+                return;
+            }
 
             lock (_stateLock)
             {
                 if (update.Metrics != null)
                 {
-                    _metrics[snapshot.Asset] = update.Metrics;
+                    _metrics[asset] = update.Metrics;
                 }
 
                 if (update.Trade != null)
@@ -281,8 +324,6 @@ namespace RtdDolarNative.Flow
                 TrimNewestFirst(_trades, _config.MaxTradeBuffer);
                 TrimNewestFirst(_signals, 1000);
             }
-
-            Interlocked.Increment(ref _processed);
         }
 
         private void TrimNewestFirst<T>(List<T> items, int max)

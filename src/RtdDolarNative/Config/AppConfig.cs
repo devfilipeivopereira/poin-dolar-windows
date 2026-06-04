@@ -104,12 +104,34 @@ namespace RtdDolarNative.Config
 
     public sealed class RtdConfig
     {
+        public static readonly string[] DefaultQuoteFields = new[]
+        {
+            "DAT", "HOR", "ULT", "ABE", "MAX", "MIN", "FEC", "NEG", "QTT", "VOL",
+            "OCP", "OVD", "AJU", "AJA", "103", "98", "100", "99", "67"
+        };
+
+        public static readonly string[] DefaultBookFields = new[]
+        {
+            "HORC", "ACP", "VOC", "OCP", "OVD", "VOV", "AVD", "HORV"
+        };
+
+        public static readonly string[] DefaultTimesFields = new[]
+        {
+            "DAT", "ACP", "PRE", "QUL", "AVD", "AGR"
+        };
+
+        public static readonly string[] DefaultInfoFields = new[]
+        {
+            "ATV", "TAB"
+        };
+
         public RtdConfig()
         {
             ProgId = "RTDTrading.RTDServer";
             Asset = "WDOFUT_F_0";
             Assets = new List<RtdAssetConfig> { new RtdAssetConfig("WDOFUT_F_0", true) };
             Sources = new List<RtdSourceConfig>();
+            AutoConnect = false;
             PollIntervalMs = 150;
             ReconnectIntervalMs = 5000;
             TickSize = 0.5m;
@@ -122,6 +144,7 @@ namespace RtdDolarNative.Config
         public string Asset { get; set; }
         public List<RtdAssetConfig> Assets { get; set; }
         public List<RtdSourceConfig> Sources { get; set; }
+        public bool AutoConnect { get; set; }
         public int PollIntervalMs { get; set; }
         public int ReconnectIntervalMs { get; set; }
         public decimal TickSize { get; set; }
@@ -130,11 +153,6 @@ namespace RtdDolarNative.Config
 
         public void NormalizeAssets()
         {
-            if (string.IsNullOrWhiteSpace(Asset))
-            {
-                Asset = "WDOFUT_F_0";
-            }
-
             Asset = NormalizeAsset(Asset);
 
             List<RtdAssetConfig> normalized = new List<RtdAssetConfig>();
@@ -144,12 +162,23 @@ namespace RtdDolarNative.Config
             {
                 foreach (RtdAssetConfig item in Assets)
                 {
-                    if (item == null || string.IsNullOrWhiteSpace(item.Asset))
+                    if (item == null)
                     {
                         continue;
                     }
 
-                    string asset = NormalizeAsset(item.Asset);
+                    if (string.IsNullOrWhiteSpace(item.Asset) && string.IsNullOrWhiteSpace(item.QuoteCode))
+                    {
+                        continue;
+                    }
+
+                    item.Normalize();
+                    string asset = NormalizeAsset(string.IsNullOrWhiteSpace(item.Asset) ? item.QuoteCode : item.Asset);
+
+                    if (string.IsNullOrWhiteSpace(asset))
+                    {
+                        continue;
+                    }
 
                     if (seen.Contains(asset))
                     {
@@ -158,20 +187,57 @@ namespace RtdDolarNative.Config
                         if (existing != null)
                         {
                             existing.Enabled = existing.Enabled || item.Enabled;
+                            existing.QuoteEnabled = existing.QuoteEnabled || item.QuoteEnabled;
+                            existing.BookEnabled = existing.BookEnabled || item.BookEnabled;
+                            existing.TimesEnabled = existing.TimesEnabled || item.TimesEnabled;
+
+                            if (!string.IsNullOrWhiteSpace(item.Name))
+                            {
+                                existing.Name = item.Name;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(item.QuoteCode))
+                            {
+                                existing.QuoteCode = item.QuoteCode;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(item.BookTopic))
+                            {
+                                existing.BookTopic = item.BookTopic;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(item.TimesTopic))
+                            {
+                                existing.TimesTopic = item.TimesTopic;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(item.CsvPath))
+                            {
+                                existing.CsvPath = item.CsvPath;
+                            }
                         }
 
                         continue;
                     }
 
-                    normalized.Add(new RtdAssetConfig(asset, item.Enabled));
+                    RtdAssetConfig copy = item.CloneNormalized();
+                    normalized.Add(copy);
                     seen.Add(asset);
                 }
             }
 
             if (normalized.Count == 0)
             {
-                normalized.Add(new RtdAssetConfig(Asset, true));
-                seen.Add(Asset);
+                if (!string.IsNullOrWhiteSpace(Asset))
+                {
+                    normalized.Add(new RtdAssetConfig(Asset, true));
+                    seen.Add(Asset);
+                }
+                else
+                {
+                    Assets = normalized;
+                    return;
+                }
             }
 
             if (!seen.Contains(Asset))
@@ -202,12 +268,7 @@ namespace RtdDolarNative.Config
             {
                 foreach (RtdAssetConfig asset in Assets)
                 {
-                    bool hasAnySource = Sources.Any(x => x != null && string.Equals(x.Asset, asset.Asset, StringComparison.OrdinalIgnoreCase));
-
-                    if (!hasAnySource)
-                    {
-                        EnsureDefaultSourcesForAsset(asset.Asset);
-                    }
+                    EnsureDefaultSourcesForAsset(asset.Asset);
                 }
             }
 
@@ -261,10 +322,12 @@ namespace RtdDolarNative.Config
                 Sources = new List<RtdSourceConfig>();
             }
 
-            AddDefaultSourceIfMissing("PrecoVolume", "PriceVolume", normalizedAsset, true, new[] { "HOR", "ULT", "QUL", "VOL", "NEG", "ABE", "MAX", "MIN", "MED" });
-            AddDefaultSourceIfMissing("TopBook", "TopBook", normalizedAsset, true, new[] { "OCP", "OVD", "VOC", "VOV" });
-            AddDefaultSourceIfMissing("BookDepth", "BookDepth", normalizedAsset, false, new string[0]);
-            AddDefaultSourceIfMissing("TimesAndTrades", "TimesAndTrades", normalizedAsset, false, new string[0]);
+            RtdAssetConfig assetConfig = FindAsset(normalizedAsset) ?? new RtdAssetConfig(normalizedAsset, true);
+            assetConfig.Normalize();
+            RemoveLegacyGeneratedSources(normalizedAsset);
+            AddOrUpdateDefaultSource("Cotacao", "PriceVolume", normalizedAsset, assetConfig.QuoteEnabled, assetConfig.QuoteCode, DefaultQuoteFields, null, null, new string[0]);
+            AddOrUpdateDefaultSource("Book", "BookDepth", normalizedAsset, assetConfig.BookEnabled, assetConfig.BookTopic, DefaultBookFields, 0, 49, DefaultInfoFields);
+            AddOrUpdateDefaultSource("Times", "TimesAndTrades", normalizedAsset, assetConfig.TimesEnabled, assetConfig.TimesTopic, DefaultTimesFields, 0, 99, DefaultInfoFields);
         }
 
         public List<RtdSourceConfig> GetEnabledSources()
@@ -302,9 +365,33 @@ namespace RtdDolarNative.Config
 
             foreach (RtdSourceConfig source in enabledSources)
             {
-                foreach (string field in NormalizeFieldList(source.Fields, new string[0]))
+                string topic = string.IsNullOrWhiteSpace(source.Topic) ? source.Asset : source.Topic.Trim();
+                List<string> fields = NormalizeFieldList(source.Fields, new string[0]);
+
+                if (source.IndexFrom.HasValue || source.IndexTo.HasValue)
                 {
-                    AddSubscription(byKey, specs, source.Asset, field, source.Name, source.Role);
+                    int first = source.IndexFrom.HasValue ? Math.Max(0, source.IndexFrom.Value) : 0;
+                    int last = source.IndexTo.HasValue ? Math.Max(first, source.IndexTo.Value) : first;
+
+                    foreach (string infoField in NormalizeFieldList(source.InfoFields, new string[0]))
+                    {
+                        AddSubscription(byKey, specs, source.Asset, topic, "INFO", null, infoField, source.Name, source.Role);
+                    }
+
+                    for (int index = first; index <= last; index++)
+                    {
+                        foreach (string field in fields)
+                        {
+                            AddSubscription(byKey, specs, source.Asset, topic, field, index, null, source.Name, source.Role);
+                        }
+                    }
+
+                    continue;
+                }
+
+                foreach (string field in fields)
+                {
+                    AddSubscription(byKey, specs, source.Asset, topic, field, null, null, source.Name, source.Role);
                 }
             }
 
@@ -354,24 +441,53 @@ namespace RtdDolarNative.Config
             return string.IsNullOrWhiteSpace(asset) ? string.Empty : asset.Trim().ToUpperInvariant();
         }
 
-        private void AddDefaultSourceIfMissing(string baseName, string role, string asset, bool enabled, IEnumerable<string> fields)
+        private void RemoveLegacyGeneratedSources(string asset)
         {
-            string name = baseName + "-" + asset;
-
-            if (Sources.Any(x => x != null && string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
+            if (Sources == null)
             {
                 return;
             }
 
-            RtdSourceConfig source = new RtdSourceConfig();
+            Sources.RemoveAll(x => x != null &&
+                string.Equals(NormalizeAsset(x.Asset), NormalizeAsset(asset), StringComparison.OrdinalIgnoreCase) &&
+                IsLegacyGeneratedSourceName(x.Name));
+        }
+
+        private static bool IsLegacyGeneratedSourceName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            return name.StartsWith("PrecoVolume-", StringComparison.OrdinalIgnoreCase) ||
+                   name.StartsWith("TopBook-", StringComparison.OrdinalIgnoreCase) ||
+                   name.StartsWith("BookDepth-", StringComparison.OrdinalIgnoreCase) ||
+                   name.StartsWith("TimesAndTrades-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void AddOrUpdateDefaultSource(string baseName, string role, string asset, bool enabled, string topic, IEnumerable<string> fields, int? indexFrom, int? indexTo, IEnumerable<string> infoFields)
+        {
+            string name = baseName + "-" + asset;
+            RtdSourceConfig source = Sources.FirstOrDefault(x => x != null && string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (source == null)
+            {
+                source = new RtdSourceConfig();
+                Sources.Add(source);
+            }
+
             source.Name = name;
             source.Role = role;
             source.Enabled = enabled;
             source.ProgId = ProgId;
             source.Asset = asset;
+            source.Topic = string.IsNullOrWhiteSpace(topic) ? asset : topic.Trim().ToUpperInvariant();
             source.PollIntervalMs = PollIntervalMs;
             source.Fields = fields.ToList();
-            Sources.Add(source);
+            source.IndexFrom = indexFrom;
+            source.IndexTo = indexTo;
+            source.InfoFields = infoFields == null ? new List<string>() : infoFields.ToList();
         }
 
         private static List<string> NormalizeFieldList(IEnumerable<string> fields, IEnumerable<string> fallback)
@@ -387,15 +503,24 @@ namespace RtdDolarNative.Config
 
         private static void AddSubscription(Dictionary<string, RtdSubscriptionSpec> byKey, List<RtdSubscriptionSpec> specs, string asset, string field, string sourceName, string role)
         {
-            string normalizedAsset = NormalizeAsset(asset);
-            string normalizedField = string.IsNullOrWhiteSpace(field) ? string.Empty : field.Trim().ToUpperInvariant();
+            AddSubscription(byKey, specs, asset, asset, field, null, null, sourceName, role);
+        }
 
-            if (string.IsNullOrWhiteSpace(normalizedAsset) || string.IsNullOrWhiteSpace(normalizedField))
+        private static void AddSubscription(Dictionary<string, RtdSubscriptionSpec> byKey, List<RtdSubscriptionSpec> specs, string asset, string topic, string field, int? index, string infoField, string sourceName, string role)
+        {
+            string normalizedAsset = NormalizeAsset(asset);
+            string normalizedTopic = string.IsNullOrWhiteSpace(topic) ? normalizedAsset : topic.Trim().ToUpperInvariant();
+            string normalizedField = string.IsNullOrWhiteSpace(field) ? string.Empty : field.Trim().ToUpperInvariant();
+            string normalizedInfo = string.IsNullOrWhiteSpace(infoField) ? string.Empty : infoField.Trim().ToUpperInvariant();
+
+            if (string.IsNullOrWhiteSpace(normalizedAsset) || string.IsNullOrWhiteSpace(normalizedTopic) || string.IsNullOrWhiteSpace(normalizedField))
             {
                 return;
             }
 
-            string key = normalizedAsset + ":" + normalizedField;
+            string snapshotField = BuildSnapshotField(role, normalizedField, index, normalizedInfo);
+            string argsKey = normalizedTopic + ":" + normalizedField + ":" + (index.HasValue ? index.Value.ToString() : normalizedInfo);
+            string key = normalizedAsset + ":" + sourceName + ":" + snapshotField + ":" + argsKey;
 
             if (byKey.ContainsKey(key))
             {
@@ -404,11 +529,43 @@ namespace RtdDolarNative.Config
 
             RtdSubscriptionSpec spec = new RtdSubscriptionSpec();
             spec.Asset = normalizedAsset;
-            spec.Field = normalizedField;
+            spec.Topic = normalizedTopic;
+            spec.Field = snapshotField;
+            spec.RtdField = normalizedField;
+            spec.Index = index;
+            spec.InfoField = normalizedInfo;
             spec.SourceName = sourceName;
             spec.Role = role;
+            spec.Arguments = new List<object>();
+            spec.Arguments.Add(normalizedTopic);
+            spec.Arguments.Add(normalizedField);
+
+            if (index.HasValue)
+            {
+                spec.Arguments.Add(index.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(normalizedInfo))
+            {
+                spec.Arguments.Add(normalizedInfo);
+            }
+
             byKey[key] = spec;
             specs.Add(spec);
+        }
+
+        private static string BuildSnapshotField(string role, string field, int? index, string infoField)
+        {
+            if (string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase))
+            {
+                return "BOOK_" + field + "_" + (index.HasValue ? index.Value.ToString() : infoField);
+            }
+
+            if (string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TIMES_" + field + "_" + (index.HasValue ? index.Value.ToString() : infoField);
+            }
+
+            return field;
         }
     }
 
@@ -420,6 +577,7 @@ namespace RtdDolarNative.Config
             Role = "PriceVolume";
             Enabled = true;
             Fields = new List<string>();
+            InfoFields = new List<string>();
             PollIntervalMs = 150;
         }
 
@@ -428,13 +586,18 @@ namespace RtdDolarNative.Config
         public bool Enabled { get; set; }
         public string ProgId { get; set; }
         public string Asset { get; set; }
+        public string Topic { get; set; }
         public List<string> Fields { get; set; }
+        public List<string> InfoFields { get; set; }
+        public int? IndexFrom { get; set; }
+        public int? IndexTo { get; set; }
         public int PollIntervalMs { get; set; }
 
         public void Normalize(RtdConfig config)
         {
             Role = string.IsNullOrWhiteSpace(Role) ? "PriceVolume" : Role.Trim();
             Asset = RtdConfig.NormalizeAsset(string.IsNullOrWhiteSpace(Asset) ? config.Asset : Asset);
+            Topic = string.IsNullOrWhiteSpace(Topic) ? Asset : Topic.Trim().ToUpperInvariant();
             ProgId = string.IsNullOrWhiteSpace(ProgId) ? config.ProgId : ProgId.Trim();
             PollIntervalMs = PollIntervalMs <= 0 ? config.PollIntervalMs : PollIntervalMs;
             Fields = RtdConfig.NormalizeAsset(Asset).Length == 0
@@ -444,6 +607,11 @@ namespace RtdDolarNative.Config
                     .Select(x => x.Trim().ToUpperInvariant())
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
+            InfoFields = (InfoFields ?? new List<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim().ToUpperInvariant())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             if (string.IsNullOrWhiteSpace(Name))
             {
@@ -459,13 +627,18 @@ namespace RtdDolarNative.Config
     public sealed class RtdSubscriptionSpec
     {
         public string Asset { get; set; }
+        public string Topic { get; set; }
         public string Field { get; set; }
+        public string RtdField { get; set; }
+        public int? Index { get; set; }
+        public string InfoField { get; set; }
+        public List<object> Arguments { get; set; }
         public string SourceName { get; set; }
         public string Role { get; set; }
 
         public string Key
         {
-            get { return Asset + ":" + Field; }
+            get { return Asset + ":" + Field + ":" + Topic; }
         }
     }
 
@@ -473,16 +646,75 @@ namespace RtdDolarNative.Config
     {
         public RtdAssetConfig()
         {
+            Name = string.Empty;
+            QuoteCode = string.Empty;
+            BookTopic = "BOOK0";
+            TimesTopic = "T&T0";
+            CsvPath = string.Empty;
+            Enabled = true;
+            QuoteEnabled = true;
+            BookEnabled = false;
+            TimesEnabled = false;
         }
 
         public RtdAssetConfig(string asset, bool enabled)
         {
-            Asset = asset;
+            Asset = RtdConfig.NormalizeAsset(asset);
+            Name = Asset;
+            QuoteCode = Asset;
+            BookTopic = "BOOK0";
+            TimesTopic = "T&T0";
+            CsvPath = string.Empty;
             Enabled = enabled;
+            QuoteEnabled = true;
+            BookEnabled = false;
+            TimesEnabled = false;
         }
 
+        public string Name { get; set; }
         public string Asset { get; set; }
+        public string QuoteCode { get; set; }
+        public string BookTopic { get; set; }
+        public string TimesTopic { get; set; }
+        public string CsvPath { get; set; }
         public bool Enabled { get; set; }
+        public bool QuoteEnabled { get; set; }
+        public bool BookEnabled { get; set; }
+        public bool TimesEnabled { get; set; }
+
+        public void Normalize()
+        {
+            Asset = RtdConfig.NormalizeAsset(string.IsNullOrWhiteSpace(Asset) ? QuoteCode : Asset);
+
+            if (string.IsNullOrWhiteSpace(Asset))
+            {
+                return;
+            }
+
+            Name = string.IsNullOrWhiteSpace(Name) ? Asset : Name.Trim();
+            QuoteCode = string.IsNullOrWhiteSpace(QuoteCode) ? Asset : QuoteCode.Trim().ToUpperInvariant();
+            BookTopic = string.IsNullOrWhiteSpace(BookTopic) ? "BOOK0" : BookTopic.Trim().ToUpperInvariant();
+            TimesTopic = string.IsNullOrWhiteSpace(TimesTopic) ? "T&T0" : TimesTopic.Trim().ToUpperInvariant();
+            CsvPath = string.IsNullOrWhiteSpace(CsvPath) ? string.Empty : CsvPath.Trim();
+        }
+
+        public RtdAssetConfig CloneNormalized()
+        {
+            Normalize();
+
+            RtdAssetConfig clone = new RtdAssetConfig();
+            clone.Name = Name;
+            clone.Asset = Asset;
+            clone.QuoteCode = QuoteCode;
+            clone.BookTopic = BookTopic;
+            clone.TimesTopic = TimesTopic;
+            clone.CsvPath = CsvPath;
+            clone.Enabled = Enabled;
+            clone.QuoteEnabled = QuoteEnabled;
+            clone.BookEnabled = BookEnabled;
+            clone.TimesEnabled = TimesEnabled;
+            return clone;
+        }
     }
 
     public sealed class UiConfig
