@@ -2000,12 +2000,15 @@
                                   Grid.Column="1"
                                   AutoGenerateColumns="False">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Multiplo" Binding="{Binding Multiplier}" Width="90" />
-                                <DataGridTextColumn Header="Amostras" Binding="{Binding Samples}" Width="90" />
-                                <DataGridTextColumn Header="Toques" Binding="{Binding Touches}" Width="80" />
-                                <DataGridTextColumn Header="Reversoes" Binding="{Binding Reversals}" Width="90" />
-                                <DataGridTextColumn Header="Taxa toque" Binding="{Binding TouchRate}" Width="100" />
-                                <DataGridTextColumn Header="Taxa reversao" Binding="{Binding ReversalRate}" Width="*" />
+                                <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="62" />
+                                <DataGridTextColumn Header="Mult" Binding="{Binding Multiplier}" Width="64" />
+                                <DataGridTextColumn Header="Amostras" Binding="{Binding Samples}" Width="82" />
+                                <DataGridTextColumn Header="Toques" Binding="{Binding Touches}" Width="70" />
+                                <DataGridTextColumn Header="Rev" Binding="{Binding ReversalRate}" Width="70" />
+                                <DataGridTextColumn Header="Cont" Binding="{Binding ContinuationRate}" Width="70" />
+                                <DataGridTextColumn Header="Exp" Binding="{Binding Expectancy}" Width="72" />
+                                <DataGridTextColumn Header="PF" Binding="{Binding ProfitFactor}" Width="60" />
+                                <DataGridTextColumn Header="Leitura" Binding="{Binding EdgeQuality}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

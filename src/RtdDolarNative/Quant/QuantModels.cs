@@ -110,12 +110,19 @@ namespace RtdDolarNative.Quant
 
     public sealed class BacktestRow
     {
+        public string Direction { get; set; }
         public decimal Multiplier { get; set; }
         public int Samples { get; set; }
         public int Touches { get; set; }
         public int Reversals { get; set; }
+        public int Continuations { get; set; }
         public double TouchRate { get; set; }
         public double ReversalRate { get; set; }
+        public double ContinuationRate { get; set; }
+        public decimal AverageReversalPoints { get; set; }
+        public decimal AverageAdversePoints { get; set; }
+        public decimal ExpectancyPoints { get; set; }
+        public double ProfitFactor { get; set; }
     }
 
     public sealed class TechnicalIndicatorSnapshot
@@ -158,6 +165,10 @@ namespace RtdDolarNative.Quant
         public int SampleSize { get; set; }
         public string TechnicalState { get; set; }
         public string StatisticalEdge { get; set; }
+        public double ReversalRate { get; set; }
+        public double ProfitFactor { get; set; }
+        public decimal? ExpectancyPoints { get; set; }
+        public string EdgeQuality { get; set; }
     }
 
     public sealed class QuantResult

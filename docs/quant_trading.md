@@ -33,7 +33,19 @@ Esses indicadores entram como confluencia para sinais de reversao estatistica, p
 
 ## Estatistica e backtest proxy
 
-O motor calcula volatilidade historica e janelas de movimento. A aba `Indicadores` mostra pontos, percentual e percentil quando ha dados suficientes. O backtest proxy resume toques e reversoes em desvios historicos; ele serve para auditoria rapida da amostra, nao como promessa de performance futura.
+O motor calcula volatilidade historica e janelas de movimento. A aba `Indicadores` mostra pontos, percentual e percentil quando ha dados suficientes. O backtest proxy e direcional: compra e venda sao avaliadas separadamente em desvios historicos de `1`, `1,5` e `2` sigmas.
+
+Para cada direcao, o backtest registra:
+
+- amostras e toques;
+- taxa de reversao;
+- taxa de continuidade;
+- ganho medio favoravel em pontos;
+- perda media adversa em pontos;
+- expectancy em pontos;
+- profit factor proxy.
+
+Esse proxy serve para auditoria rapida da amostra, nao como promessa de performance futura. Sinais quantitativos recebem ajuste de score pelo edge da propria direcao. Um setup de compra nao herda edge de venda, e o inverso tambem nao acontece.
 
 ## Fluxo e tape reading
 
@@ -56,7 +68,7 @@ O score sempre deve ser lido junto da qualidade:
 - `FullTimesAndTrades`: prints reais.
 - `FullDepth`: book profundo real.
 
-Sinais quant exibem score ajustado pelo fluxo. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos.
+Sinais quant exibem score ajustado pelo fluxo e pelo edge direcional. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos. Edge fragil ou amostra de poucos toques limita o score mesmo quando o indicador tecnico parece bom.
 
 ## Regua robusta de oportunidade
 
@@ -68,7 +80,7 @@ As telas `Scanner` e `Oportunidades` nao usam apenas o ultimo setup bruto. Elas 
 - confirmacao por delta/cumulative delta e imbalance;
 - proximidade de POC, VAH, VAL, HVN, LVN ou nivel estatistico;
 - amostra historica carregada no CSV;
-- backtest proxy de toque/reversao;
+- backtest proxy direcional de toque/reversao, expectancy e profit factor;
 - freshness do snapshot RTD;
 - qualidade do dado: top-of-book, tape derivado, times real ou depth real;
 - eventos descartados pela fila bounded.
@@ -82,8 +94,12 @@ O score e capado quando a alimentacao nao sustenta a leitura:
 - `TopOfBookOnly`: cap ate o limite de top-of-book;
 - `DerivedTape`: cap ate o limite de tape derivado;
 - CSV com menos de 21 pregoes em sinal quant: cap reduzido;
+- edge direcional sem expectancy positiva: cap reduzido;
+- profit factor proxy abaixo de `1,05`: cap reduzido;
 - sem `Book` e sem `Times`: cap reduzido;
 - divergencia entre fluxo e estatistica: penalidade explicita nos motivos.
+
+`Robusto` e a classe mais exigente. Ela requer score alto, cap alto, varias confirmacoes, fluxo confirmando, dados reais de `Times`/depth quando disponiveis e edge quant direcional positivo. Com top-of-book ou tape derivado, a plataforma pode apontar monitoramento ou oportunidade limitada, mas nao deve vender a leitura como robusta.
 
 ## Robustez operacional
 
@@ -94,7 +110,7 @@ A robustez financeira da leitura vem de confluencia, qualidade do dado e auditor
 - RTD de `Times` para prints reais, agressor, quantidade, delta e cumulative delta.
 - CSV historico para volatilidade, desvios, suportes/resistencias, indicadores tecnicos, profile proxy e backtest proxy.
 
-Um sinal fica mais forte quando ha confirmacao entre nivel estatistico, fluxo, profile e tape. Quando ha conflito, baixa amostra, RTD derivado ou ausencia de book/times real, o score e limitado e a qualidade aparece na UI. Essa regra evita que uma leitura incompleta pareca mais confiavel do que realmente e.
+Um sinal fica mais forte quando ha confirmacao entre nivel estatistico, edge direcional, fluxo, profile e tape. Quando ha conflito, baixa amostra, RTD derivado ou ausencia de book/times real, o score e limitado e a qualidade aparece na UI. Essa regra evita que uma leitura incompleta pareca mais confiavel do que realmente e.
 
 ## Tela Indicadores
 
@@ -102,8 +118,8 @@ Use `Ctrl+Shift+I` ou o botao `Indic.` no menu superior. A tela mostra:
 
 - resumo de RTD, CSV, canais, qualidade e amostra;
 - grade de indicadores tecnicos;
-- sinais quant com score, nivel, edge, estado tecnico e motivos;
+- sinais quant com score, nivel, edge, expectancy, profit factor, estado tecnico e motivos;
 - volatilidade/estatistica;
-- backtest proxy de toque/reversao.
+- backtest proxy direcional de toque/reversao/continuidade.
 
 Essa tela deve ser usada antes de `Oportunidades` quando for necessario auditar por que um setup apareceu.

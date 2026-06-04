@@ -53,10 +53,13 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 15. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
    - RSI14, EMAs, SMA, MACD, Bollinger, z-score e ATR/VWAP aparecem quando ha CSV/snapshot suficiente.
    - A tela mostra fonte tecnica, amostra, CSV carregado, status RTD e qualidade do fluxo.
-   - Sinais quant mostram score ajustado, nivel, edge estatistico, estado tecnico e motivos.
+   - Backtest mostra compra/venda separados, taxa de reversao, continuidade, expectancy e profit factor.
+   - Sinais quant mostram score ajustado, nivel, edge direcional, estado tecnico e motivos.
    - Quando `Times`/`Book` nao estao reais, a qualidade informa tape derivado/top-of-book e o score fica limitado.
 16. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
 17. Confirmar que `Scanner` e `Oportunidades` mostram apenas leitura, score, nivel, motivo e qualidade; nao deve existir boleta nem envio de ordens.
+18. Confirmar que oportunidade com edge direcional fragil fica limitada e nao aparece como `Robusto`.
+19. Confirmar que `Robusto` exige fluxo confirmando, RTD fresco, dados reais e edge direcional positivo.
 
 ## Performance
 
@@ -65,4 +68,5 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 - A `Mesa` deve atualizar cards, DOM, tape e sinais sem redesenhar o grafico a cada tick; o grafico usa throttle e janela recente de candles.
 - `ULT`, `QUL` e `VOL` chegando separados nao devem gerar prints duplicados quando `NEG` esta disponivel.
 - Scores acima de 85 devem aparecer apenas quando uma fonte real de times and trades/book profundo for implementada.
+- `Robusto` nao deve aparecer com `TopOfBookOnly`, tape derivado, CSV insuficiente ou expectancy direcional negativa.
 - A aba `Indicadores` deve atualizar sem travar a UI e sem recalcular pesado na thread RTD.

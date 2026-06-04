@@ -2327,6 +2327,7 @@ namespace RtdDolarNative
             string focused = FocusedAsset();
             RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
             TechnicalIndicatorSnapshot technicals = _result == null ? null : _result.Technicals;
+            QuantSignal bestQuant = BestQuantSignalForAsset(focused, metrics);
             string warnings = _result == null || _result.Warnings == null || _result.Warnings.Count == 0
                 ? "-"
                 : _result.Warnings.Count.ToString(_ptBr) + " aviso(s)";
@@ -2340,6 +2341,7 @@ namespace RtdDolarNative
             AddRow(rows, "Fluxo", metrics == null ? "sem metricas" : metrics.DataQuality.ToString(), metrics == null ? "aguardando RTD" : (metrics.Derived ? "tape derivado" : "tape/book real"));
             AddRow(rows, "Delta", metrics == null ? "-" : metrics.CumulativeDelta.ToString("N0", _ptBr), metrics == null ? "-" : "imb " + FormatDecimal(metrics.TopBookImbalance, "N3") + " | microbias " + FormatDecimal(metrics.MicroBias, "N3"));
             AddRow(rows, "Sinais Quant", quantCount.ToString(_ptBr), IndicatorScoreCapText(metrics));
+            AddRow(rows, "Edge Quant", QuantEdgeValue(bestQuant), QuantEdgeDetail(bestQuant));
             AddRow(rows, "Uso", "analise", "plataforma nao envia ordens");
 
             return rows;
@@ -2376,6 +2378,30 @@ namespace RtdDolarNative
             }
 
             return "score limitado por top-of-book";
+        }
+
+        private string QuantEdgeValue(QuantSignal signal)
+        {
+            if (signal == null)
+            {
+                return "-";
+            }
+
+            return EmptyToDash(signal.EdgeQuality) +
+                   " | exp " + FormatDecimal(signal.ExpectancyPoints, "N1") +
+                   " pts";
+        }
+
+        private string QuantEdgeDetail(QuantSignal signal)
+        {
+            if (signal == null)
+            {
+                return "sem sinal quant no contexto atual";
+            }
+
+            return "rev " + signal.ReversalRate.ToString("N1", _ptBr) +
+                   "% | PF " + signal.ProfitFactor.ToString("N2", _ptBr) +
+                   " | " + EmptyToDash(signal.StatisticalEdge);
         }
 
         private List<IndicatorAuditRow> BuildTechnicalIndicatorRows(MarketSnapshot snapshot)
@@ -2540,29 +2566,62 @@ namespace RtdDolarNative
             if (_result == null || _result.Backtest == null || _result.Backtest.Count == 0)
             {
                 BacktestAuditRow waiting = new BacktestAuditRow();
+                waiting.Direction = "-";
                 waiting.Multiplier = "-";
                 waiting.Samples = _dailyBars.Count.ToString(_ptBr);
                 waiting.Touches = "-";
-                waiting.Reversals = "-";
                 waiting.TouchRate = "-";
-                waiting.ReversalRate = "CSV insuficiente";
+                waiting.ReversalRate = "-";
+                waiting.ContinuationRate = "-";
+                waiting.Expectancy = "-";
+                waiting.ProfitFactor = "-";
+                waiting.EdgeQuality = "CSV insuficiente";
                 rows.Add(waiting);
                 return rows;
             }
 
-            foreach (BacktestRow rowSource in _result.Backtest.OrderByDescending(x => x.ReversalRate).Take(80))
+            foreach (BacktestRow rowSource in _result.Backtest.OrderByDescending(x => x.ExpectancyPoints).ThenByDescending(x => x.ReversalRate).Take(80))
             {
                 BacktestAuditRow row = new BacktestAuditRow();
+                row.Direction = TranslateDirection(rowSource.Direction);
                 row.Multiplier = rowSource.Multiplier.ToString("N1", _ptBr);
                 row.Samples = rowSource.Samples.ToString(_ptBr);
                 row.Touches = rowSource.Touches.ToString(_ptBr);
-                row.Reversals = rowSource.Reversals.ToString(_ptBr);
                 row.TouchRate = rowSource.TouchRate.ToString("N1", _ptBr) + "%";
                 row.ReversalRate = rowSource.ReversalRate.ToString("N1", _ptBr) + "%";
+                row.ContinuationRate = rowSource.ContinuationRate.ToString("N1", _ptBr) + "%";
+                row.Expectancy = rowSource.ExpectancyPoints.ToString("N1", _ptBr);
+                row.ProfitFactor = rowSource.ProfitFactor.ToString("N2", _ptBr);
+                row.EdgeQuality = BacktestEdgeQuality(rowSource);
                 rows.Add(row);
             }
 
             return rows;
+        }
+
+        private string BacktestEdgeQuality(BacktestRow row)
+        {
+            if (row == null || row.Touches == 0)
+            {
+                return "sem toques";
+            }
+
+            if (row.Touches < 5)
+            {
+                return "amostra baixa";
+            }
+
+            if (row.ExpectancyPoints > 0m && row.ReversalRate >= 58d && row.ProfitFactor >= 1.25d)
+            {
+                return "edge positivo";
+            }
+
+            if (row.ExpectancyPoints > 0m && row.ProfitFactor >= 1.05d)
+            {
+                return "edge moderado";
+            }
+
+            return "edge fragil";
         }
 
         private string FormatMacd(TechnicalIndicatorSnapshot technicals)
@@ -2942,6 +3001,17 @@ namespace RtdDolarNative
             }
 
             int cap = metrics.DataQuality == MarketDataQuality.FullTimesAndTrades || metrics.DataQuality == MarketDataQuality.FullDepth ? 95 : 88;
+
+            if (!QuantSignalHasUsableEdge(signal))
+            {
+                cap = Math.Min(cap, 74);
+                score -= 4;
+            }
+            else if (!QuantSignalHasPositiveEdge(signal))
+            {
+                cap = Math.Min(cap, 86);
+            }
+
             return Math.Max(0, Math.Min(cap, score));
         }
 
@@ -3013,8 +3083,9 @@ namespace RtdDolarNative
             }
 
             string flowAlignment = FlowDirectionAlignment(direction, metrics);
+            bool flowConfirms = string.Equals(flowAlignment, "confirma", StringComparison.OrdinalIgnoreCase);
 
-            if (string.Equals(flowAlignment, "confirma", StringComparison.OrdinalIgnoreCase))
+            if (flowConfirms)
             {
                 score += metrics != null && metrics.DataQuality == MarketDataQuality.TopOfBookOnly ? 4 : 8;
                 confirmations++;
@@ -3058,17 +3129,43 @@ namespace RtdDolarNative
                 evidence.Add("amostra historica baixa");
             }
 
-            BacktestRow bestBacktest = BestBacktestRow();
+            BacktestRow bestBacktest = BestBacktestRow(direction);
 
-            if (bestBacktest != null && bestBacktest.Touches >= 5 && bestBacktest.ReversalRate >= 55d)
+            if (bestBacktest != null &&
+                bestBacktest.Touches >= 5 &&
+                bestBacktest.ReversalRate >= 55d &&
+                bestBacktest.ExpectancyPoints > 0m &&
+                bestBacktest.ProfitFactor >= 1.05d)
             {
                 score += 5;
                 confirmations++;
-                evidence.Add("backtest proxy favoravel");
+                evidence.Add("backtest direcional favoravel");
             }
             else if (quantSignal != null)
             {
                 evidence.Add("edge historico sem confirmacao forte");
+            }
+
+            if (quantSignal != null)
+            {
+                if (QuantSignalHasPositiveEdge(quantSignal))
+                {
+                    score += 6;
+                    confirmations++;
+                    evidence.Add("edge direcional positivo");
+                }
+                else if (QuantSignalHasUsableEdge(quantSignal))
+                {
+                    score += 3;
+                    evidence.Add("edge direcional moderado");
+                    cap = Math.Min(cap, 88);
+                }
+                else
+                {
+                    score -= 10;
+                    cap = Math.Min(cap, 74);
+                    evidence.Add("edge direcional fragil");
+                }
             }
 
             if (metrics != null && metrics.Profile != null && metrics.Profile.Poc.HasValue)
@@ -3097,7 +3194,7 @@ namespace RtdDolarNative
 
             score = Math.Max(0, Math.Min(cap, score));
             result.Score = score;
-            result.Robustness = OpportunityRobustness(score, cap, confirmations);
+            result.Robustness = OpportunityRobustness(score, cap, confirmations, quantSignal, metrics, flowConfirms);
             result.Detail = string.Join("; ", evidence.Where(x => !string.IsNullOrWhiteSpace(x)).Take(8).ToArray());
             return result;
         }
@@ -3183,19 +3280,26 @@ namespace RtdDolarNative
             return Math.Max(0, cap);
         }
 
-        private string OpportunityRobustness(int score, int cap, int confirmations)
+        private string OpportunityRobustness(int score, int cap, int confirmations, QuantSignal quantSignal, FlowMetrics metrics, bool flowConfirms)
         {
             if (cap < 55)
             {
                 return "Bloqueado";
             }
 
-            if (score >= 85 && cap >= 90 && confirmations >= 4)
+            bool dataCanBeRobust = metrics != null &&
+                                   !metrics.Derived &&
+                                   (metrics.DataQuality == MarketDataQuality.FullTimesAndTrades ||
+                                    metrics.DataQuality == MarketDataQuality.FullDepth);
+            bool quantEdgePositive = QuantSignalHasPositiveEdge(quantSignal);
+            bool quantEdgeUsable = QuantSignalHasUsableEdge(quantSignal);
+
+            if (score >= 85 && cap >= 90 && confirmations >= 4 && dataCanBeRobust && flowConfirms && quantEdgePositive)
             {
                 return "Robusto";
             }
 
-            if (score >= _config.Flow.StrongSetupScoreThreshold && confirmations >= 3)
+            if (score >= _config.Flow.StrongSetupScoreThreshold && confirmations >= 3 && (flowConfirms || quantEdgeUsable))
             {
                 return "Acionavel";
             }
@@ -3206,6 +3310,24 @@ namespace RtdDolarNative
             }
 
             return "Fraco";
+        }
+
+        private bool QuantSignalHasPositiveEdge(QuantSignal signal)
+        {
+            return signal != null &&
+                   signal.ExpectancyPoints.HasValue &&
+                   signal.ExpectancyPoints.Value > 0m &&
+                   signal.ReversalRate >= 58d &&
+                   signal.ProfitFactor >= 1.25d;
+        }
+
+        private bool QuantSignalHasUsableEdge(QuantSignal signal)
+        {
+            return signal != null &&
+                   signal.ExpectancyPoints.HasValue &&
+                   signal.ExpectancyPoints.Value > 0m &&
+                   signal.ReversalRate >= 52d &&
+                   signal.ProfitFactor >= 1.05d;
         }
 
         private QuantSignal FindMatchingQuantSignal(string assetName, FlowSignal flowSignal)
@@ -3321,7 +3443,7 @@ namespace RtdDolarNative
                    text.Contains("PROFILE");
         }
 
-        private BacktestRow BestBacktestRow()
+        private BacktestRow BestBacktestRow(string direction)
         {
             if (_result == null || _result.Backtest == null || _result.Backtest.Count == 0)
             {
@@ -3329,8 +3451,10 @@ namespace RtdDolarNative
             }
 
             return _result.Backtest
+                .Where(x => string.IsNullOrWhiteSpace(direction) || string.Equals(x.Direction, direction, StringComparison.OrdinalIgnoreCase))
                 .Where(x => x.Touches > 0)
-                .OrderByDescending(x => x.ReversalRate)
+                .OrderByDescending(x => x.ExpectancyPoints)
+                .ThenByDescending(x => x.ReversalRate)
                 .FirstOrDefault();
         }
 
@@ -5301,6 +5425,31 @@ namespace RtdDolarNative
 
             AddRiskRow(rows, csvSeverity, "Historico", "CSV", FocusedAssetCsvText(asset), "carregado", csvAction);
 
+            QuantSignal bestQuant = BestQuantSignalForAsset(focused, metrics);
+            string edgeSeverity = "Info";
+            string edgeAction = "Aguardando sinal quant";
+
+            if (bestQuant != null)
+            {
+                if (QuantSignalHasPositiveEdge(bestQuant))
+                {
+                    edgeSeverity = "Normal";
+                    edgeAction = "OK";
+                }
+                else if (QuantSignalHasUsableEdge(bestQuant))
+                {
+                    edgeSeverity = "Info";
+                    edgeAction = "Usar como confluencia";
+                }
+                else
+                {
+                    edgeSeverity = "Aviso";
+                    edgeAction = "Nao tratar como robusto";
+                }
+            }
+
+            AddRiskRow(rows, edgeSeverity, "Quant", "Edge direcional", QuantEdgeValue(bestQuant), "exp > 0 e PF > 1,05", edgeAction);
+
             string qualitySeverity = "Info";
             string qualityValue = "-";
             string qualityAction = "Aguardando fluxo";
@@ -6585,12 +6734,16 @@ namespace RtdDolarNative
 
         private sealed class BacktestAuditRow
         {
+            public string Direction { get; set; }
             public string Multiplier { get; set; }
             public string Samples { get; set; }
             public string Touches { get; set; }
-            public string Reversals { get; set; }
             public string TouchRate { get; set; }
             public string ReversalRate { get; set; }
+            public string ContinuationRate { get; set; }
+            public string Expectancy { get; set; }
+            public string ProfitFactor { get; set; }
+            public string EdgeQuality { get; set; }
         }
 
         private sealed class AlertRow

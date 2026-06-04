@@ -554,9 +554,8 @@ namespace RtdDolarNative.Quant
 
             foreach (decimal m in multipliers)
             {
-                BacktestRow row = new BacktestRow();
-                row.Multiplier = m;
-                rows.Add(row);
+                rows.Add(NewBacktestRow("Buy", m));
+                rows.Add(NewBacktestRow("Sell", m));
             }
 
             for (int i = window; i < allBars.Count - 1; i++)
@@ -571,16 +570,19 @@ namespace RtdDolarNative.Quant
                     row.Samples++;
                     decimal up = anchor + row.Multiplier * sigma;
                     decimal down = anchor - row.Multiplier * sigma;
-                    bool touch = next.High >= up || next.Low <= down;
 
-                    if (touch)
+                    if (string.Equals(row.Direction, "Buy", StringComparison.OrdinalIgnoreCase))
                     {
-                        row.Touches++;
-                        bool reversal = (next.High >= up && next.Close < up) || (next.Low <= down && next.Close > down);
-
-                        if (reversal)
+                        if (next.Low <= down)
                         {
-                            row.Reversals++;
+                            AddBacktestTouch(row, next.Close > down, Math.Max(0m, next.Close - down), Math.Max(0m, down - next.Close));
+                        }
+                    }
+                    else if (string.Equals(row.Direction, "Sell", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (next.High >= up)
+                        {
+                            AddBacktestTouch(row, next.Close < up, Math.Max(0m, up - next.Close), Math.Max(0m, next.Close - up));
                         }
                     }
                 }
@@ -590,9 +592,46 @@ namespace RtdDolarNative.Quant
             {
                 row.TouchRate = row.Samples == 0 ? 0d : (double)row.Touches / row.Samples * 100d;
                 row.ReversalRate = row.Touches == 0 ? 0d : (double)row.Reversals / row.Touches * 100d;
+                row.ContinuationRate = row.Touches == 0 ? 0d : (double)row.Continuations / row.Touches * 100d;
             }
 
             return rows;
+        }
+
+        private static BacktestRow NewBacktestRow(string direction, decimal multiplier)
+        {
+            BacktestRow row = new BacktestRow();
+            row.Direction = direction;
+            row.Multiplier = multiplier;
+            return row;
+        }
+
+        private static void AddBacktestTouch(BacktestRow row, bool reversal, decimal favorablePoints, decimal adversePoints)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            row.Touches++;
+
+            if (reversal)
+            {
+                row.Reversals++;
+            }
+            else
+            {
+                row.Continuations++;
+            }
+
+            decimal favorableTotal = row.AverageReversalPoints * Math.Max(0, row.Touches - 1) + favorablePoints;
+            decimal adverseTotal = row.AverageAdversePoints * Math.Max(0, row.Touches - 1) + adversePoints;
+            row.AverageReversalPoints = favorableTotal / row.Touches;
+            row.AverageAdversePoints = adverseTotal / row.Touches;
+            row.ExpectancyPoints = row.AverageReversalPoints - row.AverageAdversePoints;
+            row.ProfitFactor = row.AverageAdversePoints <= 0m
+                ? (row.AverageReversalPoints > 0m ? 99d : 0d)
+                : D(row.AverageReversalPoints / row.AverageAdversePoints);
         }
 
         private static TechnicalIndicatorSnapshot BuildTechnicalIndicators(List<DailyBar> bars, IntradayContext intraday, VolatilityMetric atr)
@@ -1150,7 +1189,16 @@ namespace RtdDolarNative.Quant
 
         private static void AddQuantSignal(List<QuantSignal> signals, QuantResult result, string setup, string direction, int score, KeyLevel level, string reasons)
         {
-            if (score < 60 || result == null || result.Intraday == null)
+            if (result == null || result.Intraday == null)
+            {
+                return;
+            }
+
+            BacktestRow edge = BestDirectionalBacktestRow(result, direction);
+            int adjustedScore = score + DirectionalEdgeAdjustment(edge);
+            adjustedScore = Math.Min(adjustedScore, DirectionalEdgeCap(edge));
+
+            if (adjustedScore < 60)
             {
                 return;
             }
@@ -1159,32 +1207,139 @@ namespace RtdDolarNative.Quant
             signal.Setup = setup;
             signal.Direction = direction;
             signal.Price = result.Intraday.Price;
-            signal.Score = Math.Max(0, Math.Min(95, score));
+            signal.Score = Math.Max(0, Math.Min(95, adjustedScore));
             signal.LevelName = level == null ? "-" : level.Label;
             signal.LevelPrice = level == null ? (decimal?)null : level.Price;
-            signal.Reasons = reasons + "; regime " + result.Regime;
+            signal.Reasons = reasons + "; " + DirectionalEdgeReason(edge) + "; regime " + result.Regime;
             signal.DataSource = "CSV+RTD";
             signal.SampleSize = result.Bars == null ? 0 : result.Bars.Count;
             signal.TechnicalState = result.Technicals == null ? "-" : result.Technicals.TrendState + " / " + result.Technicals.ReversionState;
-            signal.StatisticalEdge = StatisticalEdgeText(result);
+            signal.StatisticalEdge = StatisticalEdgeText(result, direction, edge);
+            signal.ReversalRate = edge == null ? 0d : edge.ReversalRate;
+            signal.ProfitFactor = edge == null ? 0d : edge.ProfitFactor;
+            signal.ExpectancyPoints = edge == null ? (decimal?)null : edge.ExpectancyPoints;
+            signal.EdgeQuality = DirectionalEdgeQuality(edge);
             signals.Add(signal);
         }
 
-        private static string StatisticalEdgeText(QuantResult result)
+        private static BacktestRow BestDirectionalBacktestRow(QuantResult result, string direction)
+        {
+            if (result == null || result.Backtest == null || result.Backtest.Count == 0 || string.IsNullOrWhiteSpace(direction))
+            {
+                return null;
+            }
+
+            return result.Backtest
+                .Where(x => string.Equals(x.Direction, direction, StringComparison.OrdinalIgnoreCase))
+                .Where(x => x.Touches > 0)
+                .OrderByDescending(x => x.ExpectancyPoints)
+                .ThenByDescending(x => x.ReversalRate)
+                .FirstOrDefault();
+        }
+
+        private static int DirectionalEdgeAdjustment(BacktestRow edge)
+        {
+            if (edge == null || edge.Touches < 5)
+            {
+                return -6;
+            }
+
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d)
+            {
+                return 9;
+            }
+
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 52d)
+            {
+                return 5;
+            }
+
+            if (edge.ExpectancyPoints < 0m || edge.ReversalRate < 45d)
+            {
+                return -12;
+            }
+
+            return 0;
+        }
+
+        private static int DirectionalEdgeCap(BacktestRow edge)
+        {
+            if (edge == null || edge.Touches < 5)
+            {
+                return 72;
+            }
+
+            if (edge.ExpectancyPoints < 0m || edge.ReversalRate < 45d)
+            {
+                return 68;
+            }
+
+            if (edge.ExpectancyPoints <= 0m || edge.ProfitFactor < 1.05d)
+            {
+                return 78;
+            }
+
+            return 95;
+        }
+
+        private static string DirectionalEdgeQuality(BacktestRow edge)
+        {
+            if (edge == null || edge.Touches == 0)
+            {
+                return "sem edge";
+            }
+
+            if (edge.Touches < 5)
+            {
+                return "amostra baixa";
+            }
+
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d)
+            {
+                return "positivo";
+            }
+
+            if (edge.ExpectancyPoints > 0m && edge.ProfitFactor >= 1.05d)
+            {
+                return "moderado";
+            }
+
+            return "fragil";
+        }
+
+        private static string DirectionalEdgeReason(BacktestRow edge)
+        {
+            if (edge == null || edge.Touches == 0)
+            {
+                return "edge direcional sem toques";
+            }
+
+            if (edge.Touches < 5)
+            {
+                return "edge direcional com poucos toques";
+            }
+
+            return "edge " + DirectionalEdgeQuality(edge) +
+                   " exp " + edge.ExpectancyPoints.ToString("N1") +
+                   " pts PF " + edge.ProfitFactor.ToString("N2");
+        }
+
+        private static string StatisticalEdgeText(QuantResult result, string direction, BacktestRow edge)
         {
             if (result == null || result.Backtest == null || result.Backtest.Count == 0)
             {
                 return "sem backtest proxy";
             }
 
-            BacktestRow best = result.Backtest.OrderByDescending(x => x.ReversalRate).FirstOrDefault();
-
-            if (best == null || best.Touches == 0)
+            if (edge == null || edge.Touches == 0)
             {
                 return "sem toques suficientes";
             }
 
-            return "rev " + best.ReversalRate.ToString("N1") + "% apos toque " + best.Multiplier.ToString("N1") + " sigma";
+            return direction + " rev " + edge.ReversalRate.ToString("N1") +
+                   "% | exp " + edge.ExpectancyPoints.ToString("N1") +
+                   " pts | PF " + edge.ProfitFactor.ToString("N2") +
+                   " | " + edge.Multiplier.ToString("N1") + " sigma";
         }
 
         private static void AddTechnicalLevel(List<KeyLevel> levels, decimal? price, string label, decimal current, double score)
