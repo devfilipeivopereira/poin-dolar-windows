@@ -272,25 +272,28 @@
         </Style>
 
         <Style x:Key="TopNavButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="MinWidth" Value="64" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="Padding" Value="9,5" />
-            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="MinWidth" Value="46" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="MinHeight" Value="24" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11" />
         </Style>
 
         <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
-            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="Margin" Value="0,0,5,0" />
             <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="TopNavGroupBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="Background" Value="{StaticResource Bg}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8" />
-            <Setter Property="Margin" Value="0,0,6,8" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="0,0,5,0" />
+            <Setter Property="Margin" Value="0,0,5,0" />
         </Style>
 
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
@@ -452,73 +455,81 @@
                 Background="{StaticResource Bg}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
-                Padding="12,10,4,2">
-            <WrapPanel x:Name="TopNavigation" Orientation="Horizontal">
+                Padding="10,5">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+                <StackPanel x:Name="TopNavigation" Orientation="Horizontal">
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="210">
-                    <StackPanel>
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Triagem" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
+                        <StackPanel Orientation="Horizontal">
                             <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="118" />
-                        </WrapPanel>
+                            <Button Content="Oportun." Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="160">
-                    <StackPanel>
-                        <TextBlock Text="Mesa" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
+                        <StackPanel Orientation="Horizontal">
                             <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="90">
-                    <StackPanel>
-                        <TextBlock Text="Dados" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
-                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="270">
-                    <StackPanel>
-                        <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
                             <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                            <Button Content="DOM" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="390">
-                    <StackPanel>
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
-                            <Button Content="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Order" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
                             <Button Content="Mapa" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="122" />
+                            <Button Content="Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="60" />
                             <Button Content="Setups" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="245" Margin="0,0,0,8">
-                    <StackPanel>
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
+                        <StackPanel Orientation="Horizontal">
                             <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
+                            <Button Content="Back" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-            </WrapPanel>
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Hist" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Diag" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <TabControl x:Name="MainTabs"

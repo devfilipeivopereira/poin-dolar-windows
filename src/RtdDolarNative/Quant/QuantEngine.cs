@@ -19,6 +19,7 @@ namespace RtdDolarNative.Quant
             {
                 result.Warnings.Add("Carregue um CSV diario para calcular os niveis.");
                 result.Intraday = BuildIntraday(snapshot, null);
+                result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, null);
                 return result;
             }
 
@@ -29,6 +30,21 @@ namespace RtdDolarNative.Quant
 
             result.PreviousDay = result.Bars[result.Bars.Count - 1];
             result.Intraday = BuildIntraday(snapshot, result.PreviousDay);
+
+            if (snapshot == null || !snapshot.Ultimo.HasValue)
+            {
+                result.Warnings.Add("RTD ULT ausente; sinais quantitativos usam o ultimo fechamento do CSV como fallback.");
+            }
+
+            if (snapshot == null || !snapshot.Media.HasValue)
+            {
+                result.Warnings.Add("RTD MED/VWAP ausente; distancia de VWAP usa proxy ate o feed informar o campo.");
+            }
+
+            if (snapshot == null || !snapshot.Volume.HasValue)
+            {
+                result.Warnings.Add("RTD VOL ausente; leitura de participacao por volume fica limitada.");
+            }
 
             List<DailyBar> window = result.Bars.Skip(Math.Max(0, result.Bars.Count - 63)).ToList();
             List<DailyBar> w21 = result.Bars.Skip(Math.Max(0, result.Bars.Count - 21)).ToList();
@@ -67,9 +83,11 @@ namespace RtdDolarNative.Quant
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, 21);
+            result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, result.Atr);
             result.KeyLevels = BuildRawLevels(result);
             result.Confluence = MergeInterestLevels(result.KeyLevels, result.Intraday.Price, tickSize);
             result.Regime = DetectRegime(result.Atr, result.CloseToClose, result.Intraday, result.PreviousDay);
+            result.QuantSignals = BuildQuantSignals(result, tickSize);
 
             if (result.Intraday.VwapIsProxy)
             {
@@ -577,6 +595,120 @@ namespace RtdDolarNative.Quant
             return rows;
         }
 
+        private static TechnicalIndicatorSnapshot BuildTechnicalIndicators(List<DailyBar> bars, IntradayContext intraday, VolatilityMetric atr)
+        {
+            TechnicalIndicatorSnapshot snapshot = new TechnicalIndicatorSnapshot();
+            snapshot.Source = "CSV diario + RTD atual";
+            snapshot.SampleSize = bars == null ? 0 : bars.Count;
+
+            List<decimal> closes = bars == null ? new List<decimal>() : bars.Select(x => x.Close).Where(x => x > 0m).ToList();
+
+            if (intraday != null && intraday.Price > 0m)
+            {
+                closes.Add(intraday.Price);
+            }
+
+            snapshot.Sma20 = Sma(closes, 20);
+            snapshot.Sma50 = Sma(closes, 50);
+            snapshot.Ema9 = Ema(closes, 9);
+            snapshot.Ema21 = Ema(closes, 21);
+            snapshot.Ema50 = Ema(closes, 50);
+            snapshot.Rsi14 = Rsi(closes, 14);
+
+            List<decimal> last20 = closes.Skip(Math.Max(0, closes.Count - 20)).ToList();
+
+            if (last20.Count >= 10)
+            {
+                decimal mean = last20.Average();
+                decimal stdev = StdevDecimal(last20);
+                snapshot.BollingerMiddle20 = mean;
+                snapshot.BollingerUpper20 = mean + 2m * stdev;
+                snapshot.BollingerLower20 = mean - 2m * stdev;
+                snapshot.ZScore20 = stdev <= 0m || intraday == null ? (decimal?)null : (intraday.Price - mean) / stdev;
+            }
+
+            List<decimal> macdLine = MacdSeries(closes);
+
+            if (macdLine.Count > 0)
+            {
+                snapshot.Macd = macdLine[macdLine.Count - 1];
+                snapshot.MacdSignal = Ema(macdLine, 9);
+                snapshot.MacdHistogram = snapshot.Macd.HasValue && snapshot.MacdSignal.HasValue ? snapshot.Macd.Value - snapshot.MacdSignal.Value : (decimal?)null;
+            }
+
+            if (intraday != null && atr != null && atr.Points > 0m)
+            {
+                snapshot.AtrVwapDistance = (intraday.Price - intraday.Vwap) / atr.Points;
+            }
+
+            snapshot.TrendState = TechnicalTrendState(snapshot, intraday);
+            snapshot.ReversionState = TechnicalReversionState(snapshot);
+            return snapshot;
+        }
+
+        private static List<QuantSignal> BuildQuantSignals(QuantResult result, decimal tickSize)
+        {
+            List<QuantSignal> signals = new List<QuantSignal>();
+
+            if (result == null || result.Intraday == null || result.Technicals == null)
+            {
+                return signals;
+            }
+
+            decimal price = result.Intraday.Price;
+            decimal atr = result.Atr == null || result.Atr.Points <= 0m ? Math.Max(tickSize * 12m, 1m) : result.Atr.Points;
+            decimal tolerance = Math.Max(tickSize * 8m, atr * 0.35m);
+            KeyLevel support = NearestQuantLevel(result.Confluence, price, "Suporte", tolerance);
+            KeyLevel resistance = NearestQuantLevel(result.Confluence, price, "Resistencia", tolerance);
+            int cap = QuantScoreCap(result.Bars == null ? 0 : result.Bars.Count);
+
+            decimal rsi = result.Technicals.Rsi14.HasValue ? result.Technicals.Rsi14.Value : 50m;
+            decimal z = result.Technicals.ZScore20.HasValue ? result.Technicals.ZScore20.Value : 0m;
+            decimal atrVwap = result.Technicals.AtrVwapDistance.HasValue ? result.Technicals.AtrVwapDistance.Value : 0m;
+
+            if (support != null && (rsi <= 42m || z <= -1.15m || atrVwap <= -0.75m))
+            {
+                int score = 56 + ExtremeBonus(50m - rsi, 18m) + ExtremeBonus(Math.Abs(z), 2.5m) + LevelScoreBonus(support);
+                AddQuantSignal(signals, result, "Reversao estatistica", "Buy", Math.Min(cap, score), support, "preco em suporte estatistico com RSI/z-score favorecendo retorno a media");
+            }
+
+            if (resistance != null && (rsi >= 58m || z >= 1.15m || atrVwap >= 0.75m))
+            {
+                int score = 56 + ExtremeBonus(rsi - 50m, 18m) + ExtremeBonus(Math.Abs(z), 2.5m) + LevelScoreBonus(resistance);
+                AddQuantSignal(signals, result, "Reversao estatistica", "Sell", Math.Min(cap, score), resistance, "preco em resistencia estatistica com RSI/z-score favorecendo retorno a media");
+            }
+
+            if (result.Technicals.BollingerLower20.HasValue && price <= result.Technicals.BollingerLower20.Value && rsi <= 45m)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Technicals.BollingerLower20.Value, Label = "Bollinger inferior 20", Type = "Suporte", Source = "Tecnico", Score = 70d, Evidence = "CSV+RTD" };
+                AddQuantSignal(signals, result, "Bollinger mean reversion", "Buy", Math.Min(cap, 66 + ExtremeBonus(50m - rsi, 18m)), level, "preco abaixo da banda inferior com RSI enfraquecido");
+            }
+
+            if (result.Technicals.BollingerUpper20.HasValue && price >= result.Technicals.BollingerUpper20.Value && rsi >= 55m)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Technicals.BollingerUpper20.Value, Label = "Bollinger superior 20", Type = "Resistencia", Source = "Tecnico", Score = 70d, Evidence = "CSV+RTD" };
+                AddQuantSignal(signals, result, "Bollinger mean reversion", "Sell", Math.Min(cap, 66 + ExtremeBonus(rsi - 50m, 18m)), level, "preco acima da banda superior com RSI esticado");
+            }
+
+            if (IsBullTrend(result.Technicals) && result.Technicals.Ema21.HasValue && Math.Abs(price - result.Technicals.Ema21.Value) <= tolerance && rsi >= 45m && rsi <= 68m)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Technicals.Ema21.Value, Label = "EMA21 pullback", Type = "Suporte", Source = "Tecnico", Score = 68d, Evidence = "EMA9>EMA21>EMA50" };
+                AddQuantSignal(signals, result, "Pullback quantitativo", "Buy", Math.Min(cap, 63 + TrendBonus(result.Technicals)), level, "tendencia compradora com pullback para EMA21");
+            }
+
+            if (IsBearTrend(result.Technicals) && result.Technicals.Ema21.HasValue && Math.Abs(price - result.Technicals.Ema21.Value) <= tolerance && rsi >= 32m && rsi <= 55m)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Technicals.Ema21.Value, Label = "EMA21 pullback", Type = "Resistencia", Source = "Tecnico", Score = 68d, Evidence = "EMA9<EMA21<EMA50" };
+                AddQuantSignal(signals, result, "Pullback quantitativo", "Sell", Math.Min(cap, 63 + TrendBonus(result.Technicals)), level, "tendencia vendedora com pullback para EMA21");
+            }
+
+            return signals
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => Math.Abs(x.LevelPrice.HasValue ? x.LevelPrice.Value - price : 0m))
+                .Take(12)
+                .ToList();
+        }
+
         private static List<KeyLevel> BuildRawLevels(QuantResult r)
         {
             List<KeyLevel> levels = new List<KeyLevel>();
@@ -622,6 +754,17 @@ namespace RtdDolarNative.Quant
             foreach (AnchoredVwap avwap in r.Avwaps)
             {
                 levels.Add(Level(avwap.Price, "AVWAP " + avwap.Label, "Valor", "AVWAP", 56d, avwap.AnchorDate.ToString("dd/MM/yyyy")));
+            }
+
+            if (r.Technicals != null)
+            {
+                AddTechnicalLevel(levels, r.Technicals.Ema9, "EMA9", p, 42d);
+                AddTechnicalLevel(levels, r.Technicals.Ema21, "EMA21", p, 50d);
+                AddTechnicalLevel(levels, r.Technicals.Ema50, "EMA50", p, 48d);
+                AddTechnicalLevel(levels, r.Technicals.Sma20, "SMA20", p, 44d);
+                AddTechnicalLevel(levels, r.Technicals.Sma50, "SMA50", p, 43d);
+                AddTechnicalLevel(levels, r.Technicals.BollingerUpper20, "Bollinger superior", p, 54d);
+                AddTechnicalLevel(levels, r.Technicals.BollingerLower20, "Bollinger inferior", p, 54d);
             }
 
             levels.AddRange(r.PercentTable);
@@ -708,6 +851,282 @@ namespace RtdDolarNative.Quant
             }
 
             return move >= 0m ? "Pressao compradora" : "Pressao vendedora";
+        }
+
+        private static decimal? Sma(List<decimal> values, int period)
+        {
+            if (values == null || values.Count < period)
+            {
+                return null;
+            }
+
+            return values.Skip(values.Count - period).Average();
+        }
+
+        private static decimal? Ema(List<decimal> values, int period)
+        {
+            if (values == null || values.Count < period)
+            {
+                return null;
+            }
+
+            decimal k = 2m / (period + 1m);
+            decimal ema = values.Take(period).Average();
+
+            for (int i = period; i < values.Count; i++)
+            {
+                ema = values[i] * k + ema * (1m - k);
+            }
+
+            return ema;
+        }
+
+        private static decimal? Rsi(List<decimal> values, int period)
+        {
+            if (values == null || values.Count <= period)
+            {
+                return null;
+            }
+
+            decimal gain = 0m;
+            decimal loss = 0m;
+
+            for (int i = values.Count - period; i < values.Count; i++)
+            {
+                decimal change = values[i] - values[i - 1];
+
+                if (change >= 0m)
+                {
+                    gain += change;
+                }
+                else
+                {
+                    loss += Math.Abs(change);
+                }
+            }
+
+            if (loss <= 0m)
+            {
+                return 100m;
+            }
+
+            decimal rs = gain / loss;
+            return 100m - (100m / (1m + rs));
+        }
+
+        private static List<decimal> MacdSeries(List<decimal> closes)
+        {
+            List<decimal> result = new List<decimal>();
+
+            if (closes == null || closes.Count < 26)
+            {
+                return result;
+            }
+
+            for (int i = 25; i < closes.Count; i++)
+            {
+                List<decimal> window = closes.Take(i + 1).ToList();
+                decimal? ema12 = Ema(window, 12);
+                decimal? ema26 = Ema(window, 26);
+
+                if (ema12.HasValue && ema26.HasValue)
+                {
+                    result.Add(ema12.Value - ema26.Value);
+                }
+            }
+
+            return result;
+        }
+
+        private static decimal StdevDecimal(List<decimal> values)
+        {
+            if (values == null || values.Count < 2)
+            {
+                return 0m;
+            }
+
+            decimal avg = values.Average();
+            double variance = values.Sum(x => Math.Pow(D(x - avg), 2d)) / Math.Max(1, values.Count - 1);
+            return Dec(Math.Sqrt(variance));
+        }
+
+        private static string TechnicalTrendState(TechnicalIndicatorSnapshot t, IntradayContext intraday)
+        {
+            if (t == null || intraday == null)
+            {
+                return "-";
+            }
+
+            if (IsBullTrend(t) && intraday.Price >= (t.Ema21.HasValue ? t.Ema21.Value : intraday.Price))
+            {
+                return "tendencia compradora";
+            }
+
+            if (IsBearTrend(t) && intraday.Price <= (t.Ema21.HasValue ? t.Ema21.Value : intraday.Price))
+            {
+                return "tendencia vendedora";
+            }
+
+            return "rotacional";
+        }
+
+        private static string TechnicalReversionState(TechnicalIndicatorSnapshot t)
+        {
+            if (t == null)
+            {
+                return "-";
+            }
+
+            decimal rsi = t.Rsi14.HasValue ? t.Rsi14.Value : 50m;
+            decimal z = t.ZScore20.HasValue ? t.ZScore20.Value : 0m;
+
+            if (rsi <= 35m || z <= -1.5m)
+            {
+                return "sobrevenda";
+            }
+
+            if (rsi >= 65m || z >= 1.5m)
+            {
+                return "sobrecompra";
+            }
+
+            return "neutro";
+        }
+
+        private static bool IsBullTrend(TechnicalIndicatorSnapshot t)
+        {
+            return t != null &&
+                   t.Ema9.HasValue &&
+                   t.Ema21.HasValue &&
+                   t.Ema50.HasValue &&
+                   t.Ema9.Value > t.Ema21.Value &&
+                   t.Ema21.Value > t.Ema50.Value;
+        }
+
+        private static bool IsBearTrend(TechnicalIndicatorSnapshot t)
+        {
+            return t != null &&
+                   t.Ema9.HasValue &&
+                   t.Ema21.HasValue &&
+                   t.Ema50.HasValue &&
+                   t.Ema9.Value < t.Ema21.Value &&
+                   t.Ema21.Value < t.Ema50.Value;
+        }
+
+        private static KeyLevel NearestQuantLevel(List<KeyLevel> levels, decimal price, string type, decimal tolerance)
+        {
+            if (levels == null)
+            {
+                return null;
+            }
+
+            return levels
+                .Where(x => string.Equals(x.Type, type, StringComparison.OrdinalIgnoreCase))
+                .Where(x => Math.Abs(x.Price - price) <= tolerance)
+                .OrderBy(x => Math.Abs(x.Price - price))
+                .ThenByDescending(x => x.Score)
+                .FirstOrDefault();
+        }
+
+        private static int QuantScoreCap(int samples)
+        {
+            if (samples >= 126)
+            {
+                return 90;
+            }
+
+            if (samples >= 63)
+            {
+                return 84;
+            }
+
+            if (samples >= 21)
+            {
+                return 72;
+            }
+
+            return 60;
+        }
+
+        private static int ExtremeBonus(decimal value, decimal scale)
+        {
+            if (value <= 0m || scale <= 0m)
+            {
+                return 0;
+            }
+
+            return (int)Math.Min(12m, value / scale * 12m);
+        }
+
+        private static int LevelScoreBonus(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return 0;
+            }
+
+            return (int)Math.Min(14d, Math.Max(0d, level.Score - 55d) / 3d);
+        }
+
+        private static int TrendBonus(TechnicalIndicatorSnapshot t)
+        {
+            int bonus = 6;
+
+            if (t != null && t.MacdHistogram.HasValue)
+            {
+                bonus += t.MacdHistogram.Value > 0m ? 3 : 0;
+            }
+
+            return bonus;
+        }
+
+        private static void AddQuantSignal(List<QuantSignal> signals, QuantResult result, string setup, string direction, int score, KeyLevel level, string reasons)
+        {
+            if (score < 60 || result == null || result.Intraday == null)
+            {
+                return;
+            }
+
+            QuantSignal signal = new QuantSignal();
+            signal.Setup = setup;
+            signal.Direction = direction;
+            signal.Price = result.Intraday.Price;
+            signal.Score = Math.Max(0, Math.Min(95, score));
+            signal.LevelName = level == null ? "-" : level.Label;
+            signal.LevelPrice = level == null ? (decimal?)null : level.Price;
+            signal.Reasons = reasons + "; regime " + result.Regime;
+            signal.DataSource = "CSV+RTD";
+            signal.SampleSize = result.Bars == null ? 0 : result.Bars.Count;
+            signal.TechnicalState = result.Technicals == null ? "-" : result.Technicals.TrendState + " / " + result.Technicals.ReversionState;
+            signal.StatisticalEdge = StatisticalEdgeText(result);
+            signals.Add(signal);
+        }
+
+        private static string StatisticalEdgeText(QuantResult result)
+        {
+            if (result == null || result.Backtest == null || result.Backtest.Count == 0)
+            {
+                return "sem backtest proxy";
+            }
+
+            BacktestRow best = result.Backtest.OrderByDescending(x => x.ReversalRate).FirstOrDefault();
+
+            if (best == null || best.Touches == 0)
+            {
+                return "sem toques suficientes";
+            }
+
+            return "rev " + best.ReversalRate.ToString("N1") + "% apos toque " + best.Multiplier.ToString("N1") + " sigma";
+        }
+
+        private static void AddTechnicalLevel(List<KeyLevel> levels, decimal? price, string label, decimal current, double score)
+        {
+            if (!price.HasValue || price.Value <= 0m)
+            {
+                return;
+            }
+
+            levels.Add(Level(price.Value, label, price.Value >= current ? "Resistencia" : "Suporte", "Tecnico", score, "CSV+RTD"));
         }
 
         private static KeyLevel Level(decimal price, string label, string type, string source, double score, string evidence)

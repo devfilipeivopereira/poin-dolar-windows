@@ -118,6 +118,43 @@ namespace RtdDolarNative.Quant
         public double ReversalRate { get; set; }
     }
 
+    public sealed class TechnicalIndicatorSnapshot
+    {
+        public string Source { get; set; }
+        public int SampleSize { get; set; }
+        public decimal? Sma20 { get; set; }
+        public decimal? Sma50 { get; set; }
+        public decimal? Ema9 { get; set; }
+        public decimal? Ema21 { get; set; }
+        public decimal? Ema50 { get; set; }
+        public decimal? Rsi14 { get; set; }
+        public decimal? Macd { get; set; }
+        public decimal? MacdSignal { get; set; }
+        public decimal? MacdHistogram { get; set; }
+        public decimal? BollingerUpper20 { get; set; }
+        public decimal? BollingerMiddle20 { get; set; }
+        public decimal? BollingerLower20 { get; set; }
+        public decimal? ZScore20 { get; set; }
+        public decimal? AtrVwapDistance { get; set; }
+        public string TrendState { get; set; }
+        public string ReversionState { get; set; }
+    }
+
+    public sealed class QuantSignal
+    {
+        public string Setup { get; set; }
+        public string Direction { get; set; }
+        public decimal Price { get; set; }
+        public int Score { get; set; }
+        public string LevelName { get; set; }
+        public decimal? LevelPrice { get; set; }
+        public string Reasons { get; set; }
+        public string DataSource { get; set; }
+        public int SampleSize { get; set; }
+        public string TechnicalState { get; set; }
+        public string StatisticalEdge { get; set; }
+    }
+
     public sealed class QuantResult
     {
         public QuantResult()
@@ -134,7 +171,9 @@ namespace RtdDolarNative.Quant
             SupportResistance = new List<KeyLevel>();
             Avwaps = new List<AnchoredVwap>();
             Backtest = new List<BacktestRow>();
+            QuantSignals = new List<QuantSignal>();
             Bars = new List<DailyBar>();
+            Technicals = new TechnicalIndicatorSnapshot();
         }
 
         public List<string> Warnings { get; set; }
@@ -159,6 +198,8 @@ namespace RtdDolarNative.Quant
         public List<KeyLevel> SupportResistance { get; set; }
         public List<AnchoredVwap> Avwaps { get; set; }
         public List<BacktestRow> Backtest { get; set; }
+        public TechnicalIndicatorSnapshot Technicals { get; set; }
+        public List<QuantSignal> QuantSignals { get; set; }
         public string Regime { get; set; }
     }
 }
