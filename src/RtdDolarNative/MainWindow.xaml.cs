@@ -36,6 +36,7 @@ namespace RtdDolarNative
         private const int TabRisk = 11;
         private const int TabAlerts = 12;
         private const int TabDiagnostics = 13;
+        private const int TabMonitor = 14;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -320,6 +321,9 @@ namespace RtdDolarNative
                 case TabDashboard:
                     RenderDashboard(snapshot);
                     break;
+                case TabMonitor:
+                    RenderMonitor();
+                    break;
                 case TabAssets:
                     RenderRtdAssets();
                     RenderRtdChannels();
@@ -451,6 +455,13 @@ namespace RtdDolarNative
                 return;
             }
 
+            if (e.Key == Key.F11)
+            {
+                e.Handled = true;
+                NavigateToTab(TabMonitor);
+                return;
+            }
+
             if (control && e.Key == Key.M)
             {
                 e.Handled = true;
@@ -566,6 +577,11 @@ namespace RtdDolarNative
             FocusSelectedAsset();
         }
 
+        private void FocusMonitorAssetButton_Click(object sender, RoutedEventArgs e)
+        {
+            FocusSelectedMonitorAsset();
+        }
+
         private void StartAssetButton_Click(object sender, RoutedEventArgs e)
         {
             if (SetSelectedAssetEnabled(true) && !_probeService.IsRunning && !_manualMode)
@@ -643,6 +659,11 @@ namespace RtdDolarNative
         private void RtdAssetsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             FocusSelectedAsset();
+        }
+
+        private void MonitorGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            FocusSelectedMonitorAsset();
         }
 
         private void RtdAssetsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -746,6 +767,24 @@ namespace RtdDolarNative
             SaveRuntimeConfig();
             RenderRtdAssets();
             ApplyFocusedSnapshot();
+        }
+
+        private void FocusSelectedMonitorAsset()
+        {
+            string asset = SelectedMonitorAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo no Monitor." });
+                return;
+            }
+
+            SetFocusedAsset(asset);
+            SaveRuntimeConfig();
+            RenderMonitor();
+            RenderRtdAssets();
+            ApplyFocusedSnapshot();
+            SetWarnings(new[] { "Ativo em foco: " + asset + "." });
         }
 
         private bool SetSelectedAssetEnabled(bool enabled)
@@ -901,6 +940,23 @@ namespace RtdDolarNative
         private string SelectedAssetFromGrid()
         {
             RtdAssetRow row = RtdAssetsGrid.SelectedItem as RtdAssetRow;
+
+            if (row != null)
+            {
+                return row.Asset;
+            }
+
+            return string.Empty;
+        }
+
+        private string SelectedMonitorAsset()
+        {
+            if (MonitorGrid == null)
+            {
+                return string.Empty;
+            }
+
+            MonitorRow row = MonitorGrid.SelectedItem as MonitorRow;
 
             if (row != null)
             {
@@ -1394,6 +1450,7 @@ namespace RtdDolarNative
             DateTimeOffset now = DateTimeOffset.Now;
             int selectedTab = CurrentMainTabIndex();
             bool showDashboard = selectedTab == TabDashboard;
+            bool showMonitor = selectedTab == TabMonitor;
             bool showAssets = selectedTab == TabAssets;
             bool showQuote = selectedTab == TabQuote;
             bool showDomBook = selectedTab == TabDomBook;
@@ -1433,6 +1490,11 @@ namespace RtdDolarNative
                     RenderDashboard(snapshot);
                 }
 
+                if (showMonitor)
+                {
+                    RenderMonitor();
+                }
+
                 if (showDomBook)
                 {
                     RenderDomBook(snapshot);
@@ -1469,6 +1531,11 @@ namespace RtdDolarNative
                 if (showDashboard)
                 {
                     RenderDashboard(snapshot);
+                }
+
+                if (showMonitor)
+                {
+                    RenderMonitor();
                 }
 
                 if (showAssets)
@@ -1569,6 +1636,120 @@ namespace RtdDolarNative
             UpdateDashboardProfile(snapshot, metrics);
             DashboardLevelsGrid.ItemsSource = BuildDashboardLevels(snapshot);
             DashboardSignalsGrid.ItemsSource = _flowProcessor.GetSignals(focused, 30);
+        }
+
+        private void RenderMonitor()
+        {
+            if (MonitorGrid == null || MonitorSummaryText == null)
+            {
+                return;
+            }
+
+            string selected = SelectedMonitorAsset();
+            string focused = FocusedAsset();
+            List<MonitorRow> rows = new List<MonitorRow>();
+            int enabledCount = 0;
+            int connectedCount = 0;
+            int staleCount = 0;
+            int waitingCount = 0;
+
+            foreach (RtdAssetConfig item in _config.Rtd.Assets)
+            {
+                item.Normalize();
+                MarketSnapshot snapshot = SnapshotForAsset(item.Asset);
+                FlowMetrics metrics = _flowProcessor.GetMetrics(item.Asset);
+                string status = MonitorAssetStatus(item, snapshot);
+
+                if (item.Enabled)
+                {
+                    enabledCount++;
+                }
+
+                if (string.Equals(status, "connected", StringComparison.OrdinalIgnoreCase))
+                {
+                    connectedCount++;
+                }
+                else if (string.Equals(status, "atrasado", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(status, "lento", StringComparison.OrdinalIgnoreCase))
+                {
+                    staleCount++;
+                }
+                else if (string.Equals(status, "aguardando", StringComparison.OrdinalIgnoreCase))
+                {
+                    waitingCount++;
+                }
+
+                MonitorRow row = new MonitorRow();
+                row.Asset = item.Asset;
+                row.Name = item.Name;
+                row.FocusText = string.Equals(item.Asset, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : "";
+                row.EnabledText = item.Enabled ? "On" : "Off";
+                row.ChannelsText = (item.QuoteEnabled ? "C" : "-") + "/" + (item.BookEnabled ? "B" : "-") + "/" + (item.TimesEnabled ? "T" : "-");
+                row.LastText = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+                row.BidAskText = snapshot == null ? "-" : FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
+                row.VolumeText = snapshot == null ? "-" : FormatDecimal(snapshot.Volume, "N0");
+                row.SnapshotAgeText = snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp);
+                row.FlowQuality = metrics == null ? "-" : metrics.DataQuality.ToString() + (metrics.Derived ? " derivado" : " real");
+                row.DeltaText = metrics == null ? "-" : metrics.LastDelta.ToString("N0", _ptBr) + " / " + metrics.CumulativeDelta.ToString("N0", _ptBr);
+                row.CsvText = FocusedAssetCsvText(item);
+                row.Status = status;
+                rows.Add(row);
+            }
+
+            MonitorGrid.ItemsSource = rows;
+
+            MonitorRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
+                                     rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+
+            if (selectedRow != null)
+            {
+                MonitorGrid.SelectedItem = selectedRow;
+            }
+
+            MonitorSummaryText.Text = rows.Count.ToString(_ptBr) +
+                                      " ativo(s) | ligados " + enabledCount.ToString(_ptBr) +
+                                      " | connected " + connectedCount.ToString(_ptBr) +
+                                      " | aguardando " + waitingCount.ToString(_ptBr) +
+                                      " | lento/atrasado " + staleCount.ToString(_ptBr) +
+                                      " | foco " + EmptyToDash(focused) +
+                                      " | RTD " + EmptyToDash(_probeService.Status);
+        }
+
+        private string MonitorAssetStatus(RtdAssetConfig asset, MarketSnapshot snapshot)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            if (!asset.Enabled)
+            {
+                return "desligado";
+            }
+
+            if (!_probeService.IsRunning)
+            {
+                return "pronto";
+            }
+
+            if (snapshot == null)
+            {
+                return "aguardando";
+            }
+
+            TimeSpan age = DateTimeOffset.Now - snapshot.LocalTimestamp;
+
+            if (age.TotalSeconds >= 15)
+            {
+                return "atrasado";
+            }
+
+            if (age.TotalSeconds >= 5)
+            {
+                return "lento";
+            }
+
+            return EmptyToDash(snapshot.Status);
         }
 
         private List<NameValueRow> BuildDashboardChannelRows(RtdAssetConfig asset, MarketSnapshot snapshot)
@@ -2321,11 +2502,18 @@ namespace RtdDolarNative
         {
             string focused = FocusedAsset();
 
+            return SnapshotForAsset(focused);
+        }
+
+        private MarketSnapshot SnapshotForAsset(string asset)
+        {
+            string normalized = RtdConfig.NormalizeAsset(asset);
+
             lock (_snapshotsLock)
             {
                 MarketSnapshot snapshot;
 
-                if (_snapshotsByAsset.TryGetValue(focused, out snapshot))
+                if (!string.IsNullOrWhiteSpace(normalized) && _snapshotsByAsset.TryGetValue(normalized, out snapshot))
                 {
                     return snapshot;
                 }
@@ -3780,6 +3968,23 @@ namespace RtdDolarNative
             public string ChannelsText { get; set; }
             public string FocusText { get; set; }
             public string LastText { get; set; }
+            public string Status { get; set; }
+        }
+
+        private sealed class MonitorRow
+        {
+            public string Asset { get; set; }
+            public string Name { get; set; }
+            public string FocusText { get; set; }
+            public string EnabledText { get; set; }
+            public string ChannelsText { get; set; }
+            public string LastText { get; set; }
+            public string BidAskText { get; set; }
+            public string VolumeText { get; set; }
+            public string SnapshotAgeText { get; set; }
+            public string FlowQuality { get; set; }
+            public string DeltaText { get; set; }
+            public string CsvText { get; set; }
             public string Status { get; set; }
         }
 

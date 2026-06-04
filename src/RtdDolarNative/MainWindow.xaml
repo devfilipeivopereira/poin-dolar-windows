@@ -209,6 +209,7 @@
             </MenuItem>
             <MenuItem Header="Mercado">
                 <MenuItem Header="Painel" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Monitor" InputGestureText="F11" Tag="14" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
@@ -333,7 +334,7 @@
                 Padding="12,10,4,0">
             <Grid x:Name="TopNavigation">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="0.9*" />
+                    <ColumnDefinition Width="1.1*" />
                     <ColumnDefinition Width="0.9*" />
                     <ColumnDefinition Width="1.45*" />
                     <ColumnDefinition Width="1.9*" />
@@ -346,6 +347,7 @@
                         <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
                             <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>
@@ -1046,6 +1048,61 @@
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
                             <DataGridTextColumn Header="Updates" Binding="{Binding UpdatesText}" Width="90" />
                             <DataGridTextColumn Header="Erro" Binding="{Binding LastError}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Monitor">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Monitor" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="MonitorSummaryText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Focar selecionado" Click="FocusMonitorAssetButton_Click" />
+                                <Button Content="Conectar RTD" Click="ConnectButton_Click" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid x:Name="MonitorGrid"
+                              Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              MouseDoubleClick="MonitorGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="115" />
+                            <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="130" />
+                            <DataGridTextColumn Header="Foco" Binding="{Binding FocusText}" Width="60" />
+                            <DataGridTextColumn Header="On" Binding="{Binding EnabledText}" Width="55" />
+                            <DataGridTextColumn Header="C/B/T" Binding="{Binding ChannelsText}" Width="80" />
+                            <DataGridTextColumn Header="ULT" Binding="{Binding LastText}" Width="90" />
+                            <DataGridTextColumn Header="Bid / Ask" Binding="{Binding BidAskText}" Width="145" />
+                            <DataGridTextColumn Header="Volume" Binding="{Binding VolumeText}" Width="100" />
+                            <DataGridTextColumn Header="Snapshot" Binding="{Binding SnapshotAgeText}" Width="95" />
+                            <DataGridTextColumn Header="Qualidade" Binding="{Binding FlowQuality}" Width="125" />
+                            <DataGridTextColumn Header="Delta" Binding="{Binding DeltaText}" Width="95" />
+                            <DataGridTextColumn Header="CSV" Binding="{Binding CsvText}" Width="145" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
