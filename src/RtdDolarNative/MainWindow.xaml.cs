@@ -1827,12 +1827,12 @@ namespace RtdDolarNative
                 DashboardDeltaText.Text = "Delta " + metrics.LastDelta.ToString("N0", _ptBr) + " | CD " + metrics.CumulativeDelta.ToString("N0", _ptBr);
                 DashboardMicroText.Text = "Microbias " + FormatDecimal(metrics.MicroBias, "N3") + " | Imbalance " + FormatDecimal(metrics.TopBookImbalance, "N3");
                 DashboardVwapText.Text = "VWAP " + FormatDecimal(metrics.Vwap, "N2") + " | Dist " + FormatDecimal(metrics.VwapDistance, "N2");
-                DashboardWindowsGrid.ItemsSource = metrics.Windows == null ? null : metrics.Windows.ToList();
+                DashboardWindowsGrid.ItemsSource = BuildDashboardWindowRows(metrics);
             }
 
             UpdateDashboardProfile(snapshot, metrics);
-            DashboardLevelsGrid.ItemsSource = BuildDashboardLevels(snapshot);
-            DashboardSignalsGrid.ItemsSource = _flowProcessor.GetSignals(focused, 30);
+            DashboardLevelsGrid.ItemsSource = BuildOpportunityLevelRows(snapshot).Take(40).ToList();
+            DashboardSignalsGrid.ItemsSource = BuildOpportunityRows().Take(40).ToList();
         }
 
         private void RenderMonitor()
@@ -2218,6 +2218,30 @@ namespace RtdDolarNative
             AddRow(rows, "Cotacao", ChannelTopicText(asset, "Cotacao"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Cotacao"), snapshot));
             AddRow(rows, "Book", ChannelTopicText(asset, "Book"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Book"), snapshot));
             AddRow(rows, "Times", ChannelTopicText(asset, "Times"), ChannelState(asset, asset != null && ChannelEnabled(asset.Asset, "Times"), snapshot));
+
+            return rows;
+        }
+
+        private List<DashboardWindowRow> BuildDashboardWindowRows(FlowMetrics metrics)
+        {
+            List<DashboardWindowRow> rows = new List<DashboardWindowRow>();
+
+            if (metrics == null || metrics.Windows == null)
+            {
+                return rows;
+            }
+
+            foreach (FlowWindowMetrics window in metrics.Windows.OrderBy(x => x.Seconds))
+            {
+                DashboardWindowRow row = new DashboardWindowRow();
+                row.Window = EmptyToDash(window.Window);
+                row.TradeCount = window.TradeCount.ToString("N0", _ptBr);
+                row.BuyVolume = window.BuyVolume.ToString("N0", _ptBr);
+                row.SellVolume = window.SellVolume.ToString("N0", _ptBr);
+                row.Delta = window.Delta.ToString("N0", _ptBr);
+                row.DeltaRatio = window.DeltaRatio.ToString("N3", _ptBr);
+                rows.Add(row);
+            }
 
             return rows;
         }
@@ -4494,6 +4518,16 @@ namespace RtdDolarNative
             public string Score { get; set; }
             public string Distance { get; set; }
             public string Evidence { get; set; }
+        }
+
+        private sealed class DashboardWindowRow
+        {
+            public string Window { get; set; }
+            public string TradeCount { get; set; }
+            public string BuyVolume { get; set; }
+            public string SellVolume { get; set; }
+            public string Delta { get; set; }
+            public string DeltaRatio { get; set; }
         }
 
         private sealed class HistoryRow

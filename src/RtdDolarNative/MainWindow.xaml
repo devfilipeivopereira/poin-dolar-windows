@@ -427,7 +427,7 @@
                 Padding="12,10,4,2">
             <WrapPanel x:Name="TopNavigation" Orientation="Horizontal">
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="142">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="136">
                     <StackPanel>
                         <TextBlock Text="Triagem" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -436,7 +436,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="180">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="160">
                     <StackPanel>
                         <TextBlock Text="Mesa" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -446,7 +446,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="96">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="90">
                     <StackPanel>
                         <TextBlock Text="Dados" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -455,7 +455,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="300">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="270">
                     <StackPanel>
                         <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -466,7 +466,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="360">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="320">
                     <StackPanel>
                         <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -477,7 +477,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="280" Margin="0,0,0,8">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="245" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -505,7 +505,7 @@
                     <UniformGrid Columns="4" Margin="0,0,0,10">
                         <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
                             <StackPanel>
-                                <TextBlock Text="Mercado" Foreground="{StaticResource Muted}" />
+                                <TextBlock Text="Resumo Mercado" Foreground="{StaticResource Muted}" />
                                 <TextBlock x:Name="DashboardAssetText" Text="-" FontSize="18" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock x:Name="DashboardPriceText" Text="-" Foreground="{StaticResource Accent}" FontSize="24" FontWeight="Bold" Margin="0,6,0,0" />
                                 <TextBlock x:Name="DashboardBidAskText" Text="Bid / Ask -" Foreground="{StaticResource Muted}" Margin="0,5,0,0" />
@@ -521,15 +521,26 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="RTD" Foreground="{StaticResource Muted}" />
+                                <TextBlock Text="Prontidao RTD" Foreground="{StaticResource Muted}" />
                                 <TextBlock x:Name="DashboardRtdText" Grid.Row="1" Text="-" FontWeight="Bold" Margin="0,5,0,8" />
-                                <DataGrid x:Name="DashboardChannelsGrid" Grid.Row="2" AutoGenerateColumns="True" HeadersVisibility="Column" />
+                                <DataGrid x:Name="DashboardChannelsGrid"
+                                          Grid.Row="2"
+                                          AutoGenerateColumns="False"
+                                          HeadersVisibility="Column"
+                                          RowHeight="22"
+                                          ColumnHeaderHeight="24">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Canal" Binding="{Binding Name}" Width="64" />
+                                        <DataGridTextColumn Header="Topico" Binding="{Binding Value}" Width="*" />
+                                        <DataGridTextColumn Header="Status" Binding="{Binding Detail}" Width="82" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </Grid>
                         </Border>
 
                         <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
                             <StackPanel>
-                                <TextBlock Text="Fluxo" Foreground="{StaticResource Muted}" />
+                                <TextBlock Text="Fluxo Agora" Foreground="{StaticResource Muted}" />
                                 <TextBlock x:Name="DashboardFlowText" Text="Qualidade -" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock x:Name="DashboardDeltaText" Text="Delta -" Foreground="{StaticResource Muted}" Margin="0,6,0,0" />
                                 <TextBlock x:Name="DashboardMicroText" Text="Microbias -" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
@@ -549,13 +560,76 @@
 
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.25*" />
                             <ColumnDefinition Width="1.1*" />
-                            <ColumnDefinition Width="1.1*" />
-                            <ColumnDefinition Width="0.9*" />
+                            <ColumnDefinition Width="0.85*" />
                         </Grid.ColumnDefinitions>
-                        <DataGrid x:Name="DashboardLevelsGrid" AutoGenerateColumns="True" Margin="0,0,10,0" />
-                        <DataGrid x:Name="DashboardSignalsGrid" Grid.Column="1" AutoGenerateColumns="True" Margin="0,0,10,0" />
-                        <DataGrid x:Name="DashboardWindowsGrid" Grid.Column="2" AutoGenerateColumns="True" />
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10" Margin="0,0,10,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Oportunidades" FontSize="15" FontWeight="Bold" Margin="0,0,0,8" />
+                                <DataGrid x:Name="DashboardSignalsGrid"
+                                          Grid.Row="1"
+                                          AutoGenerateColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="105" />
+                                        <DataGridTextColumn Header="Setup" Binding="{Binding Setup}" Width="145" />
+                                        <DataGridTextColumn Header="Direcao" Binding="{Binding Direction}" Width="76" />
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="60" />
+                                        <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="145" />
+                                        <DataGridTextColumn Header="Idade" Binding="{Binding Age}" Width="80" />
+                                        <DataGridTextColumn Header="Motivos" Binding="{Binding Reasons}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10" Margin="0,0,10,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Niveis proximos" FontSize="15" FontWeight="Bold" Margin="0,0,0,8" />
+                                <DataGrid x:Name="DashboardLevelsGrid"
+                                          Grid.Row="1"
+                                          AutoGenerateColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="85" />
+                                        <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="145" />
+                                        <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="92" />
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="60" />
+                                        <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="76" />
+                                        <DataGridTextColumn Header="Evidencia" Binding="{Binding Evidence}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Janelas de fluxo" FontSize="15" FontWeight="Bold" Margin="0,0,0,8" />
+                                <DataGrid x:Name="DashboardWindowsGrid"
+                                          Grid.Row="1"
+                                          AutoGenerateColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Janela" Binding="{Binding Window}" Width="52" />
+                                        <DataGridTextColumn Header="Trades" Binding="{Binding TradeCount}" Width="50" />
+                                        <DataGridTextColumn Header="Compra" Binding="{Binding BuyVolume}" Width="58" />
+                                        <DataGridTextColumn Header="Venda" Binding="{Binding SellVolume}" Width="58" />
+                                        <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="58" />
+                                        <DataGridTextColumn Header="Ratio" Binding="{Binding DeltaRatio}" Width="58" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Grid>
             </TabItem>
