@@ -41,6 +41,7 @@ namespace RtdDolarNative
         private const int TabOpportunities = 16;
         private const int TabHistory = 17;
         private const int TabScanner = 18;
+        private const int TabFlowMap = 19;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -361,6 +362,8 @@ namespace RtdDolarNative
                     return "Historico";
                 case TabScanner:
                     return "Scanner";
+                case TabFlowMap:
+                    return "Mapa de Fluxo";
                 default:
                     return "Painel";
             }
@@ -408,6 +411,8 @@ namespace RtdDolarNative
                     return "Eventos locais do app, RTD e CSV";
                 case TabScanner:
                     return "Ranking de ativos por oportunidade";
+                case TabFlowMap:
+                    return "Liquidez, delta e niveis em uma leitura";
                 default:
                     return "Resumo do ativo em foco";
             }
@@ -477,6 +482,9 @@ namespace RtdDolarNative
                 case TabVolumeProfile:
                 case TabSetups:
                     RenderFlow(snapshot);
+                    break;
+                case TabFlowMap:
+                    RenderFlowMap(snapshot);
                     break;
                 case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
@@ -576,6 +584,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabScanner);
+                return;
+            }
+
+            if (control && shift && e.Key == Key.F)
+            {
+                e.Handled = true;
+                NavigateToTab(TabFlowMap);
                 return;
             }
 
@@ -763,6 +778,11 @@ namespace RtdDolarNative
         private void RefreshScannerButton_Click(object sender, RoutedEventArgs e)
         {
             RenderScanner();
+        }
+
+        private void RefreshFlowMapButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderFlowMap(FocusedSnapshot() ?? _lastSnapshot);
         }
 
         private void StartAssetButton_Click(object sender, RoutedEventArgs e)
@@ -1687,6 +1707,7 @@ namespace RtdDolarNative
             bool showDomBook = selectedTab == TabDomBook;
             bool showTape = selectedTab == TabDomBook || selectedTab == TabTape;
             bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
+            bool showFlowMap = selectedTab == TabFlowMap;
             bool showRisk = selectedTab == TabRisk;
             bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
@@ -1699,6 +1720,7 @@ namespace RtdDolarNative
             bool renderedAlerts = false;
             bool renderedOpportunities = false;
             bool renderedScanner = false;
+            bool renderedFlowMap = false;
 
             if (snapshot != null)
             {
@@ -1749,6 +1771,12 @@ namespace RtdDolarNative
                 if (showFlow)
                 {
                     RenderFlow(snapshot);
+                }
+
+                if (showFlowMap)
+                {
+                    RenderFlowMap(snapshot);
+                    renderedFlowMap = true;
                 }
 
                 if (showRisk)
@@ -1823,6 +1851,11 @@ namespace RtdDolarNative
                 if (showScanner && !renderedScanner)
                 {
                     RenderScanner();
+                }
+
+                if (showFlowMap && !renderedFlowMap)
+                {
+                    RenderFlowMap(snapshot);
                 }
 
                 if (showHistory)
@@ -2061,6 +2094,7 @@ namespace RtdDolarNative
             AddShortcut(rows, "Ctrl+3", "DOM / Book", "Abrir DOM / Book", "Ver ladder, book e marcacoes de niveis.");
             AddShortcut(rows, "Ctrl+4", "Tape", "Abrir Tape", "Ver times and trades real ou derivado.");
             AddShortcut(rows, "Ctrl+5", "Order Flow", "Abrir Order Flow", "Ver delta, microbias, VWAP e janelas.");
+            AddShortcut(rows, "Ctrl+Shift+F", "Mapa de Fluxo", "Abrir Mapa de Fluxo", "Ver liquidez, delta, profile e setups na mesma tela.");
             AddShortcut(rows, "Ctrl+6", "Volume Profile", "Abrir Volume Profile", "Ver POC, VAH, VAL, HVN, LVN e bins.");
             AddShortcut(rows, "Ctrl+7", "Setups", "Abrir Setups", "Ver sinais e motivos do motor de fluxo.");
             AddShortcut(rows, "Ctrl+8", "Niveis", "Abrir Niveis", "Ver niveis calculados e confluencias.");
@@ -2086,13 +2120,14 @@ namespace RtdDolarNative
             AddWorkflow(rows, "4", "Acompanhamento", "Monitor", "Usar F11 para acompanhar todos os ativos e focar com duplo clique.");
             AddWorkflow(rows, "5", "Mercado", "DOM / Book", "Usar Ctrl+3 para validar ladder, book e niveis relevantes.");
             AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
-            AddWorkflow(rows, "7", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
-            AddWorkflow(rows, "8", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
-            AddWorkflow(rows, "9", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
-            AddWorkflow(rows, "10", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
-            AddWorkflow(rows, "11", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
-            AddWorkflow(rows, "12", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
-            AddWorkflow(rows, "13", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
+            AddWorkflow(rows, "7", "Fluxo", "Mapa de Fluxo", "Usar Ctrl+Shift+F para ler liquidez, delta e niveis em conjunto.");
+            AddWorkflow(rows, "8", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
+            AddWorkflow(rows, "9", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
+            AddWorkflow(rows, "10", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
+            AddWorkflow(rows, "11", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
+            AddWorkflow(rows, "12", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
+            AddWorkflow(rows, "13", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
+            AddWorkflow(rows, "14", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
 
             return rows;
         }
@@ -4422,6 +4457,376 @@ namespace RtdDolarNative
             return rows;
         }
 
+        private void RenderFlowMap(MarketSnapshot snapshot)
+        {
+            if (FlowMapGrid == null || FlowMapStateText == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            MarketSnapshot effective = snapshot ?? FocusedSnapshot();
+
+            if (effective == null &&
+                _lastSnapshot != null &&
+                (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
+            {
+                effective = _lastSnapshot;
+            }
+
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+            List<FlowSignal> signals = _flowProcessor.GetSignals(focused, 250) ?? new List<FlowSignal>();
+
+            if (effective == null)
+            {
+                FlowMapGrid.ItemsSource = new List<FlowMapBookRow>();
+
+                if (FlowMapSummaryGrid != null)
+                {
+                    FlowMapSummaryGrid.ItemsSource = BuildFlowMapSummaryRows(null, metrics, signals, 0, 0);
+                }
+
+                if (FlowMapLevelsGrid != null)
+                {
+                    FlowMapLevelsGrid.ItemsSource = new List<FlowMapLevelRow>();
+                }
+
+                if (FlowMapSignalsGrid != null)
+                {
+                    FlowMapSignalsGrid.ItemsSource = signals.OrderByDescending(x => x.LocalTimestamp).ThenByDescending(x => x.Score).Take(80).ToList();
+                }
+
+                UpdateFlowMapHeader(focused, null, metrics, 0, 0);
+                return;
+            }
+
+            List<BookDepthRow> bookRows = BuildBookRows(effective);
+            List<FlowMapBookRow> mapRows = BuildFlowMapRows(effective, metrics, bookRows);
+            List<FlowMapLevelRow> levelRows = BuildFlowMapLevelRows(effective, metrics, signals);
+
+            FlowMapGrid.ItemsSource = mapRows;
+
+            if (FlowMapSummaryGrid != null)
+            {
+                FlowMapSummaryGrid.ItemsSource = BuildFlowMapSummaryRows(effective, metrics, signals, bookRows.Count, mapRows.Count);
+            }
+
+            if (FlowMapLevelsGrid != null)
+            {
+                FlowMapLevelsGrid.ItemsSource = levelRows;
+            }
+
+            if (FlowMapSignalsGrid != null)
+            {
+                FlowMapSignalsGrid.ItemsSource = signals.OrderByDescending(x => x.LocalTimestamp).ThenByDescending(x => x.Score).Take(80).ToList();
+            }
+
+            UpdateFlowMapHeader(focused, effective, metrics, bookRows.Count, mapRows.Count);
+        }
+
+        private void UpdateFlowMapHeader(string focused, MarketSnapshot snapshot, FlowMetrics metrics, int bookRows, int mapRows)
+        {
+            if (FlowMapAssetText != null)
+            {
+                FlowMapAssetText.Text = EmptyToDash(focused);
+            }
+
+            if (FlowMapDeltaText != null)
+            {
+                FlowMapDeltaText.Text = metrics == null ? "-" : metrics.CumulativeDelta.ToString("N0", _ptBr);
+            }
+
+            if (FlowMapBiasText != null)
+            {
+                FlowMapBiasText.Text = metrics == null
+                    ? "-"
+                    : "imb " + FormatDecimal(metrics.TopBookImbalance, "N3") + " | micro " + FormatDecimal(metrics.MicroBias, "N3");
+            }
+
+            string quality = metrics == null ? "-" : metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+            string age = snapshot == null ? "sem snapshot" : "snapshot " + AgeText(snapshot.LocalTimestamp);
+
+            FlowMapStateText.Text = EmptyToDash(focused) +
+                                    " | " + age +
+                                    " | book " + bookRows.ToString(_ptBr) +
+                                    " | mapa " + mapRows.ToString(_ptBr) +
+                                    " | qualidade " + quality +
+                                    " | RTD " + EmptyToDash(_probeService.Status);
+        }
+
+        private List<NameValueRow> BuildFlowMapSummaryRows(MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> signals, int bookRows, int mapRows)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            List<FlowSignal> flowSignals = signals ?? new List<FlowSignal>();
+
+            AddRow(rows, "Ativo", EmptyToDash(focused), asset == null ? "nao cadastrado" : "cadastrado");
+            AddRow(rows, "Snapshot", snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp), snapshot == null ? "sem dados" : EmptyToDash(snapshot.HoraProfit));
+            AddRow(rows, "Book", bookRows.ToString(_ptBr), ChannelEnabled(focused, "Book") ? "ligado" : "desligado");
+            AddRow(rows, "Times", ChannelEnabled(focused, "Times") ? "ligado" : "desligado", "tape real quando disponivel");
+            AddRow(rows, "Qualidade", metrics == null ? "-" : metrics.DataQuality.ToString(), metrics == null ? "-" : (metrics.Derived ? "derivado" : "real"));
+            AddRow(rows, "Delta", metrics == null ? "-" : metrics.CumulativeDelta.ToString("N0", _ptBr), "sessao");
+            AddRow(rows, "Imbalance", metrics == null ? "-" : FormatDecimal(metrics.TopBookImbalance, "N3"), "top book");
+            AddRow(rows, "Microbias", metrics == null ? "-" : FormatDecimal(metrics.MicroBias, "N3"), "microprice - mid");
+            AddRow(rows, "VWAP", metrics == null ? "-" : FormatDecimal(metrics.Vwap, "N2"), metrics == null ? "-" : "dist " + FormatDecimal(metrics.VwapDistance, "N2"));
+            AddRow(rows, "Linhas mapa", mapRows.ToString(_ptBr), "janela perto do preco");
+            AddRow(rows, "Sinais", flowSignals.Count.ToString(_ptBr), "ultimos sinais do ativo");
+
+            return rows;
+        }
+
+        private List<FlowMapBookRow> BuildFlowMapRows(MarketSnapshot snapshot, FlowMetrics metrics, List<BookDepthRow> bookRows)
+        {
+            List<FlowMapBookRow> rows = new List<FlowMapBookRow>();
+
+            if (snapshot == null)
+            {
+                return rows;
+            }
+
+            decimal tickSize = _config.Rtd.TickSize > 0m ? _config.Rtd.TickSize : 0.5m;
+            decimal? centerValue = snapshot.Ultimo.HasValue ? snapshot.Ultimo : (metrics == null ? null : metrics.Price);
+
+            if (!centerValue.HasValue && snapshot.OfertaCompra.HasValue && snapshot.OfertaVenda.HasValue)
+            {
+                centerValue = (snapshot.OfertaCompra.Value + snapshot.OfertaVenda.Value) / 2m;
+            }
+
+            if (!centerValue.HasValue)
+            {
+                return rows;
+            }
+
+            decimal center = DomLadderModel.RoundToTick(centerValue.Value, tickSize);
+            Dictionary<decimal, decimal> bidByPrice = new Dictionary<decimal, decimal>();
+            Dictionary<decimal, decimal> askByPrice = new Dictionary<decimal, decimal>();
+
+            foreach (BookDepthRow book in bookRows ?? new List<BookDepthRow>())
+            {
+                AddFlowMapBookLevel(bidByPrice, book.Compra, book.QtdeCompra, tickSize);
+                AddFlowMapBookLevel(askByPrice, book.Venda, book.QtdeVenda, tickSize);
+            }
+
+            if (bidByPrice.Count == 0 && snapshot.OfertaCompra.HasValue && snapshot.VolumeOfertaCompra.HasValue)
+            {
+                bidByPrice[DomLadderModel.RoundToTick(snapshot.OfertaCompra.Value, tickSize)] = snapshot.VolumeOfertaCompra.Value;
+            }
+
+            if (askByPrice.Count == 0 && snapshot.OfertaVenda.HasValue && snapshot.VolumeOfertaVenda.HasValue)
+            {
+                askByPrice[DomLadderModel.RoundToTick(snapshot.OfertaVenda.Value, tickSize)] = snapshot.VolumeOfertaVenda.Value;
+            }
+
+            List<KeyLevel> levels = BuildDashboardLevels(snapshot);
+            Dictionary<decimal, List<KeyLevel>> levelsByPrice = new Dictionary<decimal, List<KeyLevel>>();
+            decimal nearWindow = tickSize * 18m;
+
+            foreach (KeyLevel level in levels)
+            {
+                decimal price = DomLadderModel.RoundToTick(level.Price, tickSize);
+                decimal distance = Math.Abs(price - center);
+
+                if (distance > nearWindow)
+                {
+                    continue;
+                }
+
+                if (!levelsByPrice.ContainsKey(price))
+                {
+                    levelsByPrice[price] = new List<KeyLevel>();
+                }
+
+                levelsByPrice[price].Add(level);
+            }
+
+            decimal maxVolume = 0m;
+
+            foreach (decimal volume in bidByPrice.Values.Concat(askByPrice.Values))
+            {
+                if (volume > maxVolume)
+                {
+                    maxVolume = volume;
+                }
+            }
+
+            if (maxVolume <= 0m)
+            {
+                maxVolume = 1m;
+            }
+
+            decimal min = center - nearWindow;
+            decimal max = center + nearWindow;
+
+            for (decimal price = max; price >= min; price -= tickSize)
+            {
+                decimal rounded = DomLadderModel.RoundToTick(price, tickSize);
+                decimal bidVolume;
+                decimal askVolume;
+                List<KeyLevel> rowLevels;
+                bidByPrice.TryGetValue(rounded, out bidVolume);
+                askByPrice.TryGetValue(rounded, out askVolume);
+                levelsByPrice.TryGetValue(rounded, out rowLevels);
+
+                bool hasLevel = rowLevels != null && rowLevels.Count > 0;
+                string levelsText = hasLevel ? string.Join(" | ", rowLevels.OrderByDescending(x => x.Score).Select(x => x.Label).Take(3).ToArray()) : string.Empty;
+                string zone = FlowMapZone(rounded, center, hasLevel);
+
+                FlowMapBookRow row = new FlowMapBookRow();
+                row.Zone = zone;
+                row.Price = rounded.ToString("N2", _ptBr);
+                row.BidSize = bidVolume > 0m ? bidVolume.ToString("N0", _ptBr) : string.Empty;
+                row.AskSize = askVolume > 0m ? askVolume.ToString("N0", _ptBr) : string.Empty;
+                row.Imbalance = FlowMapImbalanceText(bidVolume, askVolume);
+                row.BidBarWidth = FlowMapBarWidth(bidVolume, maxVolume);
+                row.AskBarWidth = FlowMapBarWidth(askVolume, maxVolume);
+                row.Levels = EmptyToDash(levelsText);
+                row.Read = FlowMapRowRead(zone, bidVolume, askVolume, levelsText);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private void AddFlowMapBookLevel(Dictionary<decimal, decimal> byPrice, string priceText, string volumeText, decimal tickSize)
+        {
+            decimal? price = ValueParser.ToDecimal(priceText);
+            decimal? volume = ValueParser.ToDecimal(volumeText);
+
+            if (!price.HasValue || !volume.HasValue || volume.Value <= 0m)
+            {
+                return;
+            }
+
+            decimal rounded = DomLadderModel.RoundToTick(price.Value, tickSize);
+
+            if (!byPrice.ContainsKey(rounded))
+            {
+                byPrice[rounded] = 0m;
+            }
+
+            byPrice[rounded] += volume.Value;
+        }
+
+        private List<FlowMapLevelRow> BuildFlowMapLevelRows(MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> signals)
+        {
+            List<FlowMapLevelRow> rows = new List<FlowMapLevelRow>();
+
+            if (snapshot == null)
+            {
+                return rows;
+            }
+
+            foreach (KeyLevel level in BuildDashboardLevels(snapshot).OrderBy(x => Math.Abs(x.Distance)).ThenByDescending(x => x.Score).Take(45))
+            {
+                FlowMapLevelRow row = new FlowMapLevelRow();
+                row.Price = level.Price.ToString("N2", _ptBr);
+                row.Label = EmptyToDash(level.Label);
+                row.Distance = level.Distance.ToString("N2", _ptBr);
+                row.Source = EmptyToDash(level.Source);
+                row.Score = level.Score.ToString("N0", _ptBr);
+                row.Read = FlowMapLevelRead(level);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private string FlowMapZone(decimal price, decimal center, bool hasLevel)
+        {
+            if (price == center)
+            {
+                return "ULT";
+            }
+
+            if (hasLevel)
+            {
+                return "PROFILE";
+            }
+
+            return price > center ? "ASK" : "BID";
+        }
+
+        private string FlowMapImbalanceText(decimal bidVolume, decimal askVolume)
+        {
+            decimal total = bidVolume + askVolume;
+
+            if (total <= 0m)
+            {
+                return "-";
+            }
+
+            decimal imbalance = (bidVolume - askVolume) / total;
+            return imbalance.ToString("N2", _ptBr);
+        }
+
+        private double FlowMapBarWidth(decimal volume, decimal maxVolume)
+        {
+            if (volume <= 0m || maxVolume <= 0m)
+            {
+                return 0d;
+            }
+
+            return Math.Max(2d, Math.Min(70d, (double)(volume / maxVolume) * 70d));
+        }
+
+        private string FlowMapRowRead(string zone, decimal bidVolume, decimal askVolume, string levelsText)
+        {
+            if (!string.IsNullOrWhiteSpace(levelsText))
+            {
+                return levelsText;
+            }
+
+            if (string.Equals(zone, "ULT", StringComparison.OrdinalIgnoreCase))
+            {
+                return "preco atual";
+            }
+
+            if (bidVolume <= 0m && askVolume <= 0m)
+            {
+                return "-";
+            }
+
+            if (bidVolume > askVolume * 2m)
+            {
+                return "liquidez compra dominante";
+            }
+
+            if (askVolume > bidVolume * 2m)
+            {
+                return "liquidez venda dominante";
+            }
+
+            if (bidVolume > 0m && askVolume > 0m)
+            {
+                return "liquidez equilibrada";
+            }
+
+            return bidVolume > 0m ? "liquidez compra" : "liquidez venda";
+        }
+
+        private string FlowMapLevelRead(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return "-";
+            }
+
+            decimal distance = level.Distance;
+
+            if (Math.Abs(distance) <= _config.Rtd.TickSize)
+            {
+                return "em teste";
+            }
+
+            if (distance > 0m)
+            {
+                return "preco acima";
+            }
+
+            return "preco abaixo";
+        }
+
         private List<NameValueRow> BuildProfileSummaryRows(VolumeProfileMetrics profile, MarketSnapshot snapshot)
         {
             List<NameValueRow> rows = new List<NameValueRow>();
@@ -4815,6 +5220,29 @@ namespace RtdDolarNative
             public string VwapDistance { get; set; }
             public string Read { get; set; }
             public double SortScore { get; set; }
+        }
+
+        private sealed class FlowMapBookRow
+        {
+            public string Zone { get; set; }
+            public string Price { get; set; }
+            public string BidSize { get; set; }
+            public string AskSize { get; set; }
+            public string Imbalance { get; set; }
+            public double BidBarWidth { get; set; }
+            public double AskBarWidth { get; set; }
+            public string Levels { get; set; }
+            public string Read { get; set; }
+        }
+
+        private sealed class FlowMapLevelRow
+        {
+            public string Price { get; set; }
+            public string Label { get; set; }
+            public string Distance { get; set; }
+            public string Source { get; set; }
+            public string Score { get; set; }
+            public string Read { get; set; }
         }
 
         private sealed class DashboardWindowRow
