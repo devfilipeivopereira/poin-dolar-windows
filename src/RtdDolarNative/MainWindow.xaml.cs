@@ -38,7 +38,7 @@ namespace RtdDolarNative
         private const int TabDiagnostics = 13;
         private const int TabMonitor = 14;
         private const int TabShortcuts = 15;
-        private const int TabOrderTicket = 16;
+        private const int TabOpportunities = 16;
         private const int TabHistory = 17;
 
         private readonly AppConfig _config;
@@ -66,10 +66,7 @@ namespace RtdDolarNative
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
         private bool _renderingAssets;
-        private string _ticketSide = "Compra";
-        private int _ticketSequence;
         private string _lastHistoryRtdStatus;
-        private readonly List<OrderTicketRow> _ticketRows = new List<OrderTicketRow>();
         private readonly List<HistoryRow> _historyRows = new List<HistoryRow>();
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -336,8 +333,8 @@ namespace RtdDolarNative
                 case TabShortcuts:
                     RenderShortcuts();
                     break;
-                case TabOrderTicket:
-                    RenderOrderTicket(snapshot);
+                case TabOpportunities:
+                    RenderOpportunities(snapshot);
                     break;
                 case TabHistory:
                     RenderHistory();
@@ -451,7 +448,7 @@ namespace RtdDolarNative
             if (e.Key == Key.F2)
             {
                 e.Handled = true;
-                NavigateToTab(TabOrderTicket);
+                NavigateToTab(TabOpportunities);
                 return;
             }
 
@@ -1520,7 +1517,7 @@ namespace RtdDolarNative
             bool showRisk = selectedTab == TabRisk;
             bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
-            bool showOrderTicket = selectedTab == TabOrderTicket;
+            bool showOpportunities = selectedTab == TabOpportunities;
             bool showHistory = selectedTab == TabHistory;
 
             if (snapshot != null)
@@ -1582,9 +1579,9 @@ namespace RtdDolarNative
                     RenderAlerts(snapshot);
                 }
 
-                if (showOrderTicket)
+                if (showOpportunities)
                 {
-                    RenderOrderTicket(snapshot);
+                    RenderOpportunities(snapshot);
                 }
 
                 _lastGridRefresh = now;
@@ -1627,9 +1624,9 @@ namespace RtdDolarNative
                     RenderAlerts(snapshot);
                 }
 
-                if (showOrderTicket)
+                if (showOpportunities)
                 {
-                    RenderOrderTicket(snapshot);
+                    RenderOpportunities(snapshot);
                 }
 
                 if (showHistory)
@@ -1855,12 +1852,12 @@ namespace RtdDolarNative
             List<ShortcutRow> rows = new List<ShortcutRow>();
 
             AddShortcut(rows, "F1", "Atalhos", "Abrir atalhos", "Consultar mapa de telas e comandos.");
-            AddShortcut(rows, "F2", "Boleta", "Abrir Boleta", "Registrar intencao local de ordem para o ativo em foco.");
+            AddShortcut(rows, "F2", "Oportunidades", "Abrir Oportunidades", "Ver setups, niveis e confluencias acionaveis.");
             AddShortcut(rows, "F5", "RTD", "Conectar / Desconectar", "Inicia ou para as assinaturas RTD ligadas.");
             AddShortcut(rows, "F6", "Calculo", "Calcular", "Reprocessa niveis, metricas, profile proxy e backtest.");
             AddShortcut(rows, "F8", "Alertas", "Abrir Alertas", "Ver alertas operacionais, RTD, CSV, fluxo e setups.");
             AddShortcut(rows, "F9", "Risco", "Abrir Risco", "Ver checklist de risco operacional e qualidade dos dados.");
-            AddShortcut(rows, "F10", "Historico", "Abrir Historico", "Ver eventos locais do app, RTD, CSV e boleta.");
+            AddShortcut(rows, "F10", "Historico", "Abrir Historico", "Ver eventos locais do app, RTD e CSV.");
             AddShortcut(rows, "F11", "Monitor", "Abrir Monitor", "Acompanhar todos os ativos cadastrados.");
             AddShortcut(rows, "Ctrl+1", "Painel", "Abrir Painel", "Resumo principal do ativo em foco.");
             AddShortcut(rows, "Ctrl+2", "Ativos", "Abrir Ativos", "Cadastrar ativos, RTDs e CSV historico.");
@@ -1894,10 +1891,10 @@ namespace RtdDolarNative
             AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
             AddWorkflow(rows, "7", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
             AddWorkflow(rows, "8", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
-            AddWorkflow(rows, "9", "Execucao", "Boleta", "Usar F2 para registrar intencao local antes de operar fora do app.");
+            AddWorkflow(rows, "9", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
             AddWorkflow(rows, "10", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
             AddWorkflow(rows, "11", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
-            AddWorkflow(rows, "12", "Auditoria", "Historico", "Usar F10 para conferir eventos locais e registros de boleta.");
+            AddWorkflow(rows, "12", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
 
             return rows;
         }
@@ -1922,39 +1919,9 @@ namespace RtdDolarNative
             rows.Add(row);
         }
 
-        private void TicketBuyButton_Click(object sender, RoutedEventArgs e)
+        private void RefreshOpportunitiesButton_Click(object sender, RoutedEventArgs e)
         {
-            SetTicketSide("Compra");
-        }
-
-        private void TicketSellButton_Click(object sender, RoutedEventArgs e)
-        {
-            SetTicketSide("Venda");
-        }
-
-        private void TicketUseBidButton_Click(object sender, RoutedEventArgs e)
-        {
-            FillTicketPrice(FocusedSnapshot(), "Bid");
-        }
-
-        private void TicketUseAskButton_Click(object sender, RoutedEventArgs e)
-        {
-            FillTicketPrice(FocusedSnapshot(), "Ask");
-        }
-
-        private void TicketUseLastButton_Click(object sender, RoutedEventArgs e)
-        {
-            FillTicketPrice(FocusedSnapshot(), "ULT");
-        }
-
-        private void RegisterTicketButton_Click(object sender, RoutedEventArgs e)
-        {
-            RegisterLocalTicket();
-        }
-
-        private void ClearTicketButton_Click(object sender, RoutedEventArgs e)
-        {
-            ClearTicketForm();
+            RenderOpportunities(FocusedSnapshot() ?? _lastSnapshot);
         }
 
         private void RefreshHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -1969,111 +1936,9 @@ namespace RtdDolarNative
             RenderHistory();
         }
 
-        private void SetTicketSide(string side)
+        private void RenderOpportunities(MarketSnapshot snapshot)
         {
-            _ticketSide = string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra";
-            UpdateTicketSideVisual();
-        }
-
-        private void FillTicketPrice(MarketSnapshot snapshot, string source)
-        {
-            decimal? price = null;
-
-            if (snapshot != null)
-            {
-                if (string.Equals(source, "Bid", StringComparison.OrdinalIgnoreCase))
-                {
-                    price = snapshot.OfertaCompra;
-                }
-                else if (string.Equals(source, "Ask", StringComparison.OrdinalIgnoreCase))
-                {
-                    price = snapshot.OfertaVenda;
-                }
-                else
-                {
-                    price = snapshot.Ultimo;
-                }
-            }
-
-            if (!price.HasValue)
-            {
-                TicketValidationText.Text = source + " indisponivel para o ativo em foco.";
-                TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(255, 184, 0));
-                return;
-            }
-
-            TicketPriceInput.Text = price.Value.ToString("N2", _ptBr);
-            TicketValidationText.Text = "Preco preenchido por " + source + ".";
-            TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(169, 179, 191));
-        }
-
-        private void RegisterLocalTicket()
-        {
-            string asset = FocusedAsset();
-            MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
-
-            if (string.IsNullOrWhiteSpace(asset))
-            {
-                TicketValidationText.Text = "Selecione um ativo antes de registrar.";
-                TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-                SetWarnings(new[] { "Selecione um ativo antes de registrar a boleta." });
-                return;
-            }
-
-            decimal? quantity = ValueParser.ToDecimal(TicketQuantityInput.Text);
-
-            if (!quantity.HasValue || quantity.Value <= 0m)
-            {
-                TicketValidationText.Text = "Quantidade invalida.";
-                TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-                return;
-            }
-
-            decimal? price = ValueParser.ToDecimal(TicketPriceInput.Text);
-            decimal? stop = ValueParser.ToDecimal(TicketStopInput.Text);
-            string type = EmptyToDash(TicketTypeInput.Text);
-            _ticketSequence++;
-
-            OrderTicketRow row = new OrderTicketRow();
-            row.Time = DateTimeOffset.Now.ToString("HH:mm:ss", _ptBr);
-            row.Asset = asset;
-            row.Side = _ticketSide;
-            row.Type = type;
-            row.Quantity = quantity.Value.ToString("N0", _ptBr);
-            row.Price = FormatDecimal(price, "N2");
-            row.Stop = FormatDecimal(stop, "N2");
-            row.Reference = TicketReference(snapshot);
-            row.Status = "registrado local";
-
-            _ticketRows.Insert(0, row);
-
-            while (_ticketRows.Count > 200)
-            {
-                _ticketRows.RemoveAt(_ticketRows.Count - 1);
-            }
-
-            string detail = "#" + _ticketSequence.ToString(_ptBr) + " " + row.Side + " " + row.Quantity + " " + row.Asset + " " + row.Type + " @ " + row.Price;
-            AddHistory("Boleta", "Registro local", detail);
-            TicketValidationText.Text = "Registro local criado. Envio real nao implementado.";
-            TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118));
-            SetWarnings(new[] { "Boleta registrada localmente: " + detail });
-            RenderOrderTicket(snapshot);
-        }
-
-        private void ClearTicketForm()
-        {
-            SetTicketSide("Compra");
-            TicketTypeInput.Text = "Limite";
-            TicketQuantityInput.Text = "1";
-            TicketPriceInput.Text = string.Empty;
-            TicketStopInput.Text = string.Empty;
-            TicketValidationText.Text = "Formulario limpo.";
-            TicketValidationText.Foreground = new SolidColorBrush(Color.FromRgb(169, 179, 191));
-        }
-
-        private void RenderOrderTicket(MarketSnapshot snapshot)
-        {
-            if (TicketStateText == null || TicketOrdersGrid == null)
+            if (OpportunitiesGrid == null || OpportunityLevelsGrid == null || OpportunitiesSummaryText == null)
             {
                 return;
             }
@@ -2083,68 +1948,109 @@ namespace RtdDolarNative
                 snapshot = FocusedSnapshot() ?? _lastSnapshot;
             }
 
-            string asset = FocusedAsset();
-            TicketAssetText.Text = EmptyToDash(asset);
-            TicketLastText.Text = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
-            TicketBidAskText.Text = snapshot == null
-                ? "-"
-                : FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
-            TicketRtdText.Text = EmptyToDash(_probeService.Status);
-            TicketStateText.Text = "registro local | envio real indisponivel | foco " + EmptyToDash(asset);
+            string focused = FocusedAsset();
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+            List<OpportunityRow> rows = BuildOpportunityRows();
+            List<OpportunityLevelRow> levels = BuildOpportunityLevelRows(snapshot);
+            int actionable = rows.Count(x => !string.Equals(x.Setup, "Aguardando setup", StringComparison.OrdinalIgnoreCase));
 
-            if (string.IsNullOrWhiteSpace(TicketQuantityInput.Text))
-            {
-                TicketQuantityInput.Text = "1";
-            }
-
-            if (string.IsNullOrWhiteSpace(TicketTypeInput.Text))
-            {
-                TicketTypeInput.Text = "Limite";
-            }
-
-            UpdateTicketSideVisual();
-            TicketOrdersGrid.ItemsSource = _ticketRows.ToList();
+            OpportunitiesGrid.ItemsSource = rows;
+            OpportunityLevelsGrid.ItemsSource = levels;
+            OpportunityAssetText.Text = EmptyToDash(focused);
+            OpportunitySignalCountText.Text = actionable.ToString(_ptBr);
+            OpportunityQualityText.Text = metrics == null ? "-" : metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+            OpportunityLevelCountText.Text = levels.Count.ToString(_ptBr);
+            OpportunitiesSummaryText.Text = actionable.ToString(_ptBr) +
+                                            " oportunidade(s) | foco " +
+                                            EmptyToDash(focused) +
+                                            " | RTD " +
+                                            EmptyToDash(_probeService.Status);
         }
 
-        private string TicketReference(MarketSnapshot snapshot)
+        private List<OpportunityRow> BuildOpportunityRows()
         {
-            if (snapshot == null)
+            List<OpportunityRow> rows = new List<OpportunityRow>();
+            IEnumerable<RtdAssetConfig> assets = _config.Rtd.Assets.Where(x => x.Enabled).ToList();
+
+            if (!assets.Any())
             {
-                return "sem snapshot";
+                RtdAssetConfig focusedConfig = _config.Rtd.FindAsset(FocusedAsset());
+
+                if (focusedConfig != null)
+                {
+                    assets = new[] { focusedConfig };
+                }
             }
 
-            return "ULT " + FormatDecimal(snapshot.Ultimo, "N2") +
-                   " | Bid " + FormatDecimal(snapshot.OfertaCompra, "N2") +
-                   " | Ask " + FormatDecimal(snapshot.OfertaVenda, "N2") +
-                   " | " + AgeText(snapshot.LocalTimestamp);
+            foreach (RtdAssetConfig asset in assets)
+            {
+                string assetName = asset.Asset;
+                List<FlowSignal> signals = _flowProcessor.GetSignals(assetName, 8) ?? new List<FlowSignal>();
+
+                if (signals.Count == 0)
+                {
+                    MarketSnapshot snapshot = SnapshotForAsset(assetName);
+                    FlowMetrics metrics = _flowProcessor.GetMetrics(assetName);
+                    OpportunityRow waiting = new OpportunityRow();
+                    waiting.Asset = assetName;
+                    waiting.Setup = "Aguardando setup";
+                    waiting.Direction = "-";
+                    waiting.Price = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+                    waiting.Score = "-";
+                    waiting.Level = "-";
+                    waiting.Quality = metrics == null ? "-" : metrics.DataQuality.ToString();
+                    waiting.Age = snapshot == null ? "sem snapshot" : AgeText(snapshot.LocalTimestamp);
+                    waiting.Reasons = ChannelEnabled(assetName, "Times") ? "sem sinal no cooldown atual" : "dados limitados ou sem tape";
+                    rows.Add(waiting);
+                    continue;
+                }
+
+                foreach (FlowSignal signal in signals.OrderByDescending(x => x.Score).ThenByDescending(x => x.LocalTimestamp).Take(8))
+                {
+                    OpportunityRow row = new OpportunityRow();
+                    row.Asset = assetName;
+                    row.Setup = EmptyToDash(signal.Setup);
+                    row.Direction = EmptyToDash(signal.Direction);
+                    row.Price = signal.Price.ToString("N2", _ptBr);
+                    row.Score = signal.Score.ToString(_ptBr);
+                    row.Level = EmptyToDash(signal.LevelName) + (signal.LevelPrice.HasValue ? " @ " + signal.LevelPrice.Value.ToString("N2", _ptBr) : string.Empty);
+                    row.Quality = signal.DataQuality + (signal.Derived ? " derivado" : " real");
+                    row.Age = AgeText(signal.LocalTimestamp);
+                    row.Reasons = EmptyToDash(signal.Reasons);
+                    rows.Add(row);
+                }
+            }
+
+            return rows
+                .OrderByDescending(x => ParseIntOrZero(x.Score))
+                .ThenBy(x => x.Asset)
+                .Take(80)
+                .ToList();
         }
 
-        private void UpdateTicketSideVisual()
+        private List<OpportunityLevelRow> BuildOpportunityLevelRows(MarketSnapshot snapshot)
         {
-            if (TicketBuyButton == null || TicketSellButton == null)
+            List<OpportunityLevelRow> rows = new List<OpportunityLevelRow>();
+
+            foreach (KeyLevel level in BuildDashboardLevels(snapshot).OrderBy(x => Math.Abs(x.Distance)).Take(80))
             {
-                return;
+                OpportunityLevelRow row = new OpportunityLevelRow();
+                row.Price = level.Price.ToString("N2", _ptBr);
+                row.Label = EmptyToDash(level.Label);
+                row.Source = EmptyToDash(level.Source);
+                row.Score = level.Score.ToString("N0", _ptBr);
+                row.Distance = level.Distance.ToString("N2", _ptBr);
+                row.Evidence = EmptyToDash(level.Evidence);
+                rows.Add(row);
             }
 
-            Brush normalBackground = FindResource("Panel2") as Brush;
-            Brush normalBorder = FindResource("Border") as Brush;
-            TicketBuyButton.Background = normalBackground;
-            TicketSellButton.Background = normalBackground;
-            TicketBuyButton.BorderBrush = normalBorder;
-            TicketSellButton.BorderBrush = normalBorder;
+            return rows;
+        }
 
-            if (string.Equals(_ticketSide, "Venda", StringComparison.OrdinalIgnoreCase))
-            {
-                TicketSellButton.BorderBrush = FindResource("Danger") as Brush;
-                TicketSellButton.FontWeight = FontWeights.Bold;
-                TicketBuyButton.FontWeight = FontWeights.Normal;
-            }
-            else
-            {
-                TicketBuyButton.BorderBrush = FindResource("Accent") as Brush;
-                TicketBuyButton.FontWeight = FontWeights.Bold;
-                TicketSellButton.FontWeight = FontWeights.Normal;
-            }
+        private int ParseIntOrZero(string value)
+        {
+            int result;
+            return int.TryParse(value, NumberStyles.Integer, _ptBr, out result) ? result : 0;
         }
 
         private void AddHistory(string area, string evt, string detail)
@@ -2688,7 +2594,7 @@ namespace RtdDolarNative
             RenderRtdChannels();
             RenderRtdSources();
             RenderRtdReadiness();
-            RenderOrderTicket(null);
+            RenderOpportunities(null);
             RenderHistory();
             UpdateTopNavigation();
             UpdateRuntimeStatusBar(null);
@@ -4439,17 +4345,27 @@ namespace RtdDolarNative
             public string Action { get; set; }
         }
 
-        private sealed class OrderTicketRow
+        private sealed class OpportunityRow
         {
-            public string Time { get; set; }
             public string Asset { get; set; }
-            public string Side { get; set; }
-            public string Type { get; set; }
-            public string Quantity { get; set; }
+            public string Setup { get; set; }
+            public string Direction { get; set; }
             public string Price { get; set; }
-            public string Stop { get; set; }
-            public string Reference { get; set; }
-            public string Status { get; set; }
+            public string Score { get; set; }
+            public string Level { get; set; }
+            public string Quality { get; set; }
+            public string Age { get; set; }
+            public string Reasons { get; set; }
+        }
+
+        private sealed class OpportunityLevelRow
+        {
+            public string Price { get; set; }
+            public string Label { get; set; }
+            public string Source { get; set; }
+            public string Score { get; set; }
+            public string Distance { get; set; }
+            public string Evidence { get; set; }
         }
 
         private sealed class HistoryRow
