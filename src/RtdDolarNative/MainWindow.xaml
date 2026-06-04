@@ -302,6 +302,7 @@
                 <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="7" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Analise">
+                <MenuItem Header="Scanner" InputGestureText="F3" Tag="18" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
@@ -427,10 +428,11 @@
                 Padding="12,10,4,2">
             <WrapPanel x:Name="TopNavigation" Orientation="Horizontal">
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="136">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="210">
                     <StackPanel>
                         <TextBlock Text="Triagem" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
+                            <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="118" />
                         </WrapPanel>
                     </StackPanel>
@@ -1463,6 +1465,85 @@
                             <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="105" />
                             <DataGridTextColumn Header="Evento" Binding="{Binding Event}" Width="170" />
                             <DataGridTextColumn Header="Detalhe" Binding="{Binding Detail}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Scanner">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="12"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Scanner" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="ScannerSummaryText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Ativos" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="ScannerAssetCountText" Text="0" FontWeight="Bold" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Sinais" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="ScannerSignalCountText" Text="0" Foreground="{StaticResource Accent}" FontWeight="Bold" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="Foco" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="ScannerFocusText" Text="-" FontWeight="Bold" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Atualizar" Click="RefreshScannerButton_Click" />
+                                <Button Content="Oportunidades" Tag="16" Click="TopNavButton_Click" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid x:Name="ScannerGrid"
+                              Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              MouseDoubleClick="ScannerGrid_MouseDoubleClick"
+                              RowStyle="{StaticResource StatusDataGridRowStyle}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="48" />
+                            <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="120" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="95" />
+                            <DataGridTextColumn Header="ULT" Binding="{Binding Last}" Width="90" />
+                            <DataGridTextColumn Header="Bid / Ask" Binding="{Binding BidAsk}" Width="140" />
+                            <DataGridTextColumn Header="Snapshot" Binding="{Binding SnapshotAge}" Width="90" />
+                            <DataGridTextColumn Header="C/B/T" Binding="{Binding Channels}" Width="70" />
+                            <DataGridTextColumn Header="Qualidade" Binding="{Binding Quality}" Width="125" />
+                            <DataGridTextColumn Header="Setup" Binding="{Binding BestSetup}" Width="150" />
+                            <DataGridTextColumn Header="Direcao" Binding="{Binding Direction}" Width="82" />
+                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="62" />
+                            <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="155" />
+                            <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="76" />
+                            <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="92" />
+                            <DataGridTextColumn Header="VWAP" Binding="{Binding VwapDistance}" Width="82" />
+                            <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

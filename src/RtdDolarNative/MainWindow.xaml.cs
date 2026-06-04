@@ -40,6 +40,7 @@ namespace RtdDolarNative
         private const int TabShortcuts = 15;
         private const int TabOpportunities = 16;
         private const int TabHistory = 17;
+        private const int TabScanner = 18;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -358,6 +359,8 @@ namespace RtdDolarNative
                     return "Oportunidades";
                 case TabHistory:
                     return "Historico";
+                case TabScanner:
+                    return "Scanner";
                 default:
                     return "Painel";
             }
@@ -403,6 +406,8 @@ namespace RtdDolarNative
                     return "Triagem de setups e confluencias";
                 case TabHistory:
                     return "Eventos locais do app, RTD e CSV";
+                case TabScanner:
+                    return "Ranking de ativos por oportunidade";
                 default:
                     return "Resumo do ativo em foco";
             }
@@ -447,6 +452,9 @@ namespace RtdDolarNative
                     break;
                 case TabOpportunities:
                     RenderOpportunities(snapshot);
+                    break;
+                case TabScanner:
+                    RenderScanner();
                     break;
                 case TabHistory:
                     RenderHistory();
@@ -561,6 +569,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabOpportunities);
+                return;
+            }
+
+            if (e.Key == Key.F3)
+            {
+                e.Handled = true;
+                NavigateToTab(TabScanner);
                 return;
             }
 
@@ -745,6 +760,11 @@ namespace RtdDolarNative
             FocusSelectedMonitorAsset();
         }
 
+        private void RefreshScannerButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderScanner();
+        }
+
         private void StartAssetButton_Click(object sender, RoutedEventArgs e)
         {
             if (SetSelectedAssetEnabled(true) && !_probeService.IsRunning && !_manualMode)
@@ -827,6 +847,11 @@ namespace RtdDolarNative
         private void MonitorGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             FocusSelectedMonitorAsset();
+        }
+
+        private void ScannerGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            FocusSelectedScannerAsset();
         }
 
         private void RtdAssetsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -944,6 +969,25 @@ namespace RtdDolarNative
 
             SetFocusedAsset(asset);
             SaveRuntimeConfig();
+            RenderMonitor();
+            RenderRtdAssets();
+            ApplyFocusedSnapshot();
+            SetWarnings(new[] { "Ativo em foco: " + asset + "." });
+        }
+
+        private void FocusSelectedScannerAsset()
+        {
+            string asset = SelectedScannerAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo no Scanner." });
+                return;
+            }
+
+            SetFocusedAsset(asset);
+            SaveRuntimeConfig();
+            RenderScanner();
             RenderMonitor();
             RenderRtdAssets();
             ApplyFocusedSnapshot();
@@ -1120,6 +1164,23 @@ namespace RtdDolarNative
             }
 
             MonitorRow row = MonitorGrid.SelectedItem as MonitorRow;
+
+            if (row != null)
+            {
+                return row.Asset;
+            }
+
+            return string.Empty;
+        }
+
+        private string SelectedScannerAsset()
+        {
+            if (ScannerGrid == null)
+            {
+                return string.Empty;
+            }
+
+            ScannerRow row = ScannerGrid.SelectedItem as ScannerRow;
 
             if (row != null)
             {
@@ -1631,11 +1692,13 @@ namespace RtdDolarNative
             bool showDiagnostics = selectedTab == TabDiagnostics;
             bool showOpportunities = selectedTab == TabOpportunities;
             bool showHistory = selectedTab == TabHistory;
+            bool showScanner = selectedTab == TabScanner;
             bool renderedDashboard = false;
             bool renderedMonitor = false;
             bool renderedRisk = false;
             bool renderedAlerts = false;
             bool renderedOpportunities = false;
+            bool renderedScanner = false;
 
             if (snapshot != null)
             {
@@ -1706,6 +1769,12 @@ namespace RtdDolarNative
                     renderedOpportunities = true;
                 }
 
+                if (showScanner)
+                {
+                    RenderScanner();
+                    renderedScanner = true;
+                }
+
                 _lastGridRefresh = now;
                 _lastFlowProcessed = flowVersion;
             }
@@ -1749,6 +1818,11 @@ namespace RtdDolarNative
                 if (showOpportunities && !renderedOpportunities)
                 {
                     RenderOpportunities(snapshot);
+                }
+
+                if (showScanner && !renderedScanner)
+                {
+                    RenderScanner();
                 }
 
                 if (showHistory)
@@ -1975,6 +2049,7 @@ namespace RtdDolarNative
 
             AddShortcut(rows, "F1", "Atalhos", "Abrir atalhos", "Consultar mapa de telas e comandos.");
             AddShortcut(rows, "F2", "Oportunidades", "Abrir Oportunidades", "Ver setups, niveis e confluencias acionaveis.");
+            AddShortcut(rows, "F3", "Scanner", "Abrir Scanner", "Comparar ativos por score, fluxo, nivel e qualidade dos dados.");
             AddShortcut(rows, "F5", "RTD", "Conectar / Desconectar", "Inicia ou para as assinaturas RTD ligadas.");
             AddShortcut(rows, "F6", "Calculo", "Calcular", "Reprocessa niveis, metricas, profile proxy e backtest.");
             AddShortcut(rows, "F8", "Alertas", "Abrir Alertas", "Ver alertas operacionais, RTD, CSV, fluxo e setups.");
@@ -2013,10 +2088,11 @@ namespace RtdDolarNative
             AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
             AddWorkflow(rows, "7", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
             AddWorkflow(rows, "8", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
-            AddWorkflow(rows, "9", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
-            AddWorkflow(rows, "10", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
-            AddWorkflow(rows, "11", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
-            AddWorkflow(rows, "12", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
+            AddWorkflow(rows, "9", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
+            AddWorkflow(rows, "10", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
+            AddWorkflow(rows, "11", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
+            AddWorkflow(rows, "12", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
+            AddWorkflow(rows, "13", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
 
             return rows;
         }
@@ -2209,6 +2285,204 @@ namespace RtdDolarNative
                                       EmptyToDash(FocusedAsset()) +
                                       " | RTD " +
                                       EmptyToDash(_probeService.Status);
+        }
+
+        private void RenderScanner()
+        {
+            if (ScannerGrid == null || ScannerSummaryText == null)
+            {
+                return;
+            }
+
+            string selected = SelectedScannerAsset();
+            string focused = FocusedAsset();
+            List<ScannerRow> rows = BuildScannerRows();
+            int signalCount = rows.Count(x => ParseIntOrZero(x.Score) > 0);
+            int enabledCount = rows.Count(x => string.Equals(x.EnabledText, "On", StringComparison.OrdinalIgnoreCase));
+
+            ScannerGrid.ItemsSource = rows;
+
+            ScannerRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
+                                     rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+
+            if (selectedRow != null)
+            {
+                ScannerGrid.SelectedItem = selectedRow;
+            }
+
+            ScannerAssetCountText.Text = rows.Count.ToString(_ptBr);
+            ScannerSignalCountText.Text = signalCount.ToString(_ptBr);
+            ScannerFocusText.Text = EmptyToDash(focused);
+            ScannerSummaryText.Text = rows.Count.ToString(_ptBr) +
+                                      " ativo(s) | ligados " +
+                                      enabledCount.ToString(_ptBr) +
+                                      " | com sinal " +
+                                      signalCount.ToString(_ptBr) +
+                                      " | RTD " +
+                                      EmptyToDash(_probeService.Status);
+        }
+
+        private List<ScannerRow> BuildScannerRows()
+        {
+            List<ScannerRow> rows = new List<ScannerRow>();
+            string focused = FocusedAsset();
+
+            foreach (RtdAssetConfig item in _config.Rtd.Assets)
+            {
+                item.Normalize();
+                string assetName = item.Asset;
+                MarketSnapshot snapshot = SnapshotForAsset(assetName);
+                FlowMetrics metrics = _flowProcessor.GetMetrics(assetName);
+                List<FlowSignal> signals = _flowProcessor.GetSignals(assetName, 12) ?? new List<FlowSignal>();
+                FlowSignal bestSignal = signals.OrderByDescending(x => x.Score).ThenByDescending(x => x.LocalTimestamp).FirstOrDefault();
+                KeyLevel nearestLevel = NearestScannerLevel(assetName, snapshot, metrics, signals);
+                decimal? distance = nearestLevel == null ? null : (decimal?)nearestLevel.Distance;
+
+                ScannerRow row = new ScannerRow();
+                row.Rank = "0";
+                row.Asset = assetName;
+                row.EnabledText = item.Enabled ? "On" : "Off";
+                row.Status = MonitorAssetStatus(item, snapshot);
+                row.Last = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
+                row.BidAsk = snapshot == null ? "-" : FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
+                row.SnapshotAge = snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp);
+                row.Channels = (item.QuoteEnabled ? "C" : "-") + "/" + (item.BookEnabled ? "B" : "-") + "/" + (item.TimesEnabled ? "T" : "-");
+                row.Quality = metrics == null ? "-" : metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+                row.BestSetup = bestSignal == null ? "Aguardando setup" : EmptyToDash(bestSignal.Setup);
+                row.Direction = bestSignal == null ? "-" : EmptyToDash(bestSignal.Direction);
+                row.Score = bestSignal == null ? "0" : bestSignal.Score.ToString(_ptBr);
+                row.Level = nearestLevel == null ? "-" : EmptyToDash(nearestLevel.Label);
+                row.Distance = distance.HasValue ? distance.Value.ToString("N2", _ptBr) : "-";
+                row.Delta = metrics == null ? "-" : metrics.LastDelta.ToString("N0", _ptBr) + " / " + metrics.CumulativeDelta.ToString("N0", _ptBr);
+                row.VwapDistance = metrics == null ? "-" : FormatDecimal(metrics.VwapDistance, "N2");
+                row.Read = ScannerReadText(item, snapshot, metrics, bestSignal, nearestLevel);
+                row.FocusText = string.Equals(assetName, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : string.Empty;
+                row.SortScore = ScannerSortScore(item, snapshot, metrics, bestSignal, nearestLevel);
+                rows.Add(row);
+            }
+
+            List<ScannerRow> ordered = rows
+                .OrderByDescending(x => x.SortScore)
+                .ThenBy(x => x.Asset)
+                .ToList();
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                ordered[i].Rank = (i + 1).ToString(_ptBr);
+            }
+
+            return ordered;
+        }
+
+        private KeyLevel NearestScannerLevel(string assetName, MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> signals)
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (snapshot != null)
+            {
+                levels.AddRange(BasicLevels(snapshot));
+            }
+
+            if (metrics != null && metrics.Profile != null && metrics.Profile.Levels != null)
+            {
+                foreach (ProfileLevel profileLevel in metrics.Profile.Levels)
+                {
+                    KeyLevel level = new KeyLevel();
+                    level.Price = profileLevel.Price;
+                    level.Label = profileLevel.Label;
+                    level.Type = profileLevel.Type;
+                    level.Source = profileLevel.Source;
+                    level.Score = profileLevel.Score;
+                    level.Evidence = "Volume Profile intraday";
+                    levels.Add(level);
+                }
+            }
+
+            foreach (FlowSignal signal in (signals ?? new List<FlowSignal>()).Where(x => x.LevelPrice.HasValue))
+            {
+                KeyLevel level = new KeyLevel();
+                level.Price = signal.LevelPrice.Value;
+                level.Label = EmptyToDash(signal.LevelName);
+                level.Type = "setup";
+                level.Source = "Setups";
+                level.Score = signal.Score;
+                level.Evidence = signal.Reasons;
+                levels.Add(level);
+            }
+
+            foreach (KeyLevel level in levels)
+            {
+                level.Distance = snapshot != null && snapshot.Ultimo.HasValue ? snapshot.Ultimo.Value - level.Price : 0m;
+            }
+
+            return levels
+                .OrderBy(x => Math.Abs(x.Distance))
+                .ThenByDescending(x => x.Score)
+                .FirstOrDefault();
+        }
+
+        private double ScannerSortScore(RtdAssetConfig item, MarketSnapshot snapshot, FlowMetrics metrics, FlowSignal signal, KeyLevel nearestLevel)
+        {
+            double score = signal == null ? 0d : signal.Score;
+
+            if (item != null && item.Enabled)
+            {
+                score += 8d;
+            }
+
+            if (snapshot != null)
+            {
+                score += 8d;
+            }
+
+            if (metrics != null)
+            {
+                score += 6d;
+
+                if (!metrics.Derived)
+                {
+                    score += 4d;
+                }
+
+                score += Math.Min(10d, Math.Abs((double)metrics.CumulativeDelta) / 1000d);
+            }
+
+            if (nearestLevel != null)
+            {
+                score += Math.Max(0d, 10d - Math.Min(10d, Math.Abs((double)nearestLevel.Distance)));
+            }
+
+            return score;
+        }
+
+        private string ScannerReadText(RtdAssetConfig item, MarketSnapshot snapshot, FlowMetrics metrics, FlowSignal signal, KeyLevel nearestLevel)
+        {
+            if (item == null || !item.Enabled)
+            {
+                return "ativo desligado";
+            }
+
+            if (snapshot == null)
+            {
+                return "aguardando snapshot";
+            }
+
+            if (signal != null)
+            {
+                return EmptyToDash(signal.Setup) + " | " + EmptyToDash(signal.Reasons);
+            }
+
+            if (metrics != null && metrics.DataQuality == MarketDataQuality.TopOfBookOnly)
+            {
+                return "dados limitados; priorize Book/Times se disponivel";
+            }
+
+            if (nearestLevel != null)
+            {
+                return "sem setup; observando " + EmptyToDash(nearestLevel.Label);
+            }
+
+            return "sem setup ativo";
         }
 
         private List<NameValueRow> BuildDashboardChannelRows(RtdAssetConfig asset, MarketSnapshot snapshot)
@@ -4518,6 +4792,29 @@ namespace RtdDolarNative
             public string Score { get; set; }
             public string Distance { get; set; }
             public string Evidence { get; set; }
+        }
+
+        private sealed class ScannerRow
+        {
+            public string Rank { get; set; }
+            public string Asset { get; set; }
+            public string EnabledText { get; set; }
+            public string FocusText { get; set; }
+            public string Status { get; set; }
+            public string Last { get; set; }
+            public string BidAsk { get; set; }
+            public string SnapshotAge { get; set; }
+            public string Channels { get; set; }
+            public string Quality { get; set; }
+            public string BestSetup { get; set; }
+            public string Direction { get; set; }
+            public string Score { get; set; }
+            public string Level { get; set; }
+            public string Distance { get; set; }
+            public string Delta { get; set; }
+            public string VwapDistance { get; set; }
+            public string Read { get; set; }
+            public double SortScore { get; set; }
         }
 
         private sealed class DashboardWindowRow
