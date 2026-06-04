@@ -53,6 +53,17 @@ O score sempre deve ser lido junto da qualidade:
 
 Sinais quant exibem score ajustado pelo fluxo. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos.
 
+## Robustez operacional
+
+A robustez financeira da leitura vem de confluencia, qualidade do dado e auditoria, nao de promessa de acerto. A plataforma cruza:
+
+- RTD de `Cotacao` para preco, volume, negocios, VWAP/MED, bid/ask e variacao intraday.
+- RTD de `Book` para spread, liquidez por nivel, imbalance, microprice e marcacoes no DOM.
+- RTD de `Times` para prints reais, agressor, quantidade, delta e cumulative delta.
+- CSV historico para volatilidade, desvios, suportes/resistencias, indicadores tecnicos, profile proxy e backtest proxy.
+
+Um sinal fica mais forte quando ha confirmacao entre nivel estatistico, fluxo, profile e tape. Quando ha conflito, baixa amostra, RTD derivado ou ausencia de book/times real, o score e limitado e a qualidade aparece na UI. Essa regra evita que uma leitura incompleta pareca mais confiavel do que realmente e.
+
 ## Tela Indicadores
 
 Use `Ctrl+Shift+I` ou o botao `Indic.` no menu superior. A tela mostra:

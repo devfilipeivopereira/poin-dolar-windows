@@ -35,9 +35,10 @@ Regras aplicadas desde o primeiro marco:
 - Setups baseados apenas em top-of-book/tape derivado tem score limitado; score 100 fica reservado para feeds reais.
 - O motor quant calcula RSI14, SMA20/50, EMA9/21/50, MACD, Bollinger20, z-score 20, ATR/VWAP, volatilidade historica, desvios, confluencias e backtest proxy.
 - A tela `Indicadores` expõe fonte, amostra, qualidade RTD/CSV/fluxo, sinais quant, score ajustado por fluxo e edge estatistico.
+- A navegacao principal separa a plataforma por uso: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`; o menu `Janelas` mantem acesso direto a todos os workspaces.
 - Logs por tick ficam desligados por padrao.
 
-O historico diario e carregado por ativo na aba `Ativos` e alimenta o motor quant nativo. O carregamento aceita botao, seletor no cadastro, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load do CSV mais recente em `Downloads\Dados_Dolar` ou `Documentos` quando o ativo ainda nao tem `CsvPath`. O parser tenta `UTF-8` e cai para `Windows-1252`, cobrindo exportacoes do Profit com acentos no cabecalho. O RTD preenche abertura, maxima, minima, ultimo preco, VWAP, volume, bid/ask, book real e times real quando os canais estao ligados.
+O historico diario e carregado por ativo na aba `Ativos` e alimenta o motor quant nativo. O carregamento aceita botao, seletor no cadastro, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load do CSV mais recente em `Downloads\Dados_Dolar` ou `Documentos` quando o ativo ainda nao tem `CsvPath`. O parser tenta `UTF-8` e cai para `Windows-1252`, cobrindo exportacoes do Profit com acentos no cabecalho. O RTD de `Cotacao` preenche abertura, maxima, minima, ultimo preco, VWAP/MED, volume, negocios e top-of-book; o RTD de `Book` alimenta profundidade, imbalance e microprice; o RTD de `Times` alimenta prints reais, agressao, delta, cumulative delta, VWAP intraday e volume profile intraday.
 
 Telas principais:
 

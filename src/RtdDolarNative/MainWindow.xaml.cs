@@ -2157,8 +2157,8 @@ namespace RtdDolarNative
             AddShortcut(rows, "Ctrl+M", "Manual", "Modo manual", "Para RTD e permite preencher valores manualmente.");
             AddShortcut(rows, "Ctrl+F", "Ativos", "Focar ativo selecionado", "Troca o ativo em foco na grade Ativos.");
             AddShortcut(rows, "Ctrl+R", "Ativos", "Prontidao RTD", "Abre Ativos e mostra prontidao das assinaturas.");
-            AddShortcut(rows, "Ctrl+Tab", "Janela", "Proxima aba", "Avanca para a proxima tela.");
-            AddShortcut(rows, "Ctrl+Shift+Tab", "Janela", "Aba anterior", "Volta para a tela anterior.");
+            AddShortcut(rows, "Ctrl+Tab", "Janelas", "Proxima aba", "Avanca para a proxima tela.");
+            AddShortcut(rows, "Ctrl+Shift+Tab", "Janelas", "Aba anterior", "Volta para a tela anterior.");
 
             return rows;
         }
@@ -2167,21 +2167,23 @@ namespace RtdDolarNative
         {
             List<WorkflowRow> rows = new List<WorkflowRow>();
 
-            AddWorkflow(rows, "1", "Cadastro", "Ativos", "Cadastrar Codigo Cotacao, Book, Times e CSV historico.");
-            AddWorkflow(rows, "2", "Prontidao", "Ativos", "Conferir canais Cotacao, Book e Times ligados por ativo.");
-            AddWorkflow(rows, "3", "Conexao", "RTD", "Usar F5 para conectar e acompanhar status no topo.");
-            AddWorkflow(rows, "4", "Acompanhamento", "Monitor", "Usar F11 para acompanhar todos os ativos e focar com duplo clique.");
-            AddWorkflow(rows, "5", "Mercado", "DOM / Book", "Usar Ctrl+3 para validar ladder, book e niveis relevantes.");
-            AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
-            AddWorkflow(rows, "7", "Fluxo", "Mapa de Fluxo", "Usar Ctrl+Shift+F para ler liquidez, delta e niveis em conjunto.");
-            AddWorkflow(rows, "8", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
-            AddWorkflow(rows, "9", "Quant", "Indicadores", "Usar Ctrl+Shift+I para auditar tecnicos, estatistica e sinais antes da triagem.");
-            AddWorkflow(rows, "10", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
-            AddWorkflow(rows, "11", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao primeiro.");
-            AddWorkflow(rows, "12", "Triagem", "Oportunidades", "Usar F2 para priorizar setups por score, nivel, qualidade e idade.");
-            AddWorkflow(rows, "13", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
-            AddWorkflow(rows, "14", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
-            AddWorkflow(rows, "15", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD e CSV.");
+            AddWorkflow(rows, "1", "Cadastro", "Ativos", "Cadastrar Codigo Cotacao, Canal Book, Canal Times e CSV historico por ativo.");
+            AddWorkflow(rows, "2", "Prontidao", "Ativos", "Conferir se Cotacao, Book e Times estao ligados para alimentar preco, book e prints.");
+            AddWorkflow(rows, "3", "Conexao", "RTD", "Usar F5 para conectar e acompanhar status, fila, updates e erros sem travar a UI.");
+            AddWorkflow(rows, "4", "Mesa", "Mesa", "Usar Ctrl+1 como tela principal para grafico, DOM, tape, fluxo, niveis e oportunidades.");
+            AddWorkflow(rows, "5", "Qualidade", "Diagnostico", "Usar Ctrl+0 para auditar formulas RTD, indices, updates e ultimo erro por fonte.");
+            AddWorkflow(rows, "6", "Mercado", "DOM / Book", "Usar Ctrl+3 para validar liquidez, spread, book real e marcacoes de POC/VAH/VAL/HVN/LVN.");
+            AddWorkflow(rows, "7", "Tape", "Tape", "Usar Ctrl+4 para separar prints reais de tape derivado e agressao compra/venda.");
+            AddWorkflow(rows, "8", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, cumulative delta, imbalance, microbias e VWAP.");
+            AddWorkflow(rows, "9", "Fluxo", "Mapa de Fluxo", "Usar Ctrl+Shift+F para cruzar liquidez, delta, niveis e setups no mesmo mapa.");
+            AddWorkflow(rows, "10", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN, LVN, bins e distancia do preco.");
+            AddWorkflow(rows, "11", "Quant", "Indicadores", "Usar Ctrl+Shift+I para auditar RSI, medias, MACD, Bollinger, z-score, ATR/VWAP e edge.");
+            AddWorkflow(rows, "12", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco, nivel, motivo e qualidade dos dados.");
+            AddWorkflow(rows, "13", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao por score, fluxo, nivel e qualidade.");
+            AddWorkflow(rows, "14", "Triagem", "Oportunidades", "Usar F2 para priorizar oportunidades por confluencia e idade do sinal.");
+            AddWorkflow(rows, "15", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila, canais e limites antes de decidir.");
+            AddWorkflow(rows, "16", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de agir fora do app.");
+            AddWorkflow(rows, "17", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD, CSV, calculos e telas.");
 
             return rows;
         }

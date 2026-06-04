@@ -22,7 +22,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 ## Telas nativas
 
-Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD.
+Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD. A barra superior fica organizada por fluxo de trabalho: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`. O menu `Janelas` lista todas as telas em uma unica lista quando for preciso navegar sem procurar o grupo.
 
 - `Mesa`: primeira tela operacional com grafico, DOM, tape, fluxo, niveis e oportunidades.
 - `Ativos`: cadastro de ativo, canais RTD e CSV historico.
@@ -91,7 +91,9 @@ A tela `Indicadores` mostra os calculos que sustentam a triagem:
 - sinais quant com score ajustado por fluxo, nivel associado, edge estatistico, estado tecnico e motivos.
 - qualidade da alimentacao: RTD, CSV, canais `Cotacao`, `Book`, `Times`, tape real ou derivado.
 
-O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado.
+O caminho esperado de decisao e: cadastrar ativo e canais RTD, conectar, validar qualidade em `Diagnostico`, acompanhar `Mesa`, auditar `DOM / Book` e `Tape`, revisar `Order Flow`, `Volume Profile`, `Indicadores`, `Setups`, `Scanner` e `Oportunidades`. Os RTDs alimentam preco/volume, book e prints; o CSV historico alimenta volatilidade, desvios, indicadores, profile proxy e backtest proxy.
+
+O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado. Quando `Times` ou `Book` nao estao reais, a UI informa a qualidade do dado e o score fica limitado.
 
 Detalhes: `docs/quant_trading.md`.
 

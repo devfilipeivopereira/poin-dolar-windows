@@ -348,7 +348,33 @@
                 <MenuItem Header="Abrir configuracao" Click="MenuOpenConfig_Click" />
                 <MenuItem Header="Abrir pasta de logs" Click="MenuOpenLogFolder_Click" />
             </MenuItem>
-            <MenuItem Header="Janela">
+            <MenuItem Header="Janelas">
+                <MenuItem Header="Mesa" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Ativos" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Monitor" InputGestureText="F11" Tag="14" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="13" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Order Flow" InputGestureText="Ctrl+5" Tag="5" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Mapa de Fluxo" InputGestureText="Ctrl+Shift+F" Tag="19" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Volume Profile" InputGestureText="Ctrl+6" Tag="6" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="7" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Scanner" InputGestureText="F3" Tag="18" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Indicadores" InputGestureText="Ctrl+Shift+I" Tag="20" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Risco operacional" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Alertas" InputGestureText="F8" Tag="12" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Historico" InputGestureText="F10" Tag="17" Click="NavigateMenuItem_Click" />
+                <Separator />
                 <MenuItem Header="Aba anterior" InputGestureText="Ctrl+Shift+Tab" Click="MenuPreviousTab_Click" />
                 <MenuItem Header="Proxima aba" InputGestureText="Ctrl+Tab" Click="MenuNextTab_Click" />
             </MenuItem>
@@ -464,10 +490,12 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Triagem" Style="{StaticResource TopNavGroupStyle}" />
+                        <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Oportun." Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
+                            <Button Content="Mesa" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Diag" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -476,11 +504,10 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Mesa" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="DOM" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -501,31 +528,22 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
+                            <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Oportun." Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
                             <Button Content="Indic." Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
                             <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Back" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Hist" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
+                        <TextBlock Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Diag" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Hist" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
