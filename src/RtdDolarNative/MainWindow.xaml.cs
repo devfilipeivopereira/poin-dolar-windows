@@ -43,6 +43,7 @@ namespace RtdDolarNative
         private const int TabScanner = 18;
         private const int TabFlowMap = 19;
         private const int TabIndicators = 20;
+        private const int DashboardChartRefreshMs = 1500;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -65,7 +66,12 @@ namespace RtdDolarNative
         private bool _renderActiveTabQueued;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
+        private DateTimeOffset _lastDashboardChartRefresh = DateTimeOffset.MinValue;
         private long _lastFlowProcessed = -1;
+        private long _lastDashboardChartVersion = -1;
+        private long _lastDashboardChartQuantVersion = -1;
+        private int _lastDashboardChartBarCount = -1;
+        private string _lastDashboardChartAsset;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
         private bool _renderingAssets;
@@ -231,6 +237,12 @@ namespace RtdDolarNative
             }
 
             bool alreadySelected = MainTabs.SelectedIndex == index;
+
+            if (index == TabDashboard)
+            {
+                _lastDashboardChartRefresh = DateTimeOffset.MinValue;
+            }
+
             MainTabs.SelectedIndex = index;
 
             if (alreadySelected)
@@ -1969,10 +1981,7 @@ namespace RtdDolarNative
             DashboardLevelsGrid.ItemsSource = BuildOpportunityLevelRows(snapshot).Take(40).ToList();
             DashboardSignalsGrid.ItemsSource = BuildOpportunityRows().Take(40).ToList();
 
-            if (DashboardChartControl != null)
-            {
-                DashboardChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
-            }
+            RefreshDashboardChart(snapshot);
 
             if (DashboardDomGrid != null)
             {
@@ -3175,6 +3184,36 @@ namespace RtdDolarNative
             }
 
             return rows;
+        }
+
+        private void RefreshDashboardChart(MarketSnapshot snapshot)
+        {
+            if (DashboardChartControl == null)
+            {
+                return;
+            }
+
+            DateTimeOffset now = DateTimeOffset.Now;
+            string focused = FocusedAsset();
+            long version = _probeService == null ? -1 : _probeService.UpdatesReceived;
+            bool assetChanged = !string.Equals(_lastDashboardChartAsset, focused, StringComparison.OrdinalIgnoreCase);
+            bool versionChanged = _lastDashboardChartVersion != version;
+            bool quantChanged = _lastDashboardChartQuantVersion != _lastQuantVersion;
+            bool csvChanged = _lastDashboardChartBarCount != _dailyBars.Count;
+            bool intervalElapsed = (now - _lastDashboardChartRefresh).TotalMilliseconds >= DashboardChartRefreshMs;
+            bool firstRender = _lastDashboardChartRefresh == DateTimeOffset.MinValue;
+
+            if (!firstRender && !assetChanged && !quantChanged && !csvChanged && !(versionChanged && intervalElapsed))
+            {
+                return;
+            }
+
+            DashboardChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+            _lastDashboardChartRefresh = now;
+            _lastDashboardChartVersion = version;
+            _lastDashboardChartQuantVersion = _lastQuantVersion;
+            _lastDashboardChartBarCount = _dailyBars.Count;
+            _lastDashboardChartAsset = focused;
         }
 
         private List<DomRow> BuildDashboardDomRows(MarketSnapshot snapshot)

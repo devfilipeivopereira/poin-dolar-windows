@@ -60,6 +60,7 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 
 - UI deve continuar clicavel enquanto o RTD atualiza.
 - `FlowProcessor` usa fila limitada; o contador `Fila drop` deve ficar estavel em fluxo normal.
+- A `Mesa` deve atualizar cards, DOM, tape e sinais sem redesenhar o grafico a cada tick; o grafico usa throttle e janela recente de candles.
 - `ULT`, `QUL` e `VOL` chegando separados nao devem gerar prints duplicados quando `NEG` esta disponivel.
 - Scores acima de 85 devem aparecer apenas quando uma fonte real de times and trades/book profundo for implementada.
 - A aba `Indicadores` deve atualizar sem travar a UI e sem recalcular pesado na thread RTD.

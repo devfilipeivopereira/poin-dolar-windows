@@ -19,7 +19,9 @@ namespace RtdDolarNative.Charts
 
         public void SetData(List<DailyBar> bars, MarketSnapshot snapshot, QuantResult result)
         {
-            _bars = bars == null ? new List<DailyBar>() : bars.ToList();
+            _bars = bars == null
+                ? new List<DailyBar>()
+                : bars.Skip(Math.Max(0, bars.Count - 120)).ToList();
             _snapshot = snapshot;
             _result = result;
             InvalidateVisual();
