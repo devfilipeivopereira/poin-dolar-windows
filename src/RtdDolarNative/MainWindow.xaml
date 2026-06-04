@@ -38,13 +38,29 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
                                               Margin="{TemplateBinding Padding}" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#101711" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#003B24" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Background" Value="#050605" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#20252B" />
+                                <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -248,7 +264,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8" />
-            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Margin" Value="0,0,6,8" />
         </Style>
 
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
@@ -286,13 +302,13 @@
                 <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="7" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Analise">
+                <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
-            <MenuItem Header="Controle">
-                <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Risco" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
+            <MenuItem Header="Monitoramento">
+                <MenuItem Header="Risco operacional" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Alertas" InputGestureText="F8" Tag="12" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Historico" InputGestureText="F10" Tag="17" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="13" Click="NavigateMenuItem_Click" />
@@ -365,8 +381,12 @@
                         <TextBlock x:Name="UpdatesText" Text="0" />
                     </StackPanel>
                     <StackPanel>
-                        <TextBlock Text="Processo" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="ArchitectureText" Text="-" />
+                        <TextBlock Text="Tela" Foreground="{StaticResource Muted}" />
+                        <TextBlock x:Name="WorkspaceText"
+                                   Text="Painel"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </UniformGrid>
 
@@ -386,15 +406,17 @@
                 Padding="10,5">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1.55*" />
+                    <ColumnDefinition Width="1.85*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="0.9*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusBarText" Text="RTD idle" />
-                <TextBlock x:Name="DataQualityText" Grid.Column="1" Text="Qualidade -" Foreground="{StaticResource Muted}" />
-                <TextBlock x:Name="FlowStateText" Grid.Column="2" Text="Fluxo -" Foreground="{StaticResource Muted}" />
-                <TextBlock x:Name="QueueStateText" Grid.Column="3" Text="Fila -" Foreground="{StaticResource Muted}" HorizontalAlignment="Right" />
+                <TextBlock x:Name="WorkspaceHintText" Grid.Column="1" Text="Painel | Resumo principal" Foreground="{StaticResource Muted}" />
+                <TextBlock x:Name="DataQualityText" Grid.Column="2" Text="Qualidade -" Foreground="{StaticResource Muted}" />
+                <TextBlock x:Name="FlowStateText" Grid.Column="3" Text="Fluxo -" Foreground="{StaticResource Muted}" />
+                <TextBlock x:Name="QueueStateText" Grid.Column="4" Text="Fila -" Foreground="{StaticResource Muted}" HorizontalAlignment="Right" />
             </Grid>
         </Border>
 
@@ -402,38 +424,38 @@
                 Background="{StaticResource Bg}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
-                Padding="12,10,4,0">
-            <Grid x:Name="TopNavigation">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.1*" />
-                    <ColumnDefinition Width="0.9*" />
-                    <ColumnDefinition Width="1.45*" />
-                    <ColumnDefinition Width="1.9*" />
-                    <ColumnDefinition Width="1.45*" />
-                    <ColumnDefinition Width="2.05*" />
-                </Grid.ColumnDefinitions>
+                Padding="12,10,4,2">
+            <WrapPanel x:Name="TopNavigation" Orientation="Horizontal">
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="142">
                     <StackPanel>
-                        <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
+                        <TextBlock Text="Triagem" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
-                            <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="118" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource TopNavGroupBorderStyle}">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="180">
                     <StackPanel>
-                        <TextBlock Text="Cadastro" Style="{StaticResource TopNavGroupStyle}" />
+                        <TextBlock Text="Mesa" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="96">
+                    <StackPanel>
+                        <TextBlock Text="Dados" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
                             <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource TopNavGroupBorderStyle}">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="300">
                     <StackPanel>
                         <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -444,7 +466,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="3" Style="{StaticResource TopNavGroupBorderStyle}">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="360">
                     <StackPanel>
                         <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -455,7 +477,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="4" Style="{StaticResource TopNavGroupBorderStyle}">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" Width="280" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel>
@@ -466,19 +488,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="5" Style="{StaticResource TopNavGroupBorderStyle}" Margin="0">
-                    <StackPanel>
-                        <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel>
-                            <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="88" />
-                            <Button Content="Diagnostico" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
-                            <Button Content="Atalhos" Tag="15" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-            </Grid>
+            </WrapPanel>
         </Border>
 
         <TabControl x:Name="MainTabs"
@@ -803,7 +813,16 @@
                                 BorderBrush="{StaticResource Border}"
                                 BorderThickness="1"
                                 Padding="10">
-                            <ItemsControl x:Name="WarningsList" />
+                            <ItemsControl x:Name="WarningsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   Foreground="{StaticResource Warn}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,5" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </Border>
                     </Grid>
                 </Grid>

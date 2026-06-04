@@ -313,6 +313,118 @@ namespace RtdDolarNative
             return MainTabs == null ? 0 : MainTabs.SelectedIndex;
         }
 
+        private string CurrentWorkspaceName()
+        {
+            return WorkspaceName(CurrentMainTabIndex());
+        }
+
+        private string WorkspaceName(int index)
+        {
+            switch (index)
+            {
+                case TabDashboard:
+                    return "Painel";
+                case TabAssets:
+                    return "Ativos";
+                case TabQuote:
+                    return "Cotacao";
+                case TabDomBook:
+                    return "DOM / Book";
+                case TabTape:
+                    return "Tape";
+                case TabOrderFlow:
+                    return "Order Flow";
+                case TabVolumeProfile:
+                    return "Volume Profile";
+                case TabSetups:
+                    return "Setups";
+                case TabLevels:
+                    return "Niveis";
+                case TabChart:
+                    return "Grafico";
+                case TabBacktest:
+                    return "Backtest";
+                case TabRisk:
+                    return "Risco";
+                case TabAlerts:
+                    return "Alertas";
+                case TabDiagnostics:
+                    return "Diagnostico";
+                case TabMonitor:
+                    return "Monitor";
+                case TabShortcuts:
+                    return "Atalhos";
+                case TabOpportunities:
+                    return "Oportunidades";
+                case TabHistory:
+                    return "Historico";
+                default:
+                    return "Painel";
+            }
+        }
+
+        private string WorkspaceHint(int index)
+        {
+            switch (index)
+            {
+                case TabDashboard:
+                    return "Resumo do ativo em foco";
+                case TabAssets:
+                    return "Cadastro de ativo, RTDs e CSV";
+                case TabQuote:
+                    return "Campos de cotacao e indicadores";
+                case TabDomBook:
+                    return "Ladder, book e niveis relevantes";
+                case TabTape:
+                    return "Times and trades real ou derivado";
+                case TabOrderFlow:
+                    return "Delta, microbias, VWAP e janelas";
+                case TabVolumeProfile:
+                    return "POC, VAH, VAL, HVN e LVN";
+                case TabSetups:
+                    return "Sinais do motor de fluxo";
+                case TabLevels:
+                    return "Niveis calculados e confluencias";
+                case TabChart:
+                    return "Grafico com niveis do ativo";
+                case TabBacktest:
+                    return "Validacao historica por CSV";
+                case TabRisk:
+                    return "Risco operacional e qualidade de dados";
+                case TabAlerts:
+                    return "Alertas de RTD, CSV, fluxo e setups";
+                case TabDiagnostics:
+                    return "Fontes RTD, updates e erros";
+                case TabMonitor:
+                    return "Todos os ativos cadastrados";
+                case TabShortcuts:
+                    return "Mapa de teclas e fluxo de trabalho";
+                case TabOpportunities:
+                    return "Triagem de setups e confluencias";
+                case TabHistory:
+                    return "Eventos locais do app, RTD e CSV";
+                default:
+                    return "Resumo do ativo em foco";
+            }
+        }
+
+        private void UpdateWorkspaceContext()
+        {
+            int index = CurrentMainTabIndex();
+            string name = WorkspaceName(index);
+            string hint = WorkspaceHint(index);
+
+            if (WorkspaceText != null)
+            {
+                WorkspaceText.Text = name;
+            }
+
+            if (WorkspaceHintText != null)
+            {
+                WorkspaceHintText.Text = name + " | " + hint;
+            }
+        }
+
         private void RenderActiveTab()
         {
             if (_config == null || _probeService == null || _flowProcessor == null)
@@ -1519,6 +1631,11 @@ namespace RtdDolarNative
             bool showDiagnostics = selectedTab == TabDiagnostics;
             bool showOpportunities = selectedTab == TabOpportunities;
             bool showHistory = selectedTab == TabHistory;
+            bool renderedDashboard = false;
+            bool renderedMonitor = false;
+            bool renderedRisk = false;
+            bool renderedAlerts = false;
+            bool renderedOpportunities = false;
 
             if (snapshot != null)
             {
@@ -1548,11 +1665,13 @@ namespace RtdDolarNative
                 if (showDashboard)
                 {
                     RenderDashboard(snapshot);
+                    renderedDashboard = true;
                 }
 
                 if (showMonitor)
                 {
                     RenderMonitor();
+                    renderedMonitor = true;
                 }
 
                 if (showDomBook)
@@ -1572,16 +1691,19 @@ namespace RtdDolarNative
                 if (showRisk)
                 {
                     RenderRisk(snapshot);
+                    renderedRisk = true;
                 }
 
                 if (showAlerts)
                 {
                     RenderAlerts(snapshot);
+                    renderedAlerts = true;
                 }
 
                 if (showOpportunities)
                 {
                     RenderOpportunities(snapshot);
+                    renderedOpportunities = true;
                 }
 
                 _lastGridRefresh = now;
@@ -1593,12 +1715,12 @@ namespace RtdDolarNative
 
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
-                if (showDashboard)
+                if (showDashboard && !renderedDashboard)
                 {
                     RenderDashboard(snapshot);
                 }
 
-                if (showMonitor)
+                if (showMonitor && !renderedMonitor)
                 {
                     RenderMonitor();
                 }
@@ -1614,17 +1736,17 @@ namespace RtdDolarNative
                     RenderRtdSources();
                 }
 
-                if (showRisk)
+                if (showRisk && !renderedRisk)
                 {
                     RenderRisk(snapshot);
                 }
 
-                if (showAlerts)
+                if (showAlerts && !renderedAlerts)
                 {
                     RenderAlerts(snapshot);
                 }
 
-                if (showOpportunities)
+                if (showOpportunities && !renderedOpportunities)
                 {
                     RenderOpportunities(snapshot);
                 }
@@ -2582,7 +2704,6 @@ namespace RtdDolarNative
         private void InitializeStaticText()
         {
             AssetText.Text = EmptyToDash(FocusedAsset());
-            ArchitectureText.Text = Environment.Is64BitProcess ? "x64" : "x86";
             FieldsText.Text = string.Join(", ", _config.Rtd.Fields.ToArray());
             PollText.Text = _config.Rtd.PollIntervalMs.ToString(_ptBr) + " ms";
             StatusText.Text = "idle";
@@ -2596,6 +2717,7 @@ namespace RtdDolarNative
             RenderRtdReadiness();
             RenderOpportunities(null);
             RenderHistory();
+            UpdateWorkspaceContext();
             UpdateTopNavigation();
             UpdateRuntimeStatusBar(null);
             RenderActiveTab();
@@ -2614,6 +2736,7 @@ namespace RtdDolarNative
 
             StatusBarText.Text = "RTD " + EmptyToDash(status) +
                                  " | Ativo " + EmptyToDash(focused) +
+                                 " | Proc " + (Environment.Is64BitProcess ? "x64" : "x86") +
                                  " | Updates " + updates.ToString(_ptBr);
 
             FlowMetrics metrics = _flowProcessor == null ? null : _flowProcessor.GetMetrics(focused);
@@ -2640,15 +2763,19 @@ namespace RtdDolarNative
                 return;
             }
 
+            UpdateWorkspaceContext();
+
             Brush selectedBackground = FindResource("InputBg") as Brush;
             Brush normalBackground = FindResource("Panel2") as Brush;
             Brush selectedBorder = FindResource("Accent") as Brush;
             Brush normalBorder = FindResource("Border") as Brush;
+            Brush selectedForeground = FindResource("Accent") as Brush;
+            Brush normalForeground = FindResource("Text") as Brush;
 
-            UpdateTopNavigationButtons(TopNavigation, selectedBackground, normalBackground, selectedBorder, normalBorder);
+            UpdateTopNavigationButtons(TopNavigation, selectedBackground, normalBackground, selectedBorder, normalBorder, selectedForeground, normalForeground);
         }
 
-        private void UpdateTopNavigationButtons(DependencyObject root, Brush selectedBackground, Brush normalBackground, Brush selectedBorder, Brush normalBorder)
+        private void UpdateTopNavigationButtons(DependencyObject root, Brush selectedBackground, Brush normalBackground, Brush selectedBorder, Brush normalBorder, Brush selectedForeground, Brush normalForeground)
         {
             if (root == null)
             {
@@ -2666,6 +2793,7 @@ namespace RtdDolarNative
                     bool selected = index == MainTabs.SelectedIndex;
                     button.Background = selected ? selectedBackground : normalBackground;
                     button.BorderBrush = selected ? selectedBorder : normalBorder;
+                    button.Foreground = selected ? selectedForeground : normalForeground;
                     button.FontWeight = selected ? FontWeights.Bold : FontWeights.Normal;
                 }
 
@@ -2676,7 +2804,7 @@ namespace RtdDolarNative
 
             for (int i = 0; i < children; i++)
             {
-                UpdateTopNavigationButtons(VisualTreeHelper.GetChild(root, i), selectedBackground, normalBackground, selectedBorder, normalBorder);
+                UpdateTopNavigationButtons(VisualTreeHelper.GetChild(root, i), selectedBackground, normalBackground, selectedBorder, normalBorder, selectedForeground, normalForeground);
             }
         }
 
