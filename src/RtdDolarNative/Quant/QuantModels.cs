@@ -136,6 +136,11 @@ namespace RtdDolarNative.Quant
         public decimal? BollingerLower20 { get; set; }
         public decimal? ZScore20 { get; set; }
         public decimal? AtrVwapDistance { get; set; }
+        public decimal? ReturnMean21Pct { get; set; }
+        public decimal? ReturnStd21Pct { get; set; }
+        public decimal? DownsideStd21Pct { get; set; }
+        public decimal? ValueAtRisk95Pct { get; set; }
+        public decimal? ExpectedShortfall95Pct { get; set; }
         public string TrendState { get; set; }
         public string ReversionState { get; set; }
     }

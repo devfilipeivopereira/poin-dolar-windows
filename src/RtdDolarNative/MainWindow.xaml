@@ -22,6 +22,12 @@
         <SolidColorBrush x:Key="Accent" Color="#00E676" />
         <SolidColorBrush x:Key="Warn" Color="#FFB800" />
         <SolidColorBrush x:Key="Danger" Color="#FF3B30" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#0B0C0A" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#E6EDF3" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#0B0C0A" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#E6EDF3" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#003B24" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E6EDF3" />
 
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -71,12 +77,45 @@
             <Setter Property="Foreground" Value="{StaticResource Text}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
 
         <Style TargetType="MenuItem">
             <Setter Property="Background" Value="{StaticResource Panel}" />
             <Setter Property="Foreground" Value="{StaticResource Text}" />
             <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+                <Trigger Property="IsSubmenuOpen" Value="True">
+                    <Setter Property="Background" Value="#101711" />
+                    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="{StaticResource Border}" />
+            <Setter Property="Margin" Value="4,3" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="TextBox">
@@ -261,6 +300,18 @@
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="{StaticResource Bg}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter ContentSource="SelectedContent" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="TabItem">
@@ -272,9 +323,9 @@
         </Style>
 
         <Style x:Key="TopNavButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="MinWidth" Value="46" />
-            <Setter Property="Margin" Value="0,0,2,0" />
-            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="4,3" />
             <Setter Property="MinHeight" Value="24" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontSize" Value="11" />
@@ -282,7 +333,7 @@
 
         <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
-            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -292,8 +343,8 @@
             <Setter Property="Background" Value="{StaticResource Bg}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
             <Setter Property="BorderThickness" Value="0,0,1,0" />
-            <Setter Property="Padding" Value="0,0,5,0" />
-            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Padding" Value="0,0,3,0" />
+            <Setter Property="Margin" Value="0,0,3,0" />
         </Style>
 
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
@@ -479,19 +530,20 @@
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Top"
+        <Border x:Name="TopNavigationBar"
+                DockPanel.Dock="Top"
                 Background="{StaticResource Bg}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
                 Padding="10,5">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled"
-                          CanContentScroll="False">
-                <StackPanel x:Name="TopNavigation" Orientation="Horizontal">
+            <Grid x:Name="TopNavigationViewport">
+            <WrapPanel x:Name="TopNavigation"
+                       Orientation="Horizontal"
+                       ItemHeight="28"
+                       Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Mesa" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
@@ -503,7 +555,6 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="DOM" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
@@ -515,7 +566,6 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Order" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
                             <Button Content="Mapa" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
@@ -527,7 +577,6 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Oportun." Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
@@ -540,7 +589,6 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
@@ -549,8 +597,8 @@
                     </StackPanel>
                 </Border>
 
-                </StackPanel>
-            </ScrollViewer>
+            </WrapPanel>
+            </Grid>
         </Border>
 
         <TabControl x:Name="MainTabs"
@@ -1533,6 +1581,7 @@
                                 <DataGridTextColumn Header="Direcao" Binding="{Binding Direction}" Width="90" />
                                 <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="95" />
                                 <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="75" />
+                                <DataGridTextColumn Header="Robustez" Binding="{Binding Robustness}" Width="95" />
                                 <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="145" />
                                 <DataGridTextColumn Header="Qualidade" Binding="{Binding Quality}" Width="135" />
                                 <DataGridTextColumn Header="Idade" Binding="{Binding Age}" Width="95" />

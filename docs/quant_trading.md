@@ -22,6 +22,11 @@ A aba `Indicadores` expõe:
 - Bollinger20 inferior, media e superior.
 - z-score 20.
 - distancia ATR/VWAP.
+- retorno medio 21.
+- volatilidade de retornos 21.
+- downside deviation 21.
+- VaR95 21.
+- expected shortfall 95 21.
 - estado de tendencia, estado de reversao, fonte e tamanho da amostra.
 
 Esses indicadores entram como confluencia para sinais de reversao estatistica, pullback quantitativo, Bollinger mean reversion e zonas relevantes do historico.
@@ -52,6 +57,33 @@ O score sempre deve ser lido junto da qualidade:
 - `FullDepth`: book profundo real.
 
 Sinais quant exibem score ajustado pelo fluxo. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos.
+
+## Regua robusta de oportunidade
+
+As telas `Scanner` e `Oportunidades` nao usam apenas o ultimo setup bruto. Elas calculam um score composto com:
+
+- sinal de fluxo (`FlowSignal`);
+- sinal quantitativo (`QuantSignal`);
+- alinhamento entre as direcoes;
+- confirmacao por delta/cumulative delta e imbalance;
+- proximidade de POC, VAH, VAL, HVN, LVN ou nivel estatistico;
+- amostra historica carregada no CSV;
+- backtest proxy de toque/reversao;
+- freshness do snapshot RTD;
+- qualidade do dado: top-of-book, tape derivado, times real ou depth real;
+- eventos descartados pela fila bounded.
+
+O resultado aparece como `Robusto`, `Acionavel`, `Monitorar`, `Fraco` ou `Bloqueado`.
+
+O score e capado quando a alimentacao nao sustenta a leitura:
+
+- sem snapshot ou sem `ULT`: cap baixo;
+- snapshot atrasado: cap reduzido;
+- `TopOfBookOnly`: cap ate o limite de top-of-book;
+- `DerivedTape`: cap ate o limite de tape derivado;
+- CSV com menos de 21 pregoes em sinal quant: cap reduzido;
+- sem `Book` e sem `Times`: cap reduzido;
+- divergencia entre fluxo e estatistica: penalidade explicita nos motivos.
 
 ## Robustez operacional
 

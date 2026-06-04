@@ -641,9 +641,43 @@ namespace RtdDolarNative.Quant
                 snapshot.AtrVwapDistance = (intraday.Price - intraday.Vwap) / atr.Points;
             }
 
+            ApplyReturnRiskMetrics(snapshot, closes, 21);
             snapshot.TrendState = TechnicalTrendState(snapshot, intraday);
             snapshot.ReversionState = TechnicalReversionState(snapshot);
             return snapshot;
+        }
+
+        private static void ApplyReturnRiskMetrics(TechnicalIndicatorSnapshot snapshot, List<decimal> closes, int window)
+        {
+            if (snapshot == null || closes == null || closes.Count < window + 1)
+            {
+                return;
+            }
+
+            List<decimal> returns = new List<decimal>();
+
+            for (int i = 1; i < closes.Count; i++)
+            {
+                if (closes[i - 1] > 0m && closes[i] > 0m)
+                {
+                    returns.Add(((closes[i] / closes[i - 1]) - 1m) * 100m);
+                }
+            }
+
+            List<decimal> recent = returns.Skip(Math.Max(0, returns.Count - window)).ToList();
+
+            if (recent.Count < Math.Min(10, window))
+            {
+                return;
+            }
+
+            decimal var95 = Percentile(recent, 0.05d);
+            List<decimal> tail = recent.Where(x => x <= var95).ToList();
+            snapshot.ReturnMean21Pct = recent.Average();
+            snapshot.ReturnStd21Pct = StdevDecimal(recent);
+            snapshot.DownsideStd21Pct = DownsideDeviation(recent);
+            snapshot.ValueAtRisk95Pct = var95;
+            snapshot.ExpectedShortfall95Pct = tail.Count == 0 ? var95 : tail.Average();
         }
 
         private static List<QuantSignal> BuildQuantSignals(QuantResult result, decimal tickSize)
@@ -948,6 +982,40 @@ namespace RtdDolarNative.Quant
             decimal avg = values.Average();
             double variance = values.Sum(x => Math.Pow(D(x - avg), 2d)) / Math.Max(1, values.Count - 1);
             return Dec(Math.Sqrt(variance));
+        }
+
+        private static decimal DownsideDeviation(List<decimal> values)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return 0m;
+            }
+
+            List<decimal> downside = values.Select(x => Math.Min(0m, x)).ToList();
+            double variance = downside.Sum(x => Math.Pow(D(x), 2d)) / Math.Max(1, downside.Count);
+            return Dec(Math.Sqrt(variance));
+        }
+
+        private static decimal Percentile(List<decimal> values, double percentile)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return 0m;
+            }
+
+            List<decimal> sorted = values.OrderBy(x => x).ToList();
+            double clamped = Math.Max(0d, Math.Min(1d, percentile));
+            double position = (sorted.Count - 1) * clamped;
+            int lower = (int)Math.Floor(position);
+            int upper = (int)Math.Ceiling(position);
+
+            if (lower == upper)
+            {
+                return sorted[lower];
+            }
+
+            decimal weight = Dec(position - lower);
+            return sorted[lower] + (sorted[upper] - sorted[lower]) * weight;
         }
 
         private static string TechnicalTrendState(TechnicalIndicatorSnapshot t, IntradayContext intraday)

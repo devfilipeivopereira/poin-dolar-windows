@@ -2364,6 +2364,11 @@ namespace RtdDolarNative
             AddIndicatorRow(rows, "Bollinger20", FormatBollinger(technicals), BollingerState(technicals, price), source);
             AddIndicatorRow(rows, "ZScore20", FormatDecimal(technicals.ZScore20, "N2"), ZScoreState(technicals.ZScore20), source);
             AddIndicatorRow(rows, "ATR/VWAP", FormatDecimal(technicals.AtrVwapDistance, "N2"), AtrVwapState(technicals.AtrVwapDistance), "ATR historico + RTD MED/VWAP");
+            AddIndicatorRow(rows, "Retorno medio 21", FormatPercent(technicals.ReturnMean21Pct, "N2"), ReturnState(technicals.ReturnMean21Pct), source);
+            AddIndicatorRow(rows, "Vol retorno 21", FormatPercent(technicals.ReturnStd21Pct, "N2"), "desvio de retornos", source);
+            AddIndicatorRow(rows, "Downside 21", FormatPercent(technicals.DownsideStd21Pct, "N2"), "risco de cauda curta", source);
+            AddIndicatorRow(rows, "VaR95 21", FormatPercent(technicals.ValueAtRisk95Pct, "N2"), "percentil 5%", source);
+            AddIndicatorRow(rows, "ES95 21", FormatPercent(technicals.ExpectedShortfall95Pct, "N2"), "media da cauda", source);
             AddIndicatorRow(rows, "Tendencia", EmptyToDash(technicals.TrendState), "estado", source);
             AddIndicatorRow(rows, "Reversao", EmptyToDash(technicals.ReversionState), "estado", source);
             AddIndicatorRow(rows, "Amostra", technicals.SampleSize.ToString(_ptBr), "barras usadas", source);
@@ -2683,6 +2688,26 @@ namespace RtdDolarNative
             return "perto da VWAP";
         }
 
+        private string ReturnState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value > 0.15m)
+            {
+                return "vies positivo";
+            }
+
+            if (value.Value < -0.15m)
+            {
+                return "vies negativo";
+            }
+
+            return "neutro";
+        }
+
         private void RefreshHistoryButton_Click(object sender, RoutedEventArgs e)
         {
             RenderHistory();
@@ -2747,51 +2772,59 @@ namespace RtdDolarNative
                 List<FlowSignal> signals = _flowProcessor.GetSignals(assetName, 8) ?? new List<FlowSignal>();
                 MarketSnapshot snapshot = SnapshotForAsset(assetName);
                 FlowMetrics metrics = _flowProcessor.GetMetrics(assetName);
-                List<OpportunityRow> quantRows = BuildQuantOpportunityRows(assetName, snapshot, metrics);
+                List<OpportunityRow> quantRows = BuildQuantOpportunityRows(asset, snapshot, metrics, signals);
                 rows.AddRange(quantRows);
 
                 if (signals.Count == 0 && quantRows.Count == 0)
                 {
+                    OpportunityScore waitingScore = ScoreOpportunity(asset, snapshot, metrics, null, null, null);
                     OpportunityRow waiting = new OpportunityRow();
                     waiting.Asset = assetName;
                     waiting.Setup = "Aguardando setup";
                     waiting.Direction = "-";
                     waiting.Price = snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2");
-                    waiting.Score = "-";
+                    waiting.Score = waitingScore.Score.ToString(_ptBr);
+                    waiting.Robustness = waitingScore.Robustness;
                     waiting.Level = "-";
                     waiting.Quality = metrics == null ? "-" : metrics.DataQuality.ToString();
                     waiting.Age = snapshot == null ? "sem snapshot" : AgeText(snapshot.LocalTimestamp);
-                    waiting.Reasons = ChannelEnabled(assetName, "Times") ? "sem sinal no cooldown atual" : "dados limitados ou sem tape";
+                    waiting.Reasons = (ChannelEnabled(assetName, "Times") ? "sem sinal no cooldown atual" : "dados limitados ou sem tape") + "; " + waitingScore.Detail;
+                    waiting.SortScore = waitingScore.Score;
                     rows.Add(waiting);
                     continue;
                 }
 
                 foreach (FlowSignal signal in signals.OrderByDescending(x => x.Score).ThenByDescending(x => x.LocalTimestamp).Take(8))
                 {
+                    QuantSignal matchingQuant = FindMatchingQuantSignal(assetName, signal);
+                    OpportunityScore score = ScoreOpportunity(asset, snapshot, metrics, signal, matchingQuant, null);
                     OpportunityRow row = new OpportunityRow();
                     row.Asset = assetName;
                     row.Setup = EmptyToDash(signal.Setup);
                     row.Direction = EmptyToDash(signal.Direction);
                     row.Price = signal.Price.ToString("N2", _ptBr);
-                    row.Score = signal.Score.ToString(_ptBr);
+                    row.Score = score.Score.ToString(_ptBr);
+                    row.Robustness = score.Robustness;
                     row.Level = EmptyToDash(signal.LevelName) + (signal.LevelPrice.HasValue ? " @ " + signal.LevelPrice.Value.ToString("N2", _ptBr) : string.Empty);
                     row.Quality = signal.DataQuality + (signal.Derived ? " derivado" : " real");
                     row.Age = AgeText(signal.LocalTimestamp);
-                    row.Reasons = EmptyToDash(signal.Reasons);
+                    row.Reasons = EmptyToDash(signal.Reasons) + "; " + score.Detail;
+                    row.SortScore = score.Score;
                     rows.Add(row);
                 }
             }
 
             return rows
-                .OrderByDescending(x => ParseIntOrZero(x.Score))
+                .OrderByDescending(x => x.SortScore)
                 .ThenBy(x => x.Asset)
                 .Take(80)
                 .ToList();
         }
 
-        private List<OpportunityRow> BuildQuantOpportunityRows(string assetName, MarketSnapshot snapshot, FlowMetrics metrics)
+        private List<OpportunityRow> BuildQuantOpportunityRows(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> flowSignals)
         {
             List<OpportunityRow> rows = new List<OpportunityRow>();
+            string assetName = asset == null ? string.Empty : asset.Asset;
             string focused = FocusedAsset();
 
             if (_result == null ||
@@ -2804,13 +2837,15 @@ namespace RtdDolarNative
 
             foreach (QuantSignal signal in _result.QuantSignals.OrderByDescending(x => x.Score).Take(8))
             {
-                int adjustedScore = QuantFlowAdjustedScore(signal, metrics);
+                FlowSignal matchingFlow = FindMatchingFlowSignal(flowSignals, signal);
+                OpportunityScore score = ScoreOpportunity(asset, snapshot, metrics, matchingFlow, signal, null);
                 OpportunityRow row = new OpportunityRow();
                 row.Asset = assetName;
                 row.Setup = EmptyToDash(signal.Setup);
                 row.Direction = EmptyToDash(signal.Direction);
                 row.Price = signal.Price.ToString("N2", _ptBr);
-                row.Score = adjustedScore.ToString(_ptBr);
+                row.Score = score.Score.ToString(_ptBr);
+                row.Robustness = score.Robustness;
                 row.Level = EmptyToDash(signal.LevelName) + (signal.LevelPrice.HasValue ? " @ " + signal.LevelPrice.Value.ToString("N2", _ptBr) : string.Empty);
                 row.Quality = "Quant " + EmptyToDash(signal.DataSource) + (metrics == null ? "" : " + " + metrics.DataQuality);
                 row.Age = snapshot == null ? "calc atual" : AgeText(snapshot.LocalTimestamp);
@@ -2820,7 +2855,10 @@ namespace RtdDolarNative
                               "; " +
                               EmptyToDash(signal.StatisticalEdge) +
                               "; " +
-                              QuantFlowConfirmation(signal, metrics);
+                              QuantFlowConfirmation(signal, metrics) +
+                              "; " +
+                              score.Detail;
+                row.SortScore = score.Score;
                 rows.Add(row);
             }
 
@@ -2892,6 +2930,364 @@ namespace RtdDolarNative
             }
 
             return "fluxo neutro";
+        }
+
+        private OpportunityScore ScoreOpportunity(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics, FlowSignal flowSignal, QuantSignal quantSignal, KeyLevel nearestLevel)
+        {
+            OpportunityScore result = new OpportunityScore();
+            List<string> evidence = new List<string>();
+            int score = Math.Max(flowSignal == null ? 0 : flowSignal.Score, quantSignal == null ? 0 : QuantFlowAdjustedScore(quantSignal, metrics));
+            int cap = OpportunityScoreCap(asset, snapshot, metrics, quantSignal != null, evidence);
+            string direction = OpportunityDirection(flowSignal, quantSignal);
+            int confirmations = 0;
+
+            if (flowSignal != null)
+            {
+                confirmations++;
+                evidence.Add("setup fluxo " + flowSignal.Score.ToString(_ptBr));
+            }
+
+            if (quantSignal != null)
+            {
+                confirmations++;
+                evidence.Add("setup quant " + QuantFlowAdjustedScore(quantSignal, metrics).ToString(_ptBr));
+            }
+
+            if (flowSignal != null && quantSignal != null)
+            {
+                if (SameDirection(flowSignal.Direction, quantSignal.Direction))
+                {
+                    score += 10;
+                    confirmations++;
+                    evidence.Add("quant+fluxo alinhados");
+                }
+                else
+                {
+                    score -= 12;
+                    evidence.Add("quant/fluxo divergentes");
+                }
+            }
+
+            string flowAlignment = FlowDirectionAlignment(direction, metrics);
+
+            if (string.Equals(flowAlignment, "confirma", StringComparison.OrdinalIgnoreCase))
+            {
+                score += metrics != null && metrics.DataQuality == MarketDataQuality.TopOfBookOnly ? 4 : 8;
+                confirmations++;
+                evidence.Add("delta/imbalance confirmam");
+            }
+            else if (string.Equals(flowAlignment, "conflita", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 12;
+                evidence.Add("delta/imbalance conflitam");
+            }
+
+            if (HasProfileReference(flowSignal, quantSignal, nearestLevel))
+            {
+                score += 5;
+                confirmations++;
+                evidence.Add("nivel profile/estatistico");
+            }
+
+            int sampleSize = _result == null || _result.Technicals == null ? _dailyBars.Count : _result.Technicals.SampleSize;
+
+            if (sampleSize >= 126)
+            {
+                score += 8;
+                confirmations++;
+                evidence.Add("amostra >=126");
+            }
+            else if (sampleSize >= 63)
+            {
+                score += 5;
+                confirmations++;
+                evidence.Add("amostra >=63");
+            }
+            else if (sampleSize >= 21)
+            {
+                score += 2;
+                evidence.Add("amostra >=21");
+            }
+            else if (quantSignal != null)
+            {
+                score -= 10;
+                evidence.Add("amostra historica baixa");
+            }
+
+            BacktestRow bestBacktest = BestBacktestRow();
+
+            if (bestBacktest != null && bestBacktest.Touches >= 5 && bestBacktest.ReversalRate >= 55d)
+            {
+                score += 5;
+                confirmations++;
+                evidence.Add("backtest proxy favoravel");
+            }
+            else if (quantSignal != null)
+            {
+                evidence.Add("edge historico sem confirmacao forte");
+            }
+
+            if (metrics != null && metrics.Profile != null && metrics.Profile.Poc.HasValue)
+            {
+                confirmations++;
+                evidence.Add("volume profile ativo");
+            }
+
+            if (nearestLevel != null && Math.Abs(nearestLevel.Distance) <= _config.Rtd.TickSize * 10m)
+            {
+                score += 3;
+                evidence.Add("preco perto de nivel");
+            }
+
+            if (_flowProcessor.Dropped > 0)
+            {
+                score -= 4;
+                evidence.Add("fila descartou eventos");
+            }
+
+            if (flowSignal == null && quantSignal == null)
+            {
+                score = snapshot == null ? 0 : Math.Min(30, cap);
+                evidence.Add("sem gatilho estatistico/fluxo");
+            }
+
+            score = Math.Max(0, Math.Min(cap, score));
+            result.Score = score;
+            result.Robustness = OpportunityRobustness(score, cap, confirmations);
+            result.Detail = string.Join("; ", evidence.Where(x => !string.IsNullOrWhiteSpace(x)).Take(8).ToArray());
+            return result;
+        }
+
+        private int OpportunityScoreCap(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics, bool requiresHistory, List<string> evidence)
+        {
+            int cap = 100;
+
+            if (asset == null || !asset.Enabled)
+            {
+                evidence.Add("ativo desligado");
+                return 35;
+            }
+
+            if (!asset.QuoteEnabled)
+            {
+                cap = Math.Min(cap, 48);
+                evidence.Add("cotacao desligada");
+            }
+
+            if (snapshot == null || !snapshot.Ultimo.HasValue)
+            {
+                cap = Math.Min(cap, 45);
+                evidence.Add("sem ULT/snapshot");
+            }
+            else
+            {
+                double ageSeconds = Math.Max(0d, (DateTimeOffset.Now - snapshot.LocalTimestamp).TotalSeconds);
+
+                if (ageSeconds >= 15d)
+                {
+                    cap = Math.Min(cap, 50);
+                    evidence.Add("snapshot atrasado");
+                }
+                else if (ageSeconds >= 5d)
+                {
+                    cap = Math.Min(cap, 72);
+                    evidence.Add("snapshot lento");
+                }
+                else
+                {
+                    evidence.Add("snapshot fresco");
+                }
+            }
+
+            if (metrics == null)
+            {
+                cap = Math.Min(cap, 62);
+                evidence.Add("sem metricas de fluxo");
+            }
+            else if (metrics.DataQuality == MarketDataQuality.TopOfBookOnly)
+            {
+                cap = Math.Min(cap, Math.Min(_config.Flow.TopOfBookOnlyScoreCap, 78));
+                evidence.Add("cap top-of-book");
+            }
+            else if (metrics.DataQuality == MarketDataQuality.DerivedTape)
+            {
+                cap = Math.Min(cap, Math.Min(_config.Flow.DerivedTapeScoreCap, 85));
+                evidence.Add("cap tape derivado");
+            }
+            else if (metrics.DataQuality == MarketDataQuality.FullTimesAndTrades)
+            {
+                cap = Math.Min(cap, 96);
+                evidence.Add("times real");
+            }
+            else if (metrics.DataQuality == MarketDataQuality.FullDepth)
+            {
+                evidence.Add("book profundo real");
+            }
+
+            if (requiresHistory && _dailyBars.Count < 21)
+            {
+                cap = Math.Min(cap, 60);
+                evidence.Add("CSV <21 pregoes");
+            }
+
+            if (!asset.BookEnabled && !asset.TimesEnabled)
+            {
+                cap = Math.Min(cap, 78);
+                evidence.Add("sem Book/Times ligados");
+            }
+
+            return Math.Max(0, cap);
+        }
+
+        private string OpportunityRobustness(int score, int cap, int confirmations)
+        {
+            if (cap < 55)
+            {
+                return "Bloqueado";
+            }
+
+            if (score >= 85 && cap >= 90 && confirmations >= 4)
+            {
+                return "Robusto";
+            }
+
+            if (score >= _config.Flow.StrongSetupScoreThreshold && confirmations >= 3)
+            {
+                return "Acionavel";
+            }
+
+            if (score >= _config.Flow.SetupScoreThreshold)
+            {
+                return "Monitorar";
+            }
+
+            return "Fraco";
+        }
+
+        private QuantSignal FindMatchingQuantSignal(string assetName, FlowSignal flowSignal)
+        {
+            if (flowSignal == null ||
+                _result == null ||
+                _result.QuantSignals == null ||
+                !string.Equals(assetName, FocusedAsset(), StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            decimal reference = flowSignal.LevelPrice.HasValue ? flowSignal.LevelPrice.Value : flowSignal.Price;
+            decimal tolerance = Math.Max(_config.Rtd.TickSize * 16m, 4m);
+
+            return _result.QuantSignals
+                .Where(x => SameDirection(x.Direction, flowSignal.Direction))
+                .Where(x => Math.Abs((x.LevelPrice.HasValue ? x.LevelPrice.Value : x.Price) - reference) <= tolerance)
+                .OrderByDescending(x => QuantFlowAdjustedScore(x, _flowProcessor.GetMetrics(assetName)))
+                .FirstOrDefault();
+        }
+
+        private FlowSignal FindMatchingFlowSignal(List<FlowSignal> flowSignals, QuantSignal quantSignal)
+        {
+            if (quantSignal == null)
+            {
+                return null;
+            }
+
+            decimal reference = quantSignal.LevelPrice.HasValue ? quantSignal.LevelPrice.Value : quantSignal.Price;
+            decimal tolerance = Math.Max(_config.Rtd.TickSize * 16m, 4m);
+
+            return (flowSignals ?? new List<FlowSignal>())
+                .Where(x => SameDirection(x.Direction, quantSignal.Direction))
+                .Where(x => Math.Abs((x.LevelPrice.HasValue ? x.LevelPrice.Value : x.Price) - reference) <= tolerance)
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.LocalTimestamp)
+                .FirstOrDefault();
+        }
+
+        private QuantSignal BestQuantSignalForAsset(string assetName, FlowMetrics metrics)
+        {
+            if (_result == null ||
+                _result.QuantSignals == null ||
+                !string.Equals(assetName, FocusedAsset(), StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return _result.QuantSignals
+                .OrderByDescending(x => QuantFlowAdjustedScore(x, metrics))
+                .FirstOrDefault();
+        }
+
+        private bool SameDirection(string left, string right)
+        {
+            return !string.IsNullOrWhiteSpace(left) &&
+                   !string.IsNullOrWhiteSpace(right) &&
+                   string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string OpportunityDirection(FlowSignal flowSignal, QuantSignal quantSignal)
+        {
+            if (flowSignal != null && !string.IsNullOrWhiteSpace(flowSignal.Direction))
+            {
+                return flowSignal.Direction;
+            }
+
+            return quantSignal == null ? string.Empty : quantSignal.Direction;
+        }
+
+        private string FlowDirectionAlignment(string direction, FlowMetrics metrics)
+        {
+            if (string.IsNullOrWhiteSpace(direction) || metrics == null)
+            {
+                return "neutro";
+            }
+
+            decimal imbalance = metrics.TopBookImbalance.HasValue ? metrics.TopBookImbalance.Value : 0m;
+            bool buy = string.Equals(direction, "Buy", StringComparison.OrdinalIgnoreCase);
+            bool sell = string.Equals(direction, "Sell", StringComparison.OrdinalIgnoreCase);
+
+            if ((buy && (metrics.CumulativeDelta > 0m || imbalance > 0.08m)) ||
+                (sell && (metrics.CumulativeDelta < 0m || imbalance < -0.08m)))
+            {
+                return "confirma";
+            }
+
+            if ((buy && (metrics.CumulativeDelta < 0m && imbalance < -0.08m)) ||
+                (sell && (metrics.CumulativeDelta > 0m && imbalance > 0.08m)))
+            {
+                return "conflita";
+            }
+
+            return "neutro";
+        }
+
+        private bool HasProfileReference(FlowSignal flowSignal, QuantSignal quantSignal, KeyLevel nearestLevel)
+        {
+            string text = string.Join(" ", new[]
+            {
+                flowSignal == null ? string.Empty : flowSignal.LevelName,
+                quantSignal == null ? string.Empty : quantSignal.LevelName,
+                nearestLevel == null ? string.Empty : nearestLevel.Label,
+                nearestLevel == null ? string.Empty : nearestLevel.Source
+            }).ToUpperInvariant();
+
+            return text.Contains("POC") ||
+                   text.Contains("VAH") ||
+                   text.Contains("VAL") ||
+                   text.Contains("HVN") ||
+                   text.Contains("LVN") ||
+                   text.Contains("PROFILE");
+        }
+
+        private BacktestRow BestBacktestRow()
+        {
+            if (_result == null || _result.Backtest == null || _result.Backtest.Count == 0)
+            {
+                return null;
+            }
+
+            return _result.Backtest
+                .Where(x => x.Touches > 0)
+                .OrderByDescending(x => x.ReversalRate)
+                .FirstOrDefault();
         }
 
         private List<OpportunityLevelRow> BuildOpportunityLevelRows(MarketSnapshot snapshot)
@@ -3003,8 +3399,11 @@ namespace RtdDolarNative
                 FlowMetrics metrics = _flowProcessor.GetMetrics(assetName);
                 List<FlowSignal> signals = _flowProcessor.GetSignals(assetName, 12) ?? new List<FlowSignal>();
                 FlowSignal bestSignal = signals.OrderByDescending(x => x.Score).ThenByDescending(x => x.LocalTimestamp).FirstOrDefault();
+                QuantSignal bestQuant = BestQuantSignalForAsset(assetName, metrics);
                 KeyLevel nearestLevel = NearestScannerLevel(assetName, snapshot, metrics, signals);
                 decimal? distance = nearestLevel == null ? null : (decimal?)nearestLevel.Distance;
+                OpportunityScore opportunity = ScoreOpportunity(item, snapshot, metrics, bestSignal, bestQuant, nearestLevel);
+                bool preferQuant = bestQuant != null && (bestSignal == null || QuantFlowAdjustedScore(bestQuant, metrics) >= bestSignal.Score);
 
                 ScannerRow row = new ScannerRow();
                 row.Rank = "0";
@@ -3016,16 +3415,16 @@ namespace RtdDolarNative
                 row.SnapshotAge = snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp);
                 row.Channels = (item.QuoteEnabled ? "C" : "-") + "/" + (item.BookEnabled ? "B" : "-") + "/" + (item.TimesEnabled ? "T" : "-");
                 row.Quality = metrics == null ? "-" : metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
-                row.BestSetup = bestSignal == null ? "Aguardando setup" : EmptyToDash(bestSignal.Setup);
-                row.Direction = bestSignal == null ? "-" : EmptyToDash(bestSignal.Direction);
-                row.Score = bestSignal == null ? "0" : bestSignal.Score.ToString(_ptBr);
+                row.BestSetup = preferQuant ? EmptyToDash(bestQuant.Setup) : (bestSignal == null ? "Aguardando setup" : EmptyToDash(bestSignal.Setup));
+                row.Direction = preferQuant ? EmptyToDash(bestQuant.Direction) : (bestSignal == null ? "-" : EmptyToDash(bestSignal.Direction));
+                row.Score = opportunity.Score.ToString(_ptBr);
                 row.Level = nearestLevel == null ? "-" : EmptyToDash(nearestLevel.Label);
                 row.Distance = distance.HasValue ? distance.Value.ToString("N2", _ptBr) : "-";
                 row.Delta = metrics == null ? "-" : metrics.LastDelta.ToString("N0", _ptBr) + " / " + metrics.CumulativeDelta.ToString("N0", _ptBr);
                 row.VwapDistance = metrics == null ? "-" : FormatDecimal(metrics.VwapDistance, "N2");
-                row.Read = ScannerReadText(item, snapshot, metrics, bestSignal, nearestLevel);
+                row.Read = opportunity.Robustness + " | " + ScannerReadText(item, snapshot, metrics, bestSignal, nearestLevel) + " | " + opportunity.Detail;
                 row.FocusText = string.Equals(assetName, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : string.Empty;
-                row.SortScore = ScannerSortScore(item, snapshot, metrics, bestSignal, nearestLevel);
+                row.SortScore = opportunity.Score + (ScannerSortScore(item, snapshot, metrics, bestSignal, nearestLevel) * 0.05d);
                 rows.Add(row);
             }
 
@@ -5839,6 +6238,11 @@ namespace RtdDolarNative
             return value.HasValue ? value.Value.ToString(format, _ptBr) : "-";
         }
 
+        private string FormatPercent(decimal? value, string format)
+        {
+            return value.HasValue ? value.Value.ToString(format, _ptBr) + "%" : "-";
+        }
+
         private string EmptyToDash(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
@@ -5966,10 +6370,19 @@ namespace RtdDolarNative
             public string Direction { get; set; }
             public string Price { get; set; }
             public string Score { get; set; }
+            public string Robustness { get; set; }
             public string Level { get; set; }
             public string Quality { get; set; }
             public string Age { get; set; }
             public string Reasons { get; set; }
+            public double SortScore { get; set; }
+        }
+
+        private sealed class OpportunityScore
+        {
+            public int Score { get; set; }
+            public string Robustness { get; set; }
+            public string Detail { get; set; }
         }
 
         private sealed class OpportunityLevelRow
