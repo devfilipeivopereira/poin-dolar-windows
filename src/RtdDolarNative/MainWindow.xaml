@@ -193,6 +193,7 @@
             <MenuItem Header="RTD">
                 <MenuItem Header="Conectar / Desconectar" InputGestureText="F5" Click="MenuConnect_Click" />
                 <MenuItem Header="Ativos" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Prontidao RTD" InputGestureText="Ctrl+R" Tag="1" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Focar ativo selecionado" InputGestureText="Ctrl+F" Click="MenuFocusAsset_Click" />
                 <MenuItem Header="Fontes padrao" Click="MenuDefaultSources_Click" />
                 <Separator />
@@ -414,7 +415,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="190" />
+                        <RowDefinition Height="160" />
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0"
@@ -427,7 +428,8 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="2.1*" />
+                                <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
@@ -485,11 +487,48 @@
                                 </Border>
                             </UniformGrid>
 
-                            <StackPanel Grid.Column="2" Width="150">
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource InputBg}"
+                                    BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1"
+                                    Padding="10"
+                                    Margin="0,0,12,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Prontidao RTD" FontWeight="Bold" Margin="0,0,10,0" />
+                                        <TextBlock x:Name="RtdReadinessSummaryText" Text="-" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="RtdReadinessCountsText"
+                                               Grid.Row="1"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,6" />
+                                    <DataGrid x:Name="RtdReadinessGrid"
+                                              Grid.Row="2"
+                                              AutoGenerateColumns="False"
+                                              RowHeight="22"
+                                              ColumnHeaderHeight="24">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Canal" Binding="{Binding Channel}" Width="62" />
+                                            <DataGridTextColumn Header="Assin." Binding="{Binding SubscriptionCount}" Width="60" />
+                                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="82" />
+                                            <DataGridTextColumn Header="Args" Binding="{Binding Formula}" Width="*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Column="3" Width="150">
                                 <Button Content="Focar selecionado" Click="FocusAssetButton_Click" Margin="0,0,0,8" />
                                 <Button Content="Ligar foco" Click="StartAssetButton_Click" Margin="0,0,0,8" />
                                 <Button Content="Desligar foco" Click="StopAssetButton_Click" Margin="0,0,0,8" />
-                                <Button Content="Diagnostico" Tag="10" Click="TopNavButton_Click" Margin="0" />
+                                <Button Content="Diagnostico" Tag="11" Click="TopNavButton_Click" Margin="0" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -615,7 +654,13 @@
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <ItemsControl x:Name="WarningsList" Grid.Column="1" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10">
+                            <ItemsControl x:Name="WarningsList" />
+                        </Border>
                     </Grid>
                 </Grid>
             </TabItem>

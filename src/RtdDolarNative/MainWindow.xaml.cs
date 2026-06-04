@@ -303,6 +303,7 @@ namespace RtdDolarNative
                 case TabAssets:
                     RenderRtdAssets();
                     RenderRtdChannels();
+                    RenderRtdReadiness();
                     break;
                 case TabQuote:
                     RenderQuoteFields(snapshot);
@@ -427,6 +428,14 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 FocusSelectedAsset();
+                return;
+            }
+
+            if (control && e.Key == Key.R)
+            {
+                e.Handled = true;
+                NavigateToTab(TabAssets);
+                RenderRtdReadiness();
                 return;
             }
 
@@ -1838,6 +1847,8 @@ namespace RtdDolarNative
             if (enabledAssets.Count == 0)
             {
                 SetIdleDisconnectedStatus();
+                NavigateToTab(TabAssets);
+                RenderRtdReadiness();
                 SetWarnings(new[] { "Cadastre e ligue pelo menos um ativo antes de conectar o RTD." });
                 return;
             }
@@ -1845,6 +1856,8 @@ namespace RtdDolarNative
             if (subscriptions.Count == 0)
             {
                 SetIdleDisconnectedStatus();
+                NavigateToTab(TabAssets);
+                RenderRtdReadiness();
                 SetWarnings(new[] { "Ligue pelo menos um canal em Ativos: Cotacao, Book ou Times." });
                 return;
             }
@@ -1861,6 +1874,7 @@ namespace RtdDolarNative
             RenderRtdAssets();
             RenderRtdChannels();
             RenderRtdSources();
+            RenderRtdReadiness();
             _probeService.Start();
         }
 
@@ -1869,6 +1883,8 @@ namespace RtdDolarNative
             _probeService.Stop();
             ConnectButton.Content = "Conectar";
             RenderRtdAssets();
+            RenderRtdChannels();
+            RenderRtdReadiness();
         }
 
         private void SetIdleDisconnectedStatus()
@@ -1897,6 +1913,7 @@ namespace RtdDolarNative
             RenderRtdAssets();
             RenderRtdChannels();
             RenderRtdSources();
+            RenderRtdReadiness();
             UpdateTopNavigation();
             UpdateRuntimeStatusBar(null);
             RenderActiveTab();
@@ -2149,13 +2166,14 @@ namespace RtdDolarNative
             }
 
             _renderingAssets = true;
+            RtdAssetRow selectedRow = null;
 
             try
             {
                 RtdAssetsGrid.ItemsSource = rows;
 
-                RtdAssetRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
-                                          rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+                selectedRow = rows.FirstOrDefault(x => string.Equals(x.Asset, selected, StringComparison.OrdinalIgnoreCase)) ??
+                              rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
 
                 if (selectedRow != null)
                 {
@@ -2167,8 +2185,22 @@ namespace RtdDolarNative
                 _renderingAssets = false;
             }
 
+            if (selectedRow != null && ShouldSyncAssetForm())
+            {
+                PopulateAssetForm(selectedRow.Asset);
+            }
+
             RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
             UpdateFocusedAssetPanel();
+        }
+
+        private bool ShouldSyncAssetForm()
+        {
+            return !(AssetNameInput != null && AssetNameInput.IsKeyboardFocusWithin) &&
+                   !(QuoteCodeInput != null && QuoteCodeInput.IsKeyboardFocusWithin) &&
+                   !(BookTopicInput != null && BookTopicInput.IsKeyboardFocusWithin) &&
+                   !(TimesTopicInput != null && TimesTopicInput.IsKeyboardFocusWithin) &&
+                   !(CsvPathInput != null && CsvPathInput.IsKeyboardFocusWithin);
         }
 
         private void RenderRtdChannels()
@@ -2237,6 +2269,143 @@ namespace RtdDolarNative
             UpdateChannelPanel(asset, snapshot, "Cotacao", QuoteChannelBorder, QuoteChannelStatusText, QuoteChannelTopicText, QuoteChannelToggleButton);
             UpdateChannelPanel(asset, snapshot, "Book", BookChannelBorder, BookChannelStatusText, BookChannelTopicText, BookChannelToggleButton);
             UpdateChannelPanel(asset, snapshot, "Times", TimesChannelBorder, TimesChannelStatusText, TimesChannelTopicText, TimesChannelToggleButton);
+            RenderRtdReadiness();
+        }
+
+        private void RenderRtdReadiness()
+        {
+            if (RtdReadinessGrid == null || RtdReadinessSummaryText == null || RtdReadinessCountsText == null)
+            {
+                return;
+            }
+
+            _config.Rtd.NormalizeSources();
+
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            List<string> enabledAssets = _config.Rtd.GetEnabledAssets();
+            List<RtdSubscriptionSpec> subscriptions = _config.Rtd.GetSubscriptions();
+            List<RtdSubscriptionSpec> focusedSubscriptions = subscriptions
+                .Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            MarketSnapshot snapshot = FocusedSnapshot();
+
+            RtdReadinessGrid.ItemsSource = BuildRtdReadinessRows(asset, snapshot, focusedSubscriptions);
+
+            string summary = ReadinessSummary(asset, focusedSubscriptions);
+            RtdReadinessSummaryText.Text = summary;
+            RtdReadinessSummaryText.Foreground = StateBrush(summary);
+            RtdReadinessCountsText.Text =
+                "Ativos ligados " + enabledAssets.Count.ToString(_ptBr) +
+                " | Assinaturas totais " + subscriptions.Count.ToString(_ptBr) +
+                " | Foco " + focusedSubscriptions.Count.ToString(_ptBr) +
+                " | ProgId " + EmptyToDash(_config.Rtd.ProgId) +
+                Environment.NewLine +
+                "Excel: RTD(\"ProgId\";; topico; campo; indice)";
+        }
+
+        private List<RtdReadinessRow> BuildRtdReadinessRows(RtdAssetConfig asset, MarketSnapshot snapshot, List<RtdSubscriptionSpec> focusedSubscriptions)
+        {
+            List<RtdReadinessRow> rows = new List<RtdReadinessRow>();
+            List<RtdSubscriptionSpec> subscriptions = focusedSubscriptions ?? new List<RtdSubscriptionSpec>();
+
+            AddRtdReadinessRow(rows, asset, snapshot, subscriptions, "Cotacao", "PriceVolume", null, "ULT");
+            AddRtdReadinessRow(rows, asset, snapshot, subscriptions, "Book", "BookDepth", "TopBook", "OCP");
+            AddRtdReadinessRow(rows, asset, snapshot, subscriptions, "Times", "TimesAndTrades", null, "PRE");
+
+            return rows;
+        }
+
+        private void AddRtdReadinessRow(
+            List<RtdReadinessRow> rows,
+            RtdAssetConfig asset,
+            MarketSnapshot snapshot,
+            List<RtdSubscriptionSpec> subscriptions,
+            string channel,
+            string role,
+            string alternateRole,
+            string sampleField)
+        {
+            bool enabled = asset != null && ChannelEnabled(asset.Asset, channel);
+            int count = subscriptions.Count(x =>
+                string.Equals(x.Role, role, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(alternateRole) && string.Equals(x.Role, alternateRole, StringComparison.OrdinalIgnoreCase)));
+
+            RtdReadinessRow row = new RtdReadinessRow();
+            row.Channel = channel;
+            row.Topic = ChannelTopicText(asset, channel);
+            row.SubscriptionCount = enabled ? count.ToString(_ptBr) : "off";
+            row.Status = ChannelReadinessStatus(asset, enabled, count, snapshot);
+            row.Formula = enabled ? RtdArgumentExample(asset, channel, sampleField) : "-";
+            rows.Add(row);
+        }
+
+        private string ReadinessSummary(RtdAssetConfig asset, List<RtdSubscriptionSpec> focusedSubscriptions)
+        {
+            if (asset == null)
+            {
+                return "Sem ativo";
+            }
+
+            if (!asset.Enabled)
+            {
+                return "Ativo off";
+            }
+
+            if (focusedSubscriptions == null || focusedSubscriptions.Count == 0)
+            {
+                return "Sem canal";
+            }
+
+            if (!_probeService.IsRunning)
+            {
+                return "Pronto";
+            }
+
+            return EmptyToDash(_probeService.Status);
+        }
+
+        private string ChannelReadinessStatus(RtdAssetConfig asset, bool enabled, int subscriptions, MarketSnapshot snapshot)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            if (!asset.Enabled)
+            {
+                return "ativo off";
+            }
+
+            if (!enabled)
+            {
+                return "off";
+            }
+
+            if (subscriptions == 0)
+            {
+                return "sem assin.";
+            }
+
+            return ChannelState(asset, enabled, snapshot);
+        }
+
+        private string RtdArgumentExample(RtdAssetConfig asset, string channel, string field)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            string topic = ChannelTopicText(asset, channel);
+
+            if (string.Equals(channel, "Book", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(channel, "Times", StringComparison.OrdinalIgnoreCase))
+            {
+                return topic + " | " + field + " | 0";
+            }
+
+            return topic + " | " + field;
         }
 
         private string FocusedAssetStatus(RtdAssetConfig asset, MarketSnapshot snapshot)
@@ -2937,6 +3106,15 @@ namespace RtdDolarNative
             public bool Book { get; set; }
             public bool Times { get; set; }
             public string Status { get; set; }
+        }
+
+        private sealed class RtdReadinessRow
+        {
+            public string Channel { get; set; }
+            public string Topic { get; set; }
+            public string SubscriptionCount { get; set; }
+            public string Status { get; set; }
+            public string Formula { get; set; }
         }
 
         private sealed class NameValueRow
