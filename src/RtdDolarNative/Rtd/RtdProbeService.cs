@@ -34,7 +34,7 @@ namespace RtdDolarNative.Rtd
             _diagnostics = diagnostics;
             _log = log;
             _snapshotBuffer = snapshotBuffer;
-            _status = "starting";
+            _status = "idle";
         }
 
         public event Action<string, Exception> StatusChanged;

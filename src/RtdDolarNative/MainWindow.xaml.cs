@@ -33,7 +33,8 @@ namespace RtdDolarNative
         private const int TabLevels = 8;
         private const int TabChart = 9;
         private const int TabBacktest = 10;
-        private const int TabDiagnostics = 11;
+        private const int TabAlerts = 11;
+        private const int TabDiagnostics = 12;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -309,13 +310,7 @@ namespace RtdDolarNative
                     RenderQuoteFields(snapshot);
                     break;
                 case TabDomBook:
-                    if (snapshot != null)
-                    {
-                        RenderDom(snapshot);
-                        RenderBook(snapshot);
-                    }
-
-                    RenderTape();
+                    RenderDomBook(snapshot);
                     break;
                 case TabTape:
                     RenderTape();
@@ -327,6 +322,9 @@ namespace RtdDolarNative
                     break;
                 case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+                    break;
+                case TabAlerts:
+                    RenderAlerts(snapshot);
                     break;
                 case TabDiagnostics:
                     RenderRtdSources();
@@ -414,6 +412,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 Recalculate();
+                return;
+            }
+
+            if (e.Key == Key.F8)
+            {
+                e.Handled = true;
+                NavigateToTab(TabAlerts);
                 return;
             }
 
@@ -1365,6 +1370,7 @@ namespace RtdDolarNative
             bool showDomBook = selectedTab == TabDomBook;
             bool showTape = selectedTab == TabDomBook || selectedTab == TabTape;
             bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
+            bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
 
             if (snapshot != null)
@@ -1397,13 +1403,11 @@ namespace RtdDolarNative
                     RenderDashboard(snapshot);
                 }
 
-                if (snapshot != null && showDomBook)
+                if (showDomBook)
                 {
-                    RenderDom(snapshot);
-                    RenderBook(snapshot);
+                    RenderDomBook(snapshot);
                 }
-
-                if (showTape)
+                else if (showTape)
                 {
                     RenderTape();
                 }
@@ -1411,6 +1415,11 @@ namespace RtdDolarNative
                 if (showFlow)
                 {
                     RenderFlow(snapshot);
+                }
+
+                if (showAlerts)
+                {
+                    RenderAlerts(snapshot);
                 }
 
                 _lastGridRefresh = now;
@@ -1436,6 +1445,11 @@ namespace RtdDolarNative
                 if (showDiagnostics)
                 {
                     RenderRtdSources();
+                }
+
+                if (showAlerts)
+                {
+                    RenderAlerts(snapshot);
                 }
 
                 _lastAssetGridRefresh = now;
@@ -1576,6 +1590,102 @@ namespace RtdDolarNative
                 .ToList();
         }
 
+        private void RenderDomBook(MarketSnapshot snapshot)
+        {
+            string focused = FocusedAsset();
+            MarketSnapshot effective = snapshot ?? FocusedSnapshot();
+
+            if (effective == null &&
+                _lastSnapshot != null &&
+                (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
+            {
+                effective = _lastSnapshot;
+            }
+
+            if (effective == null)
+            {
+                if (DomGrid != null)
+                {
+                    DomGrid.ItemsSource = new List<DomRow>();
+                }
+
+                if (BookGrid != null)
+                {
+                    BookGrid.ItemsSource = new List<BookDepthRow>();
+                }
+
+                if (DomLevelsGrid != null)
+                {
+                    DomLevelsGrid.ItemsSource = new List<KeyLevel>();
+                }
+
+                RenderTape();
+                UpdateDomBookState(focused, null, 0);
+                return;
+            }
+
+            RenderDom(effective);
+
+            List<BookDepthRow> bookRows = BuildBookRows(effective);
+            if (BookGrid != null)
+            {
+                BookGrid.ItemsSource = bookRows;
+            }
+
+            RenderDomBookLevels(effective);
+            RenderTape();
+            UpdateDomBookState(focused, effective, bookRows.Count);
+        }
+
+        private void RenderDomBookLevels(MarketSnapshot snapshot)
+        {
+            if (DomLevelsGrid == null)
+            {
+                return;
+            }
+
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (_result != null)
+            {
+                levels.AddRange(_result.Confluence);
+            }
+            else if (snapshot != null)
+            {
+                levels.AddRange(BasicLevels(snapshot));
+            }
+
+            levels.AddRange(FlowProfileKeyLevels(snapshot));
+            levels.AddRange(FlowSignalKeyLevels(snapshot));
+
+            DomLevelsGrid.ItemsSource = levels
+                .OrderBy(x => Math.Abs(x.Distance))
+                .Take(80)
+                .ToList();
+        }
+
+        private void UpdateDomBookState(string focused, MarketSnapshot snapshot, int bookRows)
+        {
+            if (DomBookStateText == null)
+            {
+                return;
+            }
+
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            string bookState = ChannelEnabled(focused, "Book") ? "book ligado" : "book desligado";
+            string timesState = ChannelEnabled(focused, "Times") ? "times ligado" : "times desligado";
+            string topic = asset == null ? "-" : EmptyToDash(asset.BookTopic);
+            string age = snapshot == null ? "sem snapshot" : "snapshot " + AgeText(snapshot.LocalTimestamp);
+            string rows = bookRows <= 0 ? "sem linhas book" : bookRows.ToString(_ptBr) + " linhas book";
+
+            DomBookStateText.Text = EmptyToDash(focused) +
+                                    " | canal " + topic +
+                                    " | " + bookState +
+                                    " | " + timesState +
+                                    " | " + age +
+                                    " | " + rows;
+        }
+
         private void RenderTape()
         {
             string focused = FocusedAsset();
@@ -1585,7 +1695,11 @@ namespace RtdDolarNative
             if (realTimes.Count > 0)
             {
                 PostRealTimes(snapshot, realTimes);
-                TapeGrid.ItemsSource = realTimes;
+
+                if (TapeGrid != null)
+                {
+                    TapeGrid.ItemsSource = realTimes;
+                }
 
                 if (FlowTapeGrid != null)
                 {
@@ -1599,7 +1713,10 @@ namespace RtdDolarNative
 
             if (flowTrades.Count > 0)
             {
-                TapeGrid.ItemsSource = flowTrades;
+                if (TapeGrid != null)
+                {
+                    TapeGrid.ItemsSource = flowTrades;
+                }
 
                 if (FlowTapeGrid != null)
                 {
@@ -1617,7 +1734,10 @@ namespace RtdDolarNative
             }
 
             List<TickEvent> legacyTicks = ticks.Take(250).ToList();
-            TapeGrid.ItemsSource = legacyTicks;
+            if (TapeGrid != null)
+            {
+                TapeGrid.ItemsSource = legacyTicks;
+            }
 
             if (FlowTapeGrid != null)
             {
@@ -2701,6 +2821,202 @@ namespace RtdDolarNative
             ChartControl.SetData(_dailyBars, snapshot, _result);
         }
 
+        private void RenderAlerts(MarketSnapshot snapshot)
+        {
+            if (AlertsSummaryGrid == null || OperationalAlertsGrid == null || AlertSignalsGrid == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+            List<FlowSignal> signals = _flowProcessor.GetSignals(focused, 250) ?? new List<FlowSignal>();
+            List<AlertRow> alerts = BuildOperationalAlerts(snapshot, metrics, signals);
+
+            AlertsSummaryGrid.ItemsSource = BuildAlertsSummaryRows(snapshot, metrics, alerts, signals);
+            OperationalAlertsGrid.ItemsSource = alerts;
+            AlertSignalsGrid.ItemsSource = signals
+                .OrderByDescending(x => x.LocalTimestamp)
+                .ThenByDescending(x => x.Score)
+                .Take(120)
+                .ToList();
+        }
+
+        private List<NameValueRow> BuildAlertsSummaryRows(MarketSnapshot snapshot, FlowMetrics metrics, List<AlertRow> alerts, List<FlowSignal> signals)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+            List<AlertRow> source = alerts ?? new List<AlertRow>();
+            List<FlowSignal> flowSignals = signals ?? new List<FlowSignal>();
+
+            AddRow(rows, "Criticos", source.Count(x => string.Equals(x.Severity, "Critico", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "alertas ativos");
+            AddRow(rows, "Avisos", source.Count(x => string.Equals(x.Severity, "Aviso", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "alertas ativos");
+            AddRow(rows, "Sinais fortes", flowSignals.Count(x => x.Score >= _config.Flow.StrongSetupScoreThreshold).ToString(_ptBr), "score >= " + _config.Flow.StrongSetupScoreThreshold.ToString(_ptBr));
+            AddRow(rows, "RTD", EmptyToDash(_probeService.Status), "updates " + _probeService.UpdatesReceived.ToString(_ptBr));
+            AddRow(rows, "Snapshot", snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp), "ativo " + EmptyToDash(FocusedAsset()));
+            AddRow(rows, "Qualidade", metrics == null ? "-" : metrics.DataQuality.ToString(), metrics == null ? "-" : metrics.Derived ? "derived" : "real");
+            AddRow(rows, "CSV", FocusedAssetCsvText(_config.Rtd.FindAsset(FocusedAsset())), _dailyBars.Count.ToString(_ptBr) + " pregoes");
+            AddRow(rows, "Fila drop", _flowProcessor.Dropped.ToString(_ptBr), "bounded queue");
+
+            return rows;
+        }
+
+        private List<AlertRow> BuildOperationalAlerts(MarketSnapshot snapshot, FlowMetrics metrics, List<FlowSignal> signals)
+        {
+            List<AlertRow> rows = new List<AlertRow>();
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            List<string> enabledAssets = _config.Rtd.GetEnabledAssets();
+            List<RtdSubscriptionSpec> subscriptions = _config.Rtd.GetSubscriptions();
+
+            if (enabledAssets.Count == 0)
+            {
+                AddAlert(rows, "Critico", "RTD", focused, "Nenhum ativo ligado", "Ative um ativo em Ativos.", "-");
+            }
+
+            if (subscriptions.Count == 0)
+            {
+                AddAlert(rows, "Critico", "RTD", focused, "Nenhum canal ligado", "Ligue Cotacao, Book ou Times.", "-");
+            }
+
+            Exception lastError = _probeService.LastError;
+
+            if (lastError != null)
+            {
+                AddAlert(rows, "Critico", "RTD", focused, "Erro RTD", FormatError(lastError), "-");
+            }
+
+            string status = _probeService.Status;
+
+            if (string.Equals(status, "reconnecting", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "connecting", StringComparison.OrdinalIgnoreCase))
+            {
+                AddAlert(rows, "Aviso", "RTD", focused, "Conexao em andamento", EmptyToDash(status), "-");
+            }
+
+            if (_probeService.IsRunning && snapshot == null)
+            {
+                AddAlert(rows, "Aviso", "Mercado", focused, "Sem snapshot", "RTD ligado sem snapshot do ativo em foco.", "-");
+            }
+
+            if (snapshot != null)
+            {
+                TimeSpan age = DateTimeOffset.Now - snapshot.LocalTimestamp;
+
+                if (age.TotalSeconds >= 15)
+                {
+                    AddAlert(rows, "Critico", "Mercado", focused, "Snapshot atrasado", AgeText(snapshot.LocalTimestamp), AgeText(snapshot.LocalTimestamp));
+                }
+                else if (age.TotalSeconds >= 5)
+                {
+                    AddAlert(rows, "Aviso", "Mercado", focused, "Snapshot lento", AgeText(snapshot.LocalTimestamp), AgeText(snapshot.LocalTimestamp));
+                }
+            }
+
+            if (asset == null)
+            {
+                AddAlert(rows, "Critico", "Ativos", focused, "Ativo em foco ausente", "Cadastre ou selecione um ativo.", "-");
+            }
+            else if (string.IsNullOrWhiteSpace(asset.CsvPath))
+            {
+                AddAlert(rows, "Aviso", "CSV", asset.Asset, "CSV historico ausente", "Sem caminho salvo para o ativo.", "-");
+            }
+            else if (!File.Exists(asset.CsvPath))
+            {
+                AddAlert(rows, "Aviso", "CSV", asset.Asset, "CSV nao encontrado", asset.CsvPath, "-");
+            }
+            else if (_dailyBars.Count == 0)
+            {
+                AddAlert(rows, "Aviso", "CSV", asset.Asset, "CSV sem barras carregadas", Path.GetFileName(asset.CsvPath), "-");
+            }
+
+            if (_flowProcessor.Dropped > 0)
+            {
+                AddAlert(rows, "Aviso", "Fluxo", focused, "Eventos descartados", _flowProcessor.Dropped.ToString(_ptBr), "-");
+            }
+
+            if (metrics != null)
+            {
+                if (metrics.Derived)
+                {
+                    AddAlert(rows, "Info", "Fluxo", focused, "Tape derivado", metrics.DataQuality.ToString(), AgeText(metrics.LocalTimestamp));
+                }
+
+                if (metrics.DataQuality == MarketDataQuality.TopOfBookOnly)
+                {
+                    AddAlert(rows, "Aviso", "Fluxo", focused, "Dados limitados", "TopOfBookOnly", AgeText(metrics.LocalTimestamp));
+                }
+            }
+
+            if (_result != null && _result.Warnings != null)
+            {
+                foreach (string warning in _result.Warnings.Where(x => !string.IsNullOrWhiteSpace(x)).Take(25))
+                {
+                    AddAlert(rows, "Aviso", "Calculo", focused, warning, "QuantEngine", "-");
+                }
+            }
+
+            foreach (FlowSignal signal in (signals ?? new List<FlowSignal>()).OrderByDescending(x => x.LocalTimestamp).ThenByDescending(x => x.Score).Take(40))
+            {
+                string severity = signal.Score >= _config.Flow.StrongSetupScoreThreshold ? "Aviso" : "Info";
+                AddAlert(rows, severity, "Setup", signal.Asset, signal.Setup + " " + signal.Direction, "Score " + signal.Score.ToString(_ptBr) + " | " + EmptyToDash(signal.Reasons), AgeText(signal.LocalTimestamp));
+            }
+
+            if (rows.Count == 0)
+            {
+                AddAlert(rows, "Info", "Sistema", focused, "Sem alertas operacionais", "RTD, fluxo e calculo sem alertas ativos.", "-");
+            }
+
+            return rows
+                .OrderBy(x => AlertSeverityRank(x.Severity))
+                .ThenBy(x => x.Source)
+                .ThenBy(x => x.Message)
+                .ToList();
+        }
+
+        private void AddAlert(List<AlertRow> rows, string severity, string source, string asset, string message, string detail, string ageText)
+        {
+            AlertRow row = new AlertRow();
+            row.Severity = EmptyToDash(severity);
+            row.Source = EmptyToDash(source);
+            row.Asset = EmptyToDash(asset);
+            row.Message = EmptyToDash(message);
+            row.Detail = EmptyToDash(detail);
+            row.AgeText = EmptyToDash(ageText);
+            rows.Add(row);
+        }
+
+        private int AlertSeverityRank(string severity)
+        {
+            if (string.Equals(severity, "Critico", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0;
+            }
+
+            if (string.Equals(severity, "Aviso", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+
+            return 2;
+        }
+
+        private string AgeText(DateTimeOffset timestamp)
+        {
+            TimeSpan age = DateTimeOffset.Now - timestamp;
+
+            if (age.TotalSeconds < 1)
+            {
+                return Math.Max(0, (int)age.TotalMilliseconds).ToString(_ptBr) + " ms";
+            }
+
+            if (age.TotalMinutes < 1)
+            {
+                return Math.Max(0, age.TotalSeconds).ToString("N1", _ptBr) + " s";
+            }
+
+            return Math.Max(0, age.TotalMinutes).ToString("N1", _ptBr) + " min";
+        }
+
         private void RenderFlow(MarketSnapshot snapshot)
         {
             string focused = FocusedAsset();
@@ -2891,6 +3207,11 @@ namespace RtdDolarNative
 
         private void RenderDom(MarketSnapshot snapshot)
         {
+            if (DomGrid == null)
+            {
+                return;
+            }
+
             List<KeyLevel> levels = (_result == null ? BasicLevels(snapshot) : _result.KeyLevels.Concat(_result.Confluence)).ToList();
             levels.AddRange(FlowProfileKeyLevels(snapshot));
             levels.AddRange(FlowSignalKeyLevels(snapshot));
@@ -3122,6 +3443,16 @@ namespace RtdDolarNative
             public string Name { get; set; }
             public string Value { get; set; }
             public string Detail { get; set; }
+        }
+
+        private sealed class AlertRow
+        {
+            public string Severity { get; set; }
+            public string Source { get; set; }
+            public string Asset { get; set; }
+            public string Message { get; set; }
+            public string Detail { get; set; }
+            public string AgeText { get; set; }
         }
 
         private sealed class QuoteFieldRow
