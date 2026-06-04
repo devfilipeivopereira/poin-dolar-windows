@@ -261,6 +261,24 @@ namespace RtdDolarNative
             EnsureDefaultSourcesForFocusedAsset();
         }
 
+        private void MenuOpenConfig_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileWithShell(_configPath, "Configuracao nao encontrada: " + _configPath);
+        }
+
+        private void MenuOpenLogFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string logPath = ResolvePath(_config.Diagnostics.LogPath);
+            string folder = string.IsNullOrWhiteSpace(logPath) ? AppDomain.CurrentDomain.BaseDirectory : Path.GetDirectoryName(logPath);
+
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                folder = AppDomain.CurrentDomain.BaseDirectory;
+            }
+
+            OpenFolderWithShell(folder);
+        }
+
         private void MenuPreviousTab_Click(object sender, RoutedEventArgs e)
         {
             NavigateRelativeTab(-1);
@@ -2083,20 +2101,85 @@ namespace RtdDolarNative
             Brush selectedBorder = FindResource("Accent") as Brush;
             Brush normalBorder = FindResource("Border") as Brush;
 
-            foreach (object child in TopNavigation.Children)
+            UpdateTopNavigationButtons(TopNavigation, selectedBackground, normalBackground, selectedBorder, normalBorder);
+        }
+
+        private void UpdateTopNavigationButtons(DependencyObject root, Brush selectedBackground, Brush normalBackground, Brush selectedBorder, Brush normalBorder)
+        {
+            if (root == null)
             {
-                System.Windows.Controls.Button button = child as System.Windows.Controls.Button;
+                return;
+            }
+
+            System.Windows.Controls.Button button = root as System.Windows.Controls.Button;
+
+            if (button != null)
+            {
                 int index;
 
-                if (button == null || button.Tag == null || !int.TryParse(button.Tag.ToString(), out index))
+                if (button.Tag != null && int.TryParse(button.Tag.ToString(), out index))
                 {
-                    continue;
+                    bool selected = index == MainTabs.SelectedIndex;
+                    button.Background = selected ? selectedBackground : normalBackground;
+                    button.BorderBrush = selected ? selectedBorder : normalBorder;
+                    button.FontWeight = selected ? FontWeights.Bold : FontWeights.Normal;
                 }
 
-                bool selected = index == MainTabs.SelectedIndex;
-                button.Background = selected ? selectedBackground : normalBackground;
-                button.BorderBrush = selected ? selectedBorder : normalBorder;
-                button.FontWeight = selected ? FontWeights.Bold : FontWeights.Normal;
+                return;
+            }
+
+            int children = VisualTreeHelper.GetChildrenCount(root);
+
+            for (int i = 0; i < children; i++)
+            {
+                UpdateTopNavigationButtons(VisualTreeHelper.GetChild(root, i), selectedBackground, normalBackground, selectedBorder, normalBorder);
+            }
+        }
+
+        private void OpenFileWithShell(string path, string missingMessage)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                {
+                    SetWarnings(new[] { missingMessage });
+                    return;
+                }
+
+                System.Diagnostics.ProcessStartInfo info = new System.Diagnostics.ProcessStartInfo(path);
+                info.UseShellExecute = true;
+                System.Diagnostics.Process.Start(info);
+                SetWarnings(new[] { "Arquivo aberto: " + path });
+            }
+            catch (Exception ex)
+            {
+                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
+                _log.Error("Falha ao abrir arquivo.", ex);
+                SetWarnings(new[] { "Falha ao abrir arquivo: " + ex.Message });
+            }
+        }
+
+        private void OpenFolderWithShell(string folder)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folder))
+                {
+                    folder = AppDomain.CurrentDomain.BaseDirectory;
+                }
+
+                Directory.CreateDirectory(folder);
+
+                System.Diagnostics.ProcessStartInfo info = new System.Diagnostics.ProcessStartInfo(folder);
+                info.UseShellExecute = true;
+                System.Diagnostics.Process.Start(info);
+                SetWarnings(new[] { "Pasta aberta: " + folder });
+            }
+            catch (Exception ex)
+            {
+                LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
+                _log.Error("Falha ao abrir pasta.", ex);
+                SetWarnings(new[] { "Falha ao abrir pasta: " + ex.Message });
             }
         }
 

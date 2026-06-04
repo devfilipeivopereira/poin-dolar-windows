@@ -164,17 +164,25 @@
         </Style>
 
         <Style x:Key="TopNavButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="MinWidth" Value="78" />
-            <Setter Property="Margin" Value="0,0,0,0" />
-            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Padding" Value="9,5" />
+            <Setter Property="MinHeight" Value="28" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
         <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="12,0,6,0" />
+            <Setter Property="Margin" Value="0,0,0,5" />
             <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="TopNavGroupBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
         </Style>
 
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
@@ -218,6 +226,9 @@
             <MenuItem Header="Controle">
                 <MenuItem Header="Alertas" InputGestureText="F8" Tag="11" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="12" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Abrir configuracao" Click="MenuOpenConfig_Click" />
+                <MenuItem Header="Abrir pasta de logs" Click="MenuOpenLogFolder_Click" />
             </MenuItem>
             <MenuItem Header="Janela">
                 <MenuItem Header="Aba anterior" InputGestureText="Ctrl+Shift+Tab" Click="MenuPreviousTab_Click" />
@@ -314,33 +325,83 @@
             </Grid>
         </Border>
 
-        <ScrollViewer DockPanel.Dock="Top"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Disabled"
-                      Margin="12,12,12,0">
-            <StackPanel x:Name="TopNavigation"
-                        Orientation="Horizontal">
-                <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" Margin="0,0,6,0" />
-                <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <TextBlock Text="Cadastro" Style="{StaticResource TopNavGroupStyle}" Margin="0,0,6,0" />
-                <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-                <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-                <Button Content="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
-                <Button Content="Setups" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
-                <Button Content="Alertas" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                <Button Content="Diagnostico" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
-            </StackPanel>
-        </ScrollViewer>
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource Bg}"
+                BorderBrush="{StaticResource Border}"
+                BorderThickness="0,0,0,1"
+                Padding="12,10,4,0">
+            <Grid x:Name="TopNavigation">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.9*" />
+                    <ColumnDefinition Width="0.9*" />
+                    <ColumnDefinition Width="1.45*" />
+                    <ColumnDefinition Width="1.9*" />
+                    <ColumnDefinition Width="1.45*" />
+                    <ColumnDefinition Width="1.55*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Cadastro" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                            <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="3" Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                            <Button Content="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="122" />
+                            <Button Content="Setups" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource TopNavGroupBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="5" Style="{StaticResource TopNavGroupBorderStyle}" Margin="0">
+                    <StackPanel>
+                        <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel>
+                            <Button Content="Alertas" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Diagnostico" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
 
         <TabControl x:Name="MainTabs"
                     Margin="12,6,12,12"
