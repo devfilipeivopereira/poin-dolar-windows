@@ -251,8 +251,24 @@ namespace RtdDolarNative
             _config.Rtd.EnsureDefaultSourcesForAsset(asset);
             _config.Rtd.NormalizeSources();
             SaveRuntimeConfig();
+            RenderRtdChannels();
             RenderRtdSources();
             ApplyRtdAssetChange("Fontes padrao verificadas para " + asset + ".");
+        }
+
+        private void CotacaoChannelCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            SetChannelFromCheckBox(sender, "Cotacao");
+        }
+
+        private void BookChannelCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            SetChannelFromCheckBox(sender, "Book");
+        }
+
+        private void TimesChannelCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            SetChannelFromCheckBox(sender, "Times");
         }
 
         private void RtdAssetsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -388,6 +404,7 @@ namespace RtdDolarNative
             _config.Rtd.NormalizeAssets();
             SaveRuntimeConfig();
             RenderRtdAssets();
+            RenderRtdChannels();
             RenderRtdSources();
             SetWarnings(new[] { warning });
 
@@ -480,6 +497,111 @@ namespace RtdDolarNative
             }
 
             SetWarnings(new[] { (enabled ? "Fonte RTD ligada: " : "Fonte RTD desligada: ") + sourceName + "." });
+        }
+
+        private void SetChannelFromCheckBox(object sender, string channel)
+        {
+            System.Windows.Controls.CheckBox checkBox = sender as System.Windows.Controls.CheckBox;
+            RtdChannelRow row = checkBox == null ? null : checkBox.DataContext as RtdChannelRow;
+
+            if (row == null || string.IsNullOrWhiteSpace(row.Asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo RTD." });
+                return;
+            }
+
+            bool enabled = checkBox.IsChecked == true;
+            bool changed = SetChannelEnabled(row.Asset, channel, enabled);
+
+            if (!changed)
+            {
+                RenderRtdChannels();
+                RenderRtdSources();
+                return;
+            }
+
+            SaveRuntimeConfig();
+            RenderRtdChannels();
+            RenderRtdSources();
+
+            if (_probeService.IsRunning && !_manualMode)
+            {
+                StatusText.Text = "restarting";
+                StatusBadgeBorder.Background = StatusBrush("reconnecting");
+                _probeService.Restart();
+            }
+
+            SetWarnings(new[] { "Canal " + channel + " " + (enabled ? "ligado" : "desligado") + " para " + row.Asset + "." });
+        }
+
+        private bool SetChannelEnabled(string asset, string channel, bool enabled)
+        {
+            string normalizedAsset = RtdConfig.NormalizeAsset(asset);
+
+            if (string.IsNullOrWhiteSpace(normalizedAsset))
+            {
+                return false;
+            }
+
+            _config.Rtd.EnsureDefaultSourcesForAsset(normalizedAsset);
+            _config.Rtd.NormalizeSources();
+            bool changed = false;
+
+            foreach (RtdSourceConfig source in _config.Rtd.Sources.Where(x => string.Equals(x.Asset, normalizedAsset, StringComparison.OrdinalIgnoreCase)))
+            {
+                bool applies = ChannelMatchesRole(channel, source.Role);
+
+                if (!applies)
+                {
+                    continue;
+                }
+
+                bool target = enabled;
+
+                if (enabled && string.Equals(source.Role, "BookDepth", StringComparison.OrdinalIgnoreCase) &&
+                    (source.Fields == null || source.Fields.Count == 0))
+                {
+                    target = false;
+                }
+
+                if (source.Enabled != target)
+                {
+                    source.Enabled = target;
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private bool ChannelEnabled(string asset, string channel)
+        {
+            string normalizedAsset = RtdConfig.NormalizeAsset(asset);
+
+            return _config.Rtd.Sources
+                .Where(x => string.Equals(x.Asset, normalizedAsset, StringComparison.OrdinalIgnoreCase))
+                .Any(x => ChannelMatchesRole(channel, x.Role) && x.Enabled);
+        }
+
+        private bool ChannelMatchesRole(string channel, string role)
+        {
+            if (string.Equals(channel, "Cotacao", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(role, "PriceVolume", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (string.Equals(channel, "Book", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(role, "TopBook", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (string.Equals(channel, "Times", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         private void SaveRuntimeConfig()
@@ -688,6 +810,7 @@ namespace RtdDolarNative
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
                 RenderRtdAssets();
+                RenderRtdChannels();
                 RenderRtdSources();
                 _lastAssetGridRefresh = now;
             }
@@ -773,6 +896,7 @@ namespace RtdDolarNative
             CsvFileText.Text = "Nenhum arquivo carregado";
             CsvCountText.Text = "0 pregoes";
             RenderRtdAssets();
+            RenderRtdChannels();
             RenderRtdSources();
         }
 
@@ -868,6 +992,39 @@ namespace RtdDolarNative
             RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
         }
 
+        private void RenderRtdChannels()
+        {
+            if (RtdChannelsGrid == null)
+            {
+                return;
+            }
+
+            _config.Rtd.NormalizeSources();
+            string focused = FocusedAsset();
+            List<RtdChannelRow> rows = new List<RtdChannelRow>();
+
+            foreach (RtdAssetConfig asset in _config.Rtd.Assets)
+            {
+                RtdChannelRow row = new RtdChannelRow();
+                row.Asset = asset.Asset;
+                row.FocusText = string.Equals(asset.Asset, focused, StringComparison.OrdinalIgnoreCase) ? "Sim" : "";
+                row.Cotacao = ChannelEnabled(asset.Asset, "Cotacao");
+                row.Book = ChannelEnabled(asset.Asset, "Book");
+                row.Times = ChannelEnabled(asset.Asset, "Times");
+                row.Status = asset.Enabled ? "ativo ligado" : "ativo desligado";
+                rows.Add(row);
+            }
+
+            RtdChannelsGrid.ItemsSource = rows;
+
+            RtdChannelRow selected = rows.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+
+            if (selected != null)
+            {
+                RtdChannelsGrid.SelectedItem = selected;
+            }
+        }
+
         private void RenderRtdSources()
         {
             if (RtdSourcesGrid == null)
@@ -904,6 +1061,10 @@ namespace RtdDolarNative
                 else if (!source.Enabled)
                 {
                     row.Status = "fonte off";
+                }
+                else if (source.Fields == null || source.Fields.Count == 0)
+                {
+                    row.Status = "sem campos";
                 }
                 else if (snapshot == null)
                 {
@@ -1034,6 +1195,12 @@ namespace RtdDolarNative
         private void RenderVolumeProfile(MarketSnapshot snapshot, FlowMetrics metrics)
         {
             VolumeProfileMetrics profile = metrics == null ? null : metrics.Profile;
+            VolumeProfileResult proxy = _result == null ? null : _result.Profile;
+
+            if (ProfileChartControl != null)
+            {
+                ProfileChartControl.SetData(profile, proxy, snapshot, _config.Flow.ValueAreaPercent);
+            }
 
             if (profile != null && profile.Bins != null && profile.Bins.Count > 0)
             {
@@ -1043,11 +1210,11 @@ namespace RtdDolarNative
                 return;
             }
 
-            if (_result != null && _result.Profile != null)
+            if (proxy != null)
             {
-                ProfileSummaryGrid.ItemsSource = BuildProxyProfileSummaryRows(_result.Profile, snapshot);
-                ProfileNodesGrid.ItemsSource = BuildProxyProfileNodes(_result.Profile);
-                ProfileGrid.ItemsSource = _result.Profile.Bins.OrderByDescending(x => x.Price).ToList();
+                ProfileSummaryGrid.ItemsSource = BuildProxyProfileSummaryRows(proxy, snapshot);
+                ProfileNodesGrid.ItemsSource = BuildProxyProfileNodes(proxy);
+                ProfileGrid.ItemsSource = proxy.Bins.OrderByDescending(x => x.Price).ToList();
                 return;
             }
 
@@ -1392,6 +1559,16 @@ namespace RtdDolarNative
             public string Status { get; set; }
             public string UpdatesText { get; set; }
             public string LastError { get; set; }
+        }
+
+        private sealed class RtdChannelRow
+        {
+            public string Asset { get; set; }
+            public string FocusText { get; set; }
+            public bool Cotacao { get; set; }
+            public bool Book { get; set; }
+            public bool Times { get; set; }
+            public string Status { get; set; }
         }
 
         private sealed class NameValueRow

@@ -34,12 +34,12 @@ O historico diario e carregado por CSV e alimenta o motor quant nativo. O carreg
 Telas principais:
 
 - `DOM`: ladder por tick com tape e tags por preco.
-- `RTD Manager`: fontes por ativo, papel, ligado/desligado, campos, poll e status.
+- `RTD Manager`: escolha de canais por ativo (`Cotacao`, `Book`, `Times`) e detalhe das fontes RTD.
 - `Tape`: prints reais quando disponiveis ou derivados por quote/tick rule.
 - `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas 1s/5s/15s/60s/300s.
 - `Niveis`: pontos brutos e clusters.
 - `Abertura`, `POC`, `Variacao %`: mapas derivados.
-- `Volume Profile`: profile intraday por prints com POC, VAH, VAL, HVN/LVN e fallback por CSV diario.
+- `Volume Profile`: grafico horizontal por preco com POC, VAH/VAL 70%, HVN/LVN, tabela de nos e fallback por CSV diario.
 - `Setups`: absorcao, defesa/perda de POC, rompimento com fluxo, rejeicao em LVN e VWAP reversion/continuation.
 - `Confluencia`: score por proximidade, diversidade de fontes e estabilidade.
 - `Backtest Proxy`: toque/reversao dos desvios historicos.

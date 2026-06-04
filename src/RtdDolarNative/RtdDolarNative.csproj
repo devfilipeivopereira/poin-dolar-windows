@@ -100,6 +100,7 @@
     </Compile>
     <Compile Include="Config\AppConfig.cs" />
     <Compile Include="Charts\NativeChartControl.cs" />
+    <Compile Include="Charts\VolumeProfileChartControl.cs" />
     <Compile Include="Csv\DailyBar.cs" />
     <Compile Include="Csv\DailyCsvParser.cs" />
     <Compile Include="Dom\DomLadderModel.cs" />

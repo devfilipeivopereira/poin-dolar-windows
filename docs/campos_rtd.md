@@ -21,6 +21,14 @@ Fontes RTD padrao:
 | `BookDepth-<ATIVO>` | `BookDepth` | nao | vazio ate confirmar codigos RTD |
 | `TimesAndTrades-<ATIVO>` | `TimesAndTrades` | nao | vazio ate confirmar codigos RTD |
 
+Na UI, esses papeis aparecem como canais por ativo:
+
+| Canal | Papeis controlados |
+|---|---|
+| `Cotacao` | `PriceVolume` |
+| `Book` | `TopBook` e `BookDepth` quando houver campos reais |
+| `Times` | `TimesAndTrades` |
+
 Campos minimos da prova nativa:
 
 | Campo | Uso |
