@@ -45,9 +45,9 @@ namespace RtdDolarNative.Config
             config.Rtd.Fields = Normalize(config.Rtd.Fields, RtdFieldCatalog.DefaultLiveFields);
             config.Rtd.ProbeFields = Normalize(config.Rtd.ProbeFields, new[] { "HOR", "ULT", "VOL" });
 
-            if (config.Rtd.PollIntervalMs < 10)
+            if (config.Rtd.PollIntervalMs < 150)
             {
-                config.Rtd.PollIntervalMs = 50;
+                config.Rtd.PollIntervalMs = 150;
             }
 
             if (config.Rtd.ReconnectIntervalMs < 1000)
@@ -101,7 +101,7 @@ namespace RtdDolarNative.Config
             ProgId = "RTDTrading.RTDServer";
             Asset = "WDOFUT_F_0";
             Assets = new List<RtdAssetConfig> { new RtdAssetConfig("WDOFUT_F_0", true) };
-            PollIntervalMs = 50;
+            PollIntervalMs = 150;
             ReconnectIntervalMs = 5000;
             TickSize = 0.5m;
             Fields = RtdFieldCatalog.DefaultLiveFields.ToList();

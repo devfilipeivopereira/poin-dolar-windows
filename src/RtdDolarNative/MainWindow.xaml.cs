@@ -37,7 +37,8 @@ namespace RtdDolarNative
         private long _lastQuantVersion = -1;
         private bool _manualMode;
         private string _focusedAsset;
-        private int _assetGridRefreshTicks;
+        private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
+        private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
 
@@ -57,15 +58,15 @@ namespace RtdDolarNative
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
-            _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 16));
+            _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 200));
             _fastTimer.Tick += FastTimer_Tick;
 
             _quantTimer = new DispatcherTimer(DispatcherPriority.Background);
-            _quantTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.QuantIntervalMs, 250));
+            _quantTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.QuantIntervalMs, 2000));
             _quantTimer.Tick += QuantTimer_Tick;
 
             _chartTimer = new DispatcherTimer(DispatcherPriority.Background);
-            _chartTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.ChartIntervalMs, 500));
+            _chartTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.ChartIntervalMs, 2000));
             _chartTimer.Tick += ChartTimer_Tick;
 
             InitializeStaticText();
@@ -562,43 +563,44 @@ namespace RtdDolarNative
         {
             MarketSnapshot snapshot = FocusedSnapshot();
             long version = _probeService.UpdatesReceived;
+            bool changed = version != _lastVersion;
+            DateTimeOffset now = DateTimeOffset.Now;
 
             if (snapshot != null)
             {
                 _lastSnapshot = snapshot;
 
-                if (version != _lastVersion)
+                if (changed)
                 {
                     _lastVersion = version;
                     ApplySnapshot(snapshot);
                 }
 
-                TimeSpan age = DateTimeOffset.Now - snapshot.LocalTimestamp;
+                TimeSpan age = now - snapshot.LocalTimestamp;
                 SnapshotAgeText.Text = Math.Max(0, (int)age.TotalMilliseconds).ToString(_ptBr) + " ms";
-                RenderDom(snapshot);
             }
             else
             {
                 SnapshotAgeText.Text = "-";
             }
 
-            string focused = FocusedAsset();
-            IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
-
-            if (!string.IsNullOrWhiteSpace(focused))
+            if (changed && (now - _lastGridRefresh).TotalMilliseconds >= 500)
             {
-                ticks = ticks.Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+                if (snapshot != null)
+                {
+                    RenderDom(snapshot);
+                }
+
+                RenderTape();
+                _lastGridRefresh = now;
             }
 
-            TapeGrid.ItemsSource = ticks.Take(500).ToList();
             UpdatesText.Text = _probeService.UpdatesReceived.ToString(_ptBr);
 
-            _assetGridRefreshTicks++;
-
-            if (_assetGridRefreshTicks >= 30)
+            if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
-                _assetGridRefreshTicks = 0;
                 RenderRtdAssets();
+                _lastAssetGridRefresh = now;
             }
         }
 
@@ -618,6 +620,19 @@ namespace RtdDolarNative
         private void ChartTimer_Tick(object sender, EventArgs e)
         {
             ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
+        }
+
+        private void RenderTape()
+        {
+            string focused = FocusedAsset();
+            IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
+
+            if (!string.IsNullOrWhiteSpace(focused))
+            {
+                ticks = ticks.Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+            }
+
+            TapeGrid.ItemsSource = ticks.Take(250).ToList();
         }
 
         private void StartRtd()
