@@ -37,6 +37,7 @@ namespace RtdDolarNative
         private const int TabAlerts = 12;
         private const int TabDiagnostics = 13;
         private const int TabMonitor = 14;
+        private const int TabShortcuts = 15;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -324,6 +325,9 @@ namespace RtdDolarNative
                 case TabMonitor:
                     RenderMonitor();
                     break;
+                case TabShortcuts:
+                    RenderShortcuts();
+                    break;
                 case TabAssets:
                     RenderRtdAssets();
                     RenderRtdChannels();
@@ -407,6 +411,13 @@ namespace RtdDolarNative
         {
             bool control = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
             bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+
+            if (e.Key == Key.F1)
+            {
+                e.Handled = true;
+                NavigateToTab(TabShortcuts);
+                return;
+            }
 
             if (control)
             {
@@ -1750,6 +1761,94 @@ namespace RtdDolarNative
             }
 
             return EmptyToDash(snapshot.Status);
+        }
+
+        private void RenderShortcuts()
+        {
+            if (ShortcutsGrid == null || WorkflowGrid == null || ShortcutsSummaryText == null)
+            {
+                return;
+            }
+
+            List<ShortcutRow> shortcuts = BuildShortcutRows();
+            List<WorkflowRow> workflow = BuildWorkflowRows();
+
+            ShortcutsGrid.ItemsSource = shortcuts;
+            WorkflowGrid.ItemsSource = workflow;
+            ShortcutsSummaryText.Text =
+                shortcuts.Count.ToString(_ptBr) +
+                " comando(s) | F1 abre esta tela | Ctrl+Tab alterna abas | foco " +
+                EmptyToDash(FocusedAsset()) +
+                " | RTD " +
+                EmptyToDash(_probeService.Status);
+        }
+
+        private List<ShortcutRow> BuildShortcutRows()
+        {
+            List<ShortcutRow> rows = new List<ShortcutRow>();
+
+            AddShortcut(rows, "F1", "Atalhos", "Abrir atalhos", "Consultar mapa de telas e comandos.");
+            AddShortcut(rows, "F5", "RTD", "Conectar / Desconectar", "Inicia ou para as assinaturas RTD ligadas.");
+            AddShortcut(rows, "F6", "Calculo", "Calcular", "Reprocessa niveis, metricas, profile proxy e backtest.");
+            AddShortcut(rows, "F8", "Alertas", "Abrir Alertas", "Ver alertas operacionais, RTD, CSV, fluxo e setups.");
+            AddShortcut(rows, "F9", "Risco", "Abrir Risco", "Ver checklist de risco operacional e qualidade dos dados.");
+            AddShortcut(rows, "F11", "Monitor", "Abrir Monitor", "Acompanhar todos os ativos cadastrados.");
+            AddShortcut(rows, "Ctrl+1", "Painel", "Abrir Painel", "Resumo principal do ativo em foco.");
+            AddShortcut(rows, "Ctrl+2", "Ativos", "Abrir Ativos", "Cadastrar ativos, RTDs e CSV historico.");
+            AddShortcut(rows, "Ctrl+3", "DOM / Book", "Abrir DOM / Book", "Ver ladder, book e marcacoes de niveis.");
+            AddShortcut(rows, "Ctrl+4", "Tape", "Abrir Tape", "Ver times and trades real ou derivado.");
+            AddShortcut(rows, "Ctrl+5", "Order Flow", "Abrir Order Flow", "Ver delta, microbias, VWAP e janelas.");
+            AddShortcut(rows, "Ctrl+6", "Volume Profile", "Abrir Volume Profile", "Ver POC, VAH, VAL, HVN, LVN e bins.");
+            AddShortcut(rows, "Ctrl+7", "Setups", "Abrir Setups", "Ver sinais e motivos do motor de fluxo.");
+            AddShortcut(rows, "Ctrl+8", "Niveis", "Abrir Niveis", "Ver niveis calculados e confluencias.");
+            AddShortcut(rows, "Ctrl+9", "Grafico", "Abrir Grafico", "Ver grafico nativo com niveis.");
+            AddShortcut(rows, "Ctrl+0", "Diagnostico", "Abrir Diagnostico", "Ver fontes RTD, campos, updates e erros.");
+            AddShortcut(rows, "Ctrl+O", "CSV", "Carregar CSV", "Seleciona CSV historico para o ativo em foco.");
+            AddShortcut(rows, "Ctrl+M", "Manual", "Modo manual", "Para RTD e permite preencher valores manualmente.");
+            AddShortcut(rows, "Ctrl+F", "Ativos", "Focar ativo selecionado", "Troca o ativo em foco na grade Ativos.");
+            AddShortcut(rows, "Ctrl+R", "Ativos", "Prontidao RTD", "Abre Ativos e mostra prontidao das assinaturas.");
+            AddShortcut(rows, "Ctrl+Tab", "Janela", "Proxima aba", "Avanca para a proxima tela.");
+            AddShortcut(rows, "Ctrl+Shift+Tab", "Janela", "Aba anterior", "Volta para a tela anterior.");
+
+            return rows;
+        }
+
+        private List<WorkflowRow> BuildWorkflowRows()
+        {
+            List<WorkflowRow> rows = new List<WorkflowRow>();
+
+            AddWorkflow(rows, "1", "Cadastro", "Ativos", "Cadastrar Codigo Cotacao, Book, Times e CSV historico.");
+            AddWorkflow(rows, "2", "Prontidao", "Ativos", "Conferir canais Cotacao, Book e Times ligados por ativo.");
+            AddWorkflow(rows, "3", "Conexao", "RTD", "Usar F5 para conectar e acompanhar status no topo.");
+            AddWorkflow(rows, "4", "Acompanhamento", "Monitor", "Usar F11 para acompanhar todos os ativos e focar com duplo clique.");
+            AddWorkflow(rows, "5", "Mercado", "DOM / Book", "Usar Ctrl+3 para validar ladder, book e niveis relevantes.");
+            AddWorkflow(rows, "6", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, microbias, VWAP e janelas.");
+            AddWorkflow(rows, "7", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN e LVN.");
+            AddWorkflow(rows, "8", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco e motivos.");
+            AddWorkflow(rows, "9", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila e canais.");
+            AddWorkflow(rows, "10", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de decidir.");
+
+            return rows;
+        }
+
+        private void AddShortcut(List<ShortcutRow> rows, string shortcut, string workspace, string command, string use)
+        {
+            ShortcutRow row = new ShortcutRow();
+            row.Shortcut = shortcut;
+            row.Workspace = workspace;
+            row.Command = command;
+            row.Use = use;
+            rows.Add(row);
+        }
+
+        private void AddWorkflow(List<WorkflowRow> rows, string step, string area, string workspace, string action)
+        {
+            WorkflowRow row = new WorkflowRow();
+            row.Step = step;
+            row.Area = area;
+            row.Workspace = workspace;
+            row.Action = action;
+            rows.Add(row);
         }
 
         private List<NameValueRow> BuildDashboardChannelRows(RtdAssetConfig asset, MarketSnapshot snapshot)
@@ -3986,6 +4085,22 @@ namespace RtdDolarNative
             public string DeltaText { get; set; }
             public string CsvText { get; set; }
             public string Status { get; set; }
+        }
+
+        private sealed class ShortcutRow
+        {
+            public string Shortcut { get; set; }
+            public string Workspace { get; set; }
+            public string Command { get; set; }
+            public string Use { get; set; }
+        }
+
+        private sealed class WorkflowRow
+        {
+            public string Step { get; set; }
+            public string Area { get; set; }
+            public string Workspace { get; set; }
+            public string Action { get; set; }
         }
 
         private sealed class RtdSourceRow

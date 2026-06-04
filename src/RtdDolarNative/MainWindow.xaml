@@ -236,6 +236,9 @@
                 <MenuItem Header="Aba anterior" InputGestureText="Ctrl+Shift+Tab" Click="MenuPreviousTab_Click" />
                 <MenuItem Header="Proxima aba" InputGestureText="Ctrl+Tab" Click="MenuNextTab_Click" />
             </MenuItem>
+            <MenuItem Header="Ajuda">
+                <MenuItem Header="Atalhos" InputGestureText="F1" Tag="15" Click="NavigateMenuItem_Click" />
+            </MenuItem>
         </Menu>
 
         <Border DockPanel.Dock="Top"
@@ -339,7 +342,7 @@
                     <ColumnDefinition Width="1.45*" />
                     <ColumnDefinition Width="1.9*" />
                     <ColumnDefinition Width="1.45*" />
-                    <ColumnDefinition Width="1.75*" />
+                    <ColumnDefinition Width="2.05*" />
                 </Grid.ColumnDefinitions>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
@@ -401,6 +404,7 @@
                             <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Diagnostico" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
+                            <Button Content="Atalhos" Tag="15" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>
@@ -1105,6 +1109,59 @@
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Atalhos">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Atalhos" FontSize="16" FontWeight="Bold" />
+                            <TextBlock x:Name="ShortcutsSummaryText"
+                                       Text="-"
+                                       Foreground="{StaticResource Muted}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.25*" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
+                        <DataGrid x:Name="ShortcutsGrid"
+                                  AutoGenerateColumns="False"
+                                  Margin="0,0,10,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Atalho" Binding="{Binding Shortcut}" Width="115" />
+                                <DataGridTextColumn Header="Tela" Binding="{Binding Workspace}" Width="140" />
+                                <DataGridTextColumn Header="Comando" Binding="{Binding Command}" Width="190" />
+                                <DataGridTextColumn Header="Uso" Binding="{Binding Use}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid x:Name="WorkflowGrid"
+                                  Grid.Column="1"
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Etapa" Binding="{Binding Step}" Width="70" />
+                                <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="130" />
+                                <DataGridTextColumn Header="Tela" Binding="{Binding Workspace}" Width="125" />
+                                <DataGridTextColumn Header="Acao" Binding="{Binding Action}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </Grid>
             </TabItem>
         </TabControl>
