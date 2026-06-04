@@ -57,6 +57,7 @@ namespace RtdDolarNative
         private long _lastQuantVersion = -1;
         private bool _manualMode;
         private string _focusedAsset;
+        private bool _renderActiveTabQueued;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private long _lastFlowProcessed = -1;
@@ -223,11 +224,10 @@ namespace RtdDolarNative
 
             bool alreadySelected = MainTabs.SelectedIndex == index;
             MainTabs.SelectedIndex = index;
-            MainTabs.UpdateLayout();
 
             if (alreadySelected)
             {
-                RenderActiveTab();
+                ScheduleRenderActiveTab();
             }
 
             MainTabs.Focus();
@@ -300,7 +300,7 @@ namespace RtdDolarNative
             }
 
             UpdateTopNavigation();
-            RenderActiveTab();
+            ScheduleRenderActiveTab();
         }
 
         private int CurrentMainTabIndex()
@@ -360,6 +360,21 @@ namespace RtdDolarNative
                     RenderRtdSources();
                     break;
             }
+        }
+
+        private void ScheduleRenderActiveTab()
+        {
+            if (_renderActiveTabQueued)
+            {
+                return;
+            }
+
+            _renderActiveTabQueued = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _renderActiveTabQueued = false;
+                RenderActiveTab();
+            }), DispatcherPriority.Background);
         }
 
         private void SelectCsvPanelButton_Click(object sender, RoutedEventArgs e)

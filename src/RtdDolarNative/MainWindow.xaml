@@ -134,6 +134,72 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="SeverityDataGridRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Severity}" Value="Critico">
+                    <Setter Property="Background" Value="#2A0606" />
+                    <Setter Property="Foreground" Value="#FFD4D0" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}" Value="Aviso">
+                    <Setter Property="Background" Value="#241900" />
+                    <Setter Property="Foreground" Value="{StaticResource Warn}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}" Value="Normal">
+                    <Setter Property="Background" Value="#061A10" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}" Value="Info">
+                    <Setter Property="Background" Value="#071018" />
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StatusDataGridRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="connected">
+                    <Setter Property="Background" Value="#061A10" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="pronto">
+                    <Setter Property="Background" Value="#101711" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="aguardando">
+                    <Setter Property="Background" Value="#241900" />
+                    <Setter Property="Foreground" Value="{StaticResource Warn}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="lento">
+                    <Setter Property="Background" Value="#241900" />
+                    <Setter Property="Foreground" Value="{StaticResource Warn}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="atrasado">
+                    <Setter Property="Background" Value="#2A0606" />
+                    <Setter Property="Foreground" Value="#FFD4D0" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="desligado">
+                    <Setter Property="Background" Value="#090A09" />
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="ativo off">
+                    <Setter Property="Background" Value="#090A09" />
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="DataGridCell">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -935,7 +1001,8 @@
                                   Margin="0,0,10,0" />
                         <DataGrid x:Name="RiskChecklistGrid"
                                   Grid.Column="1"
-                                  AutoGenerateColumns="False">
+                                  AutoGenerateColumns="False"
+                                  RowStyle="{StaticResource SeverityDataGridRowStyle}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Sev" Binding="{Binding Severity}" Width="75" />
                                 <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="105" />
@@ -985,6 +1052,9 @@
                             <ColumnDefinition Width="1*" />
                         </Grid.ColumnDefinitions>
                         <DataGrid x:Name="OperationalAlertsGrid" AutoGenerateColumns="False" Margin="0,0,10,0">
+                            <DataGrid.RowStyle>
+                                <StaticResource ResourceKey="SeverityDataGridRowStyle" />
+                            </DataGrid.RowStyle>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Sev" Binding="{Binding Severity}" Width="75" />
                                 <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="95" />
@@ -1092,6 +1162,7 @@
                               Grid.Row="1"
                               AutoGenerateColumns="False"
                               SelectionMode="Single"
+                              RowStyle="{StaticResource StatusDataGridRowStyle}"
                               MouseDoubleClick="MonitorGrid_MouseDoubleClick">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="115" />
