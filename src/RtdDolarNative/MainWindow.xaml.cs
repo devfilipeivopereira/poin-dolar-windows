@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -433,6 +434,21 @@ namespace RtdDolarNative
             SetChannelFromCheckBox(sender, "Times");
         }
 
+        private void ToggleFocusedQuoteButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleFocusedChannel("Cotacao");
+        }
+
+        private void ToggleFocusedBookButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleFocusedChannel("Book");
+        }
+
+        private void ToggleFocusedTimesButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleFocusedChannel("Times");
+        }
+
         private void RtdAssetsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             FocusSelectedAsset();
@@ -819,6 +835,38 @@ namespace RtdDolarNative
             }
 
             SetWarnings(new[] { "Canal " + channel + " " + (enabled ? "ligado" : "desligado") + " para " + row.Asset + "." });
+        }
+
+        private void ToggleFocusedChannel(string channel)
+        {
+            string asset = FocusedAsset();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                SetWarnings(new[] { "Selecione um ativo RTD." });
+                return;
+            }
+
+            RtdAssetConfig assetConfig = _config.Rtd.FindAsset(asset);
+
+            if (assetConfig == null)
+            {
+                SetWarnings(new[] { "Ativo RTD nao encontrado: " + asset + "." });
+                return;
+            }
+
+            bool enabled = !ChannelEnabled(asset, channel);
+            bool changed = SetChannelEnabled(asset, channel, enabled);
+
+            if (!changed)
+            {
+                RenderRtdChannels();
+                RenderRtdSources();
+                UpdateFocusedAssetPanel();
+                return;
+            }
+
+            ApplyRtdAssetChange("Canal " + channel + " " + (enabled ? "ligado" : "desligado") + " para " + asset + ".");
         }
 
         private bool SetChannelEnabled(string asset, string channel, bool enabled)
@@ -1844,6 +1892,7 @@ namespace RtdDolarNative
             }
 
             RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
+            UpdateFocusedAssetPanel();
         }
 
         private void RenderRtdChannels()
@@ -1879,6 +1928,181 @@ namespace RtdDolarNative
             {
                 RtdChannelsGrid.SelectedItem = selected;
             }
+
+            UpdateFocusedAssetPanel();
+        }
+
+        private void UpdateFocusedAssetPanel()
+        {
+            if (FocusedAssetPanelText == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            RtdAssetConfig asset = _config.Rtd.FindAsset(focused);
+            MarketSnapshot snapshot = null;
+
+            if (!string.IsNullOrWhiteSpace(focused))
+            {
+                lock (_snapshotsLock)
+                {
+                    _snapshotsByAsset.TryGetValue(focused, out snapshot);
+                }
+            }
+
+            FocusedAssetPanelText.Text = EmptyToDash(focused);
+
+            string status = FocusedAssetStatus(asset, snapshot);
+            FocusedAssetStatusText.Text = "Status " + status + " | ULT " + (snapshot == null ? "-" : FormatDecimal(snapshot.Ultimo, "N2"));
+            FocusedAssetStatusText.Foreground = StateBrush(status);
+            FocusedAssetCsvPanelText.Text = "CSV " + FocusedAssetCsvText(asset);
+
+            UpdateChannelPanel(asset, snapshot, "Cotacao", QuoteChannelBorder, QuoteChannelStatusText, QuoteChannelTopicText, QuoteChannelToggleButton);
+            UpdateChannelPanel(asset, snapshot, "Book", BookChannelBorder, BookChannelStatusText, BookChannelTopicText, BookChannelToggleButton);
+            UpdateChannelPanel(asset, snapshot, "Times", TimesChannelBorder, TimesChannelStatusText, TimesChannelTopicText, TimesChannelToggleButton);
+        }
+
+        private string FocusedAssetStatus(RtdAssetConfig asset, MarketSnapshot snapshot)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            if (!asset.Enabled)
+            {
+                return "desligado";
+            }
+
+            if (!_probeService.IsRunning)
+            {
+                return "pronto";
+            }
+
+            if (snapshot == null)
+            {
+                return "aguardando";
+            }
+
+            return EmptyToDash(snapshot.Status);
+        }
+
+        private string FocusedAssetCsvText(RtdAssetConfig asset)
+        {
+            if (asset == null || string.IsNullOrWhiteSpace(asset.CsvPath))
+            {
+                return "-";
+            }
+
+            return Path.GetFileName(asset.CsvPath);
+        }
+
+        private void UpdateChannelPanel(
+            RtdAssetConfig asset,
+            MarketSnapshot snapshot,
+            string channel,
+            Border border,
+            TextBlock statusText,
+            TextBlock topicText,
+            Button toggleButton)
+        {
+            if (border == null || statusText == null || topicText == null || toggleButton == null)
+            {
+                return;
+            }
+
+            bool enabled = asset != null && ChannelEnabled(asset.Asset, channel);
+            string state = ChannelState(asset, enabled, snapshot);
+            Brush brush = StateBrush(state);
+
+            statusText.Text = state;
+            statusText.Foreground = brush;
+            topicText.Text = ChannelTopicText(asset, channel);
+            border.BorderBrush = brush;
+            toggleButton.Content = enabled ? "Desligar" : "Ligar";
+        }
+
+        private string ChannelState(RtdAssetConfig asset, bool enabled, MarketSnapshot snapshot)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            if (!asset.Enabled)
+            {
+                return "ativo off";
+            }
+
+            if (!enabled)
+            {
+                return "desligado";
+            }
+
+            if (!_probeService.IsRunning)
+            {
+                return "pronto";
+            }
+
+            if (snapshot == null)
+            {
+                return "aguardando";
+            }
+
+            return "connected";
+        }
+
+        private string ChannelTopicText(RtdAssetConfig asset, string channel)
+        {
+            if (asset == null)
+            {
+                return "-";
+            }
+
+            if (string.Equals(channel, "Cotacao", StringComparison.OrdinalIgnoreCase))
+            {
+                return EmptyToDash(asset.QuoteCode);
+            }
+
+            if (string.Equals(channel, "Book", StringComparison.OrdinalIgnoreCase))
+            {
+                return EmptyToDash(asset.BookTopic);
+            }
+
+            if (string.Equals(channel, "Times", StringComparison.OrdinalIgnoreCase))
+            {
+                return EmptyToDash(asset.TimesTopic);
+            }
+
+            return "-";
+        }
+
+        private Brush StateBrush(string state)
+        {
+            if (string.Equals(state, "connected", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Accent") as Brush ?? Brushes.LimeGreen;
+            }
+
+            if (string.Equals(state, "aguardando", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "pronto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "connecting", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "reconnecting", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "restarting", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Warn") as Brush ?? Brushes.Goldenrod;
+            }
+
+            if (string.Equals(state, "desligado", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "ativo off", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "idle", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "-", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Border") as Brush ?? Brushes.DimGray;
+            }
+
+            return FindResource("Danger") as Brush ?? Brushes.OrangeRed;
         }
 
         private void RenderRtdSources()
