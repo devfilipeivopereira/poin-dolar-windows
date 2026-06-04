@@ -185,30 +185,37 @@
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="Arquivo">
-                <MenuItem Header="Carregar CSV" Click="MenuLoadCsv_Click" />
-                <MenuItem Header="Calcular" Click="MenuRecalculate_Click" />
+                <MenuItem Header="Carregar CSV" InputGestureText="Ctrl+O" Click="MenuLoadCsv_Click" />
+                <MenuItem Header="Calcular" InputGestureText="F6" Click="MenuRecalculate_Click" />
                 <Separator />
-                <MenuItem Header="Modo manual" Click="MenuManual_Click" />
+                <MenuItem Header="Modo manual" InputGestureText="Ctrl+M" Click="MenuManual_Click" />
             </MenuItem>
             <MenuItem Header="RTD">
-                <MenuItem Header="Conectar / Desconectar" Click="MenuConnect_Click" />
-                <MenuItem Header="Ativos" Tag="0" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Diagnostico" Tag="10" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Conectar / Desconectar" InputGestureText="F5" Click="MenuConnect_Click" />
+                <MenuItem Header="Ativos" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Focar ativo selecionado" InputGestureText="Ctrl+F" Click="MenuFocusAsset_Click" />
+                <MenuItem Header="Fontes padrao" Click="MenuDefaultSources_Click" />
+                <Separator />
+                <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Mercado">
-                <MenuItem Header="Cotacao" Tag="1" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="DOM / Book" Tag="2" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Tape" Tag="3" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Cotacao" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="3" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Fluxo">
-                <MenuItem Header="Order Flow" Tag="4" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Volume Profile" Tag="5" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Setups" Tag="6" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Order Flow" InputGestureText="Ctrl+5" Tag="4" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Volume Profile" InputGestureText="Ctrl+6" Tag="5" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="6" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Analise">
-                <MenuItem Header="Niveis" Tag="7" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Grafico" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="7" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="8" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Backtest" Tag="9" Click="NavigateMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="Janela">
+                <MenuItem Header="Aba anterior" InputGestureText="Ctrl+Shift+Tab" Click="MenuPreviousTab_Click" />
+                <MenuItem Header="Proxima aba" InputGestureText="Ctrl+Tab" Click="MenuNextTab_Click" />
             </MenuItem>
         </Menu>
 

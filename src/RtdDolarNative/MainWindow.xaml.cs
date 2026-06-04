@@ -77,7 +77,7 @@ namespace RtdDolarNative
             _chartTimer.Tick += ChartTimer_Tick;
 
             InitializeStaticText();
-            KeyDown += MainWindow_KeyDown;
+            PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
         }
@@ -237,6 +237,26 @@ namespace RtdDolarNative
             ManualButton_Click(sender, e);
         }
 
+        private void MenuFocusAsset_Click(object sender, RoutedEventArgs e)
+        {
+            FocusSelectedAsset();
+        }
+
+        private void MenuDefaultSources_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureDefaultSourcesForFocusedAsset();
+        }
+
+        private void MenuPreviousTab_Click(object sender, RoutedEventArgs e)
+        {
+            NavigateRelativeTab(-1);
+        }
+
+        private void MenuNextTab_Click(object sender, RoutedEventArgs e)
+        {
+            NavigateRelativeTab(1);
+        }
+
         private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             if (!ReferenceEquals(e.OriginalSource, MainTabs))
@@ -344,11 +364,118 @@ namespace RtdDolarNative
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
-            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control && e.Key == Key.O)
+            bool control = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+            bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+
+            if (control)
+            {
+                int tabIndex = ShortcutTabIndex(e.Key);
+
+                if (tabIndex >= 0)
+                {
+                    e.Handled = true;
+                    NavigateToTab(tabIndex);
+                    return;
+                }
+            }
+
+            if (control && e.Key == Key.Tab)
+            {
+                e.Handled = true;
+                NavigateRelativeTab(shift ? -1 : 1);
+                return;
+            }
+
+            if (e.Key == Key.F5)
+            {
+                e.Handled = true;
+                ConnectButton_Click(sender, e);
+                return;
+            }
+
+            if (e.Key == Key.F6)
+            {
+                e.Handled = true;
+                Recalculate();
+                return;
+            }
+
+            if (control && e.Key == Key.M)
+            {
+                e.Handled = true;
+                ManualButton_Click(sender, e);
+                return;
+            }
+
+            if (control && e.Key == Key.F)
+            {
+                e.Handled = true;
+                FocusSelectedAsset();
+                return;
+            }
+
+            if (control && e.Key == Key.O)
             {
                 e.Handled = true;
                 OpenCsvDialog();
             }
+        }
+
+        private int ShortcutTabIndex(Key key)
+        {
+            switch (key)
+            {
+                case Key.D1:
+                case Key.NumPad1:
+                    return 0;
+                case Key.D2:
+                case Key.NumPad2:
+                    return 1;
+                case Key.D3:
+                case Key.NumPad3:
+                    return 2;
+                case Key.D4:
+                case Key.NumPad4:
+                    return 3;
+                case Key.D5:
+                case Key.NumPad5:
+                    return 4;
+                case Key.D6:
+                case Key.NumPad6:
+                    return 5;
+                case Key.D7:
+                case Key.NumPad7:
+                    return 6;
+                case Key.D8:
+                case Key.NumPad8:
+                    return 7;
+                case Key.D9:
+                case Key.NumPad9:
+                    return 8;
+                case Key.D0:
+                case Key.NumPad0:
+                    return 10;
+                default:
+                    return -1;
+            }
+        }
+
+        private void NavigateRelativeTab(int delta)
+        {
+            if (MainTabs == null || MainTabs.Items.Count == 0)
+            {
+                return;
+            }
+
+            int index = MainTabs.SelectedIndex;
+
+            if (index < 0)
+            {
+                index = 0;
+            }
+
+            int next = (index + delta + MainTabs.Items.Count) % MainTabs.Items.Count;
+            NavigateToTab(next);
         }
 
         private void RecalcButton_Click(object sender, RoutedEventArgs e)
@@ -409,6 +536,11 @@ namespace RtdDolarNative
         }
 
         private void DefaultSourcesButton_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureDefaultSourcesForFocusedAsset();
+        }
+
+        private void EnsureDefaultSourcesForFocusedAsset()
         {
             string asset = FocusedAsset();
             _config.Rtd.EnsureDefaultSourcesForAsset(asset);
