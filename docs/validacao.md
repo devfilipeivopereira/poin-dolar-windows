@@ -6,7 +6,7 @@
 2. Selecionar `Debug|x64`.
 3. Rodar com o Profit Pro aberto.
 4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Mesa`, `Ativos`, `Cotacao`, `DOM / Book`, `Tape` e `Diagnostico` antes de conectar.
-5. Confirmar que a barra superior esta organizada por `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`, e que o menu `Janelas` lista todas as telas.
+5. Confirmar que o menu superior e a barra rapida usam a mesma ordem: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`, e que o menu `Janelas` lista todas as telas.
 6. Clicar em `Conectar`.
 7. Confirmar que `ServerStart` retorna valor positivo no log.
 8. Confirmar que `ULT` e `VOL` aparecem na janela.

@@ -305,13 +305,14 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="Arquivo">
                 <MenuItem Header="Carregar CSV" InputGestureText="Ctrl+O" Click="MenuLoadCsv_Click" />
-                <MenuItem Header="Calcular" InputGestureText="F6" Click="MenuRecalculate_Click" />
-                <Separator />
-                <MenuItem Header="Modo manual" InputGestureText="Ctrl+M" Click="MenuManual_Click" />
             </MenuItem>
-            <MenuItem Header="RTD">
-                <MenuItem Header="Conectar / Desconectar" InputGestureText="F5" Click="MenuConnect_Click" />
+            <MenuItem Header="Operacao">
+                <MenuItem Header="Mesa" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Ativos" InputGestureText="Ctrl+2" Tag="1" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Monitor" InputGestureText="F11" Tag="14" Click="NavigateMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="Conectar / Desconectar" InputGestureText="F5" Click="MenuConnect_Click" />
+                <MenuItem Header="Modo manual" InputGestureText="Ctrl+M" Click="MenuManual_Click" />
                 <MenuItem Header="Prontidao RTD" InputGestureText="Ctrl+R" Tag="1" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Focar ativo selecionado" InputGestureText="Ctrl+F" Click="MenuFocusAsset_Click" />
                 <MenuItem Header="Fontes padrao" Click="MenuDefaultSources_Click" />
@@ -319,11 +320,10 @@
                 <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="13" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Mercado">
-                <MenuItem Header="Mesa" InputGestureText="Ctrl+1" Tag="0" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Monitor" InputGestureText="F11" Tag="14" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Fluxo">
                 <MenuItem Header="Order Flow" InputGestureText="Ctrl+5" Tag="5" Click="NavigateMenuItem_Click" />
@@ -332,14 +332,15 @@
                 <MenuItem Header="Setups" InputGestureText="Ctrl+7" Tag="7" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Analise">
+                <MenuItem Header="Calcular" InputGestureText="F6" Click="MenuRecalculate_Click" />
+                <Separator />
                 <MenuItem Header="Scanner" InputGestureText="F3" Tag="18" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Indicadores" InputGestureText="Ctrl+Shift+I" Tag="20" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
-                <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
-            <MenuItem Header="Monitoramento">
+            <MenuItem Header="Controle">
                 <MenuItem Header="Risco operacional" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Alertas" InputGestureText="F8" Tag="12" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Historico" InputGestureText="F10" Tag="17" Click="NavigateMenuItem_Click" />
@@ -449,7 +450,7 @@
                 </UniformGrid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="ConnectButton" Content="Desconectar" Click="ConnectButton_Click" />
+                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" />
                     <Button x:Name="ManualButton" Content="Modo manual" Click="ManualButton_Click" />
                     <Button x:Name="LoadCsvButton" Content="Carregar CSV" Click="LoadCsvButton_Click" PreviewMouseLeftButtonDown="LoadCsvButton_PreviewMouseLeftButtonDown" />
                     <Button x:Name="RecalcButton" Content="Calcular" Click="RecalcButton_Click" Margin="0" />

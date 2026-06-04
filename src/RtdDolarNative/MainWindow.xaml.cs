@@ -2135,8 +2135,8 @@ namespace RtdDolarNative
             AddShortcut(rows, "F1", "Atalhos", "Abrir atalhos", "Consultar mapa de telas e comandos.");
             AddShortcut(rows, "F2", "Oportunidades", "Abrir Oportunidades", "Ver setups, niveis e confluencias acionaveis.");
             AddShortcut(rows, "F3", "Scanner", "Abrir Scanner", "Comparar ativos por score, fluxo, nivel e qualidade dos dados.");
-            AddShortcut(rows, "F5", "RTD", "Conectar / Desconectar", "Inicia ou para as assinaturas RTD ligadas.");
-            AddShortcut(rows, "F6", "Calculo", "Calcular", "Reprocessa niveis, metricas, profile proxy e backtest.");
+            AddShortcut(rows, "F5", "Operacao", "Conectar / Desconectar", "Inicia ou para as assinaturas RTD ligadas.");
+            AddShortcut(rows, "F6", "Analise", "Calcular", "Reprocessa niveis, metricas, profile proxy e backtest.");
             AddShortcut(rows, "F8", "Alertas", "Abrir Alertas", "Ver alertas operacionais, RTD, CSV, fluxo e setups.");
             AddShortcut(rows, "F9", "Risco", "Abrir Risco", "Ver checklist de risco operacional e qualidade dos dados.");
             AddShortcut(rows, "F10", "Historico", "Abrir Historico", "Ver eventos locais do app, RTD e CSV.");
@@ -2169,7 +2169,7 @@ namespace RtdDolarNative
 
             AddWorkflow(rows, "1", "Cadastro", "Ativos", "Cadastrar Codigo Cotacao, Canal Book, Canal Times e CSV historico por ativo.");
             AddWorkflow(rows, "2", "Prontidao", "Ativos", "Conferir se Cotacao, Book e Times estao ligados para alimentar preco, book e prints.");
-            AddWorkflow(rows, "3", "Conexao", "RTD", "Usar F5 para conectar e acompanhar status, fila, updates e erros sem travar a UI.");
+            AddWorkflow(rows, "3", "Conexao", "Operacao", "Usar F5 para conectar e acompanhar status, fila, updates e erros sem travar a UI.");
             AddWorkflow(rows, "4", "Mesa", "Mesa", "Usar Ctrl+1 como tela principal para grafico, DOM, tape, fluxo, niveis e oportunidades.");
             AddWorkflow(rows, "5", "Qualidade", "Diagnostico", "Usar Ctrl+0 para auditar formulas RTD, indices, updates e ultimo erro por fonte.");
             AddWorkflow(rows, "6", "Mercado", "DOM / Book", "Usar Ctrl+3 para validar liquidez, spread, book real e marcacoes de POC/VAH/VAL/HVN/LVN.");

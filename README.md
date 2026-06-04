@@ -22,7 +22,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 ## Telas nativas
 
-Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD. A barra superior fica organizada por fluxo de trabalho: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`. O menu `Janelas` lista todas as telas em uma unica lista quando for preciso navegar sem procurar o grupo.
+Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD. O menu e a barra rapida ficam organizados pelo mesmo fluxo de trabalho: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`. O menu `Janelas` lista todas as telas em uma unica lista quando for preciso navegar sem procurar o grupo.
 
 - `Mesa`: primeira tela operacional com grafico, DOM, tape, fluxo, niveis e oportunidades.
 - `Ativos`: cadastro de ativo, canais RTD e CSV historico.
