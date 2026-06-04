@@ -44,6 +44,7 @@ namespace RtdDolarNative
         private const int TabFlowMap = 19;
         private const int TabIndicators = 20;
         private const int DashboardChartRefreshMs = 1500;
+        private const int DashboardHeavyRefreshMs = 1000;
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -72,6 +73,12 @@ namespace RtdDolarNative
         private long _lastDashboardChartQuantVersion = -1;
         private int _lastDashboardChartBarCount = -1;
         private string _lastDashboardChartAsset;
+        private DateTimeOffset _lastDashboardHeavyRefresh = DateTimeOffset.MinValue;
+        private long _lastDashboardHeavyVersion = -1;
+        private long _lastDashboardHeavyFlowVersion = -1;
+        private long _lastDashboardHeavyQuantVersion = -1;
+        private int _lastDashboardHeavyBarCount = -1;
+        private string _lastDashboardHeavyAsset;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
         private bool _renderingAssets;
@@ -1958,7 +1965,6 @@ namespace RtdDolarNative
 
             DashboardRtdText.Text = "RTD " + EmptyToDash(_probeService.Status) + " | Updates " + _probeService.UpdatesReceived.ToString(_ptBr);
             DashboardCsvText.Text = "CSV " + FocusedAssetCsvText(asset);
-            DashboardChannelsGrid.ItemsSource = BuildDashboardChannelRows(asset, snapshot);
 
             if (metrics == null)
             {
@@ -1978,10 +1984,21 @@ namespace RtdDolarNative
             }
 
             UpdateDashboardProfile(snapshot, metrics);
-            DashboardLevelsGrid.ItemsSource = BuildOpportunityLevelRows(snapshot).Take(40).ToList();
-            DashboardSignalsGrid.ItemsSource = BuildOpportunityRows().Take(40).ToList();
+            RefreshDashboardHeavyGrids(snapshot, asset);
 
             RefreshDashboardChart(snapshot);
+        }
+
+        private void RefreshDashboardHeavyGrids(MarketSnapshot snapshot, RtdAssetConfig asset)
+        {
+            if (!ShouldRefreshDashboardHeavy())
+            {
+                return;
+            }
+
+            DashboardChannelsGrid.ItemsSource = BuildDashboardChannelRows(asset, snapshot);
+            DashboardLevelsGrid.ItemsSource = BuildOpportunityLevelRows(snapshot).Take(40).ToList();
+            DashboardSignalsGrid.ItemsSource = BuildOpportunityRows().Take(40).ToList();
 
             if (DashboardDomGrid != null)
             {
@@ -1992,6 +2009,33 @@ namespace RtdDolarNative
             {
                 DashboardTapeGrid.ItemsSource = BuildDashboardTapeRows(snapshot);
             }
+        }
+
+        private bool ShouldRefreshDashboardHeavy()
+        {
+            DateTimeOffset now = DateTimeOffset.Now;
+            string focused = FocusedAsset();
+            long version = _probeService == null ? -1 : _probeService.UpdatesReceived;
+            long flowVersion = _flowProcessor == null ? -1 : _flowProcessor.Processed;
+            bool first = _lastDashboardHeavyRefresh == DateTimeOffset.MinValue;
+            bool assetChanged = !string.Equals(_lastDashboardHeavyAsset, focused, StringComparison.OrdinalIgnoreCase);
+            bool quantChanged = _lastDashboardHeavyQuantVersion != _lastQuantVersion;
+            bool csvChanged = _lastDashboardHeavyBarCount != _dailyBars.Count;
+            bool staleInterval = (now - _lastDashboardHeavyRefresh).TotalMilliseconds >= DashboardHeavyRefreshMs;
+            bool marketChanged = _lastDashboardHeavyVersion != version || _lastDashboardHeavyFlowVersion != flowVersion;
+
+            if (!first && !assetChanged && !quantChanged && !csvChanged && !(marketChanged && staleInterval))
+            {
+                return false;
+            }
+
+            _lastDashboardHeavyRefresh = now;
+            _lastDashboardHeavyVersion = version;
+            _lastDashboardHeavyFlowVersion = flowVersion;
+            _lastDashboardHeavyQuantVersion = _lastQuantVersion;
+            _lastDashboardHeavyBarCount = _dailyBars.Count;
+            _lastDashboardHeavyAsset = focused;
+            return true;
         }
 
         private void RenderMonitor()
