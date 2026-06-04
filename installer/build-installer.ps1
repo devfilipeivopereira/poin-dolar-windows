@@ -54,6 +54,7 @@ Compress-Archive -Path (Join-Path $payloadRoot "*") -DestinationPath $payloadZip
     /reference:System.Windows.Forms.dll `
     /reference:System.IO.Compression.dll `
     /reference:System.IO.Compression.FileSystem.dll `
+    /reference:System.Web.Extensions.dll `
     /reference:Microsoft.CSharp.dll `
     $installerSource
 

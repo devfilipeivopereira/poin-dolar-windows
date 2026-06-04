@@ -143,10 +143,11 @@ namespace RtdDolarNative.Rtd
                 _lastTradePrices.Clear();
 
                 List<string> activeAssets = _config.GetEnabledAssets();
+                List<RtdSubscriptionSpec> subscriptions = _config.GetSubscriptions();
 
-                if (activeAssets.Count == 0)
+                if (activeAssets.Count == 0 || subscriptions.Count == 0)
                 {
-                    _log.Info("Nenhum ativo RTD ligado. Loop em espera.");
+                    _log.Info("Nenhum ativo/fonte RTD ligado. Loop em espera.");
                     SetStatus("idle", null);
 
                     while (!_stopRequested)
@@ -176,7 +177,7 @@ namespace RtdDolarNative.Rtd
                     throw new InvalidOperationException("ServerStart falhou. Codigo: " + startResult);
                 }
 
-                SubscribeConfiguredFields(server, activeAssets);
+                SubscribeConfiguredFields(server, subscriptions);
                 SetStatus("connected", null);
 
                 DateTime nextHeartbeat = DateTime.UtcNow.AddSeconds(1);
@@ -197,7 +198,7 @@ namespace RtdDolarNative.Rtd
                         nextHeartbeat = DateTime.UtcNow.AddSeconds(1);
                     }
 
-                    SleepInterruptible(Math.Max(_config.PollIntervalMs, 10));
+                    SleepInterruptible(Math.Max(_config.GetEffectivePollIntervalMs(), 10));
                 }
             }
             finally
@@ -212,40 +213,41 @@ namespace RtdDolarNative.Rtd
             }
         }
 
-        private void SubscribeConfiguredFields(IRtdServer server, IEnumerable<string> assets)
+        private void SubscribeConfiguredFields(IRtdServer server, IEnumerable<RtdSubscriptionSpec> subscriptions)
         {
             int topicId = 1;
-            IEnumerable<string> fields;
+            List<RtdSubscriptionSpec> specs = subscriptions == null ? new List<RtdSubscriptionSpec>() : subscriptions.ToList();
 
-            if (_config.Fields == null || _config.Fields.Count == 0)
-            {
-                fields = new[] { "HOR", "ULT", "VOL" };
-            }
-            else
-            {
-                fields = _config.Fields;
-            }
-
-            foreach (string asset in assets.Select(x => RtdConfig.NormalizeAsset(x)).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (string asset in specs.Select(x => RtdConfig.NormalizeAsset(x.Asset)).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 EnsureState(asset);
+            }
 
-                foreach (string field in fields.Select(x => x.Trim().ToUpperInvariant()).Distinct())
+            foreach (RtdSubscriptionSpec spec in specs)
+            {
+                string asset = RtdConfig.NormalizeAsset(spec.Asset);
+                string field = string.IsNullOrWhiteSpace(spec.Field) ? string.Empty : spec.Field.Trim().ToUpperInvariant();
+
+                if (string.IsNullOrWhiteSpace(asset) || string.IsNullOrWhiteSpace(field))
                 {
-                    object initialValue = ConnectDataWithFallback(server, topicId, asset, field);
-
-                    RtdTopic topic = new RtdTopic();
-                    topic.TopicId = topicId;
-                    topic.Asset = asset;
-                    topic.Field = field;
-                    topic.LastValue = initialValue;
-
-                    _topics[topicId] = topic;
-                    _log.Info("Assinado RTD " + topic.Key + ".");
-                    Publish(topic, initialValue);
-
-                    topicId++;
+                    continue;
                 }
+
+                object initialValue = ConnectDataWithFallback(server, topicId, asset, field);
+
+                RtdTopic topic = new RtdTopic();
+                topic.TopicId = topicId;
+                topic.Asset = asset;
+                topic.Field = field;
+                topic.SourceName = spec.SourceName;
+                topic.Role = spec.Role;
+                topic.LastValue = initialValue;
+
+                _topics[topicId] = topic;
+                _log.Info("Assinado RTD " + topic.Key + " fonte " + spec.SourceName + " papel " + spec.Role + ".");
+                Publish(topic, initialValue);
+
+                topicId++;
             }
         }
 

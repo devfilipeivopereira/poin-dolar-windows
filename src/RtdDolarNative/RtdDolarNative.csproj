@@ -104,6 +104,11 @@
     <Compile Include="Csv\DailyCsvParser.cs" />
     <Compile Include="Dom\DomLadderModel.cs" />
     <Compile Include="Dom\DomRow.cs" />
+    <Compile Include="Flow\FlowEngine.cs" />
+    <Compile Include="Flow\FlowModels.cs" />
+    <Compile Include="Flow\FlowProcessor.cs" />
+    <Compile Include="Flow\SetupDetector.cs" />
+    <Compile Include="Flow\VolumeProfileEngine.cs" />
     <Compile Include="Logging\Logger.cs" />
     <Compile Include="LowLatency\LatestSnapshotBuffer.cs" />
     <Compile Include="LowLatency\RingBuffer.cs" />

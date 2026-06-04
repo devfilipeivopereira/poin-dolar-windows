@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Windows.Forms;
+using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
 namespace PoinDolarWindowsInstaller
@@ -164,6 +166,7 @@ namespace PoinDolarWindowsInstaller
 
                         if (ShouldPreserveExistingFile(entry.FullName, destinationPath))
                         {
+                            MergeAppSettings(destinationPath, entry);
                             continue;
                         }
 
@@ -182,6 +185,61 @@ namespace PoinDolarWindowsInstaller
 
             string normalized = entryName.Replace('\\', '/');
             return normalized.EndsWith("/appsettings.json", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void MergeAppSettings(string destinationPath, ZipArchiveEntry templateEntry)
+        {
+            try
+            {
+                JavaScriptSerializer serializer = new JavaScriptSerializer();
+                Dictionary<string, object> existing = serializer.DeserializeObject(File.ReadAllText(destinationPath)) as Dictionary<string, object>;
+                Dictionary<string, object> template;
+
+                using (Stream stream = templateEntry.Open())
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    template = serializer.DeserializeObject(reader.ReadToEnd()) as Dictionary<string, object>;
+                }
+
+                if (existing == null || template == null)
+                {
+                    throw new InvalidOperationException("JSON de configuracao invalido.");
+                }
+
+                MergeMissing(existing, template);
+                File.WriteAllText(destinationPath, serializer.Serialize(existing));
+            }
+            catch
+            {
+                string backup = destinationPath + ".bak";
+                File.Copy(destinationPath, backup, true);
+
+                using (Stream stream = templateEntry.Open())
+                using (FileStream output = File.Create(destinationPath))
+                {
+                    stream.CopyTo(output);
+                }
+            }
+        }
+
+        private static void MergeMissing(Dictionary<string, object> target, Dictionary<string, object> source)
+        {
+            foreach (KeyValuePair<string, object> item in source)
+            {
+                if (!target.ContainsKey(item.Key))
+                {
+                    target[item.Key] = item.Value;
+                    continue;
+                }
+
+                Dictionary<string, object> targetChild = target[item.Key] as Dictionary<string, object>;
+                Dictionary<string, object> sourceChild = item.Value as Dictionary<string, object>;
+
+                if (targetChild != null && sourceChild != null)
+                {
+                    MergeMissing(targetChild, sourceChild);
+                }
+            }
         }
 
         private static void CopySelfForUninstall(string installDir)
@@ -288,7 +346,7 @@ namespace PoinDolarWindowsInstaller
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(keyPath))
             {
                 key.SetValue("DisplayName", AppName);
-                key.SetValue("DisplayVersion", "0.1.0");
+                key.SetValue("DisplayVersion", "0.2.0");
                 key.SetValue("Publisher", "devfilipeivopereira");
                 key.SetValue("InstallLocation", installDir);
                 key.SetValue("DisplayIcon", uninstallExe);

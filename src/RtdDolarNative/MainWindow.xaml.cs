@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
+using RtdDolarNative.Flow;
 using RtdDolarNative.Logging;
 using RtdDolarNative.LowLatency;
 using RtdDolarNative.MarketData;
@@ -25,6 +26,7 @@ namespace RtdDolarNative
         private readonly Logger _log;
         private readonly LatestSnapshotBuffer _snapshotBuffer;
         private readonly RtdProbeService _probeService;
+        private readonly FlowProcessor _flowProcessor;
         private readonly RingBuffer<TickEvent> _ticks;
         private readonly DispatcherTimer _fastTimer;
         private readonly DispatcherTimer _quantTimer;
@@ -39,6 +41,7 @@ namespace RtdDolarNative
         private string _focusedAsset;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
+        private long _lastFlowProcessed = -1;
         private MarketSnapshot _lastSnapshot;
         private QuantResult _result;
 
@@ -56,6 +59,7 @@ namespace RtdDolarNative
             _probeService.StatusChanged += ProbeService_StatusChanged;
             _probeService.TickReceived += ProbeService_TickReceived;
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
+            _flowProcessor = new FlowProcessor(_config.Rtd.TickSize, _config.Flow, _log);
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
             _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 200));
@@ -80,6 +84,7 @@ namespace RtdDolarNative
             _fastTimer.Start();
             _quantTimer.Start();
             _chartTimer.Start();
+            _flowProcessor.Start();
             StartRtd();
             TryAutoLoadCsv();
         }
@@ -89,6 +94,7 @@ namespace RtdDolarNative
             _fastTimer.Stop();
             _quantTimer.Stop();
             _chartTimer.Stop();
+            _flowProcessor.Dispose();
             _probeService.Dispose();
         }
 
@@ -229,6 +235,26 @@ namespace RtdDolarNative
             RemoveSelectedAsset();
         }
 
+        private void StartSourceButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSelectedSourceEnabled(true);
+        }
+
+        private void StopSourceButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSelectedSourceEnabled(false);
+        }
+
+        private void DefaultSourcesButton_Click(object sender, RoutedEventArgs e)
+        {
+            string asset = FocusedAsset();
+            _config.Rtd.EnsureDefaultSourcesForAsset(asset);
+            _config.Rtd.NormalizeSources();
+            SaveRuntimeConfig();
+            RenderRtdSources();
+            ApplyRtdAssetChange("Fontes padrao verificadas para " + asset + ".");
+        }
+
         private void RtdAssetsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             FocusSelectedAsset();
@@ -249,11 +275,13 @@ namespace RtdDolarNative
             if (existing == null)
             {
                 _config.Rtd.Assets.Add(new RtdAssetConfig(asset, true));
+                _config.Rtd.EnsureDefaultSourcesForAsset(asset);
                 _log.Info("Ativo RTD adicionado: " + asset + ".");
             }
             else
             {
                 existing.Enabled = true;
+                _config.Rtd.EnsureDefaultSourcesForAsset(asset);
                 _log.Info("Ativo RTD ligado: " + asset + ".");
             }
 
@@ -343,6 +371,7 @@ namespace RtdDolarNative
             }
 
             _config.Rtd.Assets.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
+            _config.Rtd.Sources.RemoveAll(x => string.Equals(x.Asset, asset, StringComparison.OrdinalIgnoreCase));
 
             if (string.Equals(_focusedAsset, asset, StringComparison.OrdinalIgnoreCase))
             {
@@ -359,6 +388,7 @@ namespace RtdDolarNative
             _config.Rtd.NormalizeAssets();
             SaveRuntimeConfig();
             RenderRtdAssets();
+            RenderRtdSources();
             SetWarnings(new[] { warning });
 
             if (_probeService.IsRunning && !_manualMode)
@@ -398,6 +428,58 @@ namespace RtdDolarNative
             }
 
             return _focusedAsset;
+        }
+
+        private string SelectedSourceName()
+        {
+            if (RtdSourcesGrid == null)
+            {
+                return null;
+            }
+
+            RtdSourceRow row = RtdSourcesGrid.SelectedItem as RtdSourceRow;
+
+            if (row != null)
+            {
+                return row.Name;
+            }
+
+            string focused = FocusedAsset();
+            RtdSourceConfig source = _config.Rtd.Sources.FirstOrDefault(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
+            return source == null ? null : source.Name;
+        }
+
+        private void SetSelectedSourceEnabled(bool enabled)
+        {
+            string sourceName = SelectedSourceName();
+
+            if (string.IsNullOrWhiteSpace(sourceName))
+            {
+                SetWarnings(new[] { "Selecione uma fonte RTD." });
+                return;
+            }
+
+            RtdSourceConfig source = _config.Rtd.Sources.FirstOrDefault(x => string.Equals(x.Name, sourceName, StringComparison.OrdinalIgnoreCase));
+
+            if (source == null)
+            {
+                SetWarnings(new[] { "Fonte RTD nao encontrada: " + sourceName + "." });
+                return;
+            }
+
+            source.Enabled = enabled;
+            _config.Rtd.NormalizeSources();
+            SaveRuntimeConfig();
+            RenderRtdSources();
+
+            if (_probeService.IsRunning && !_manualMode)
+            {
+                StatusText.Text = "restarting";
+                StatusBadgeBorder.Background = StatusBrush("reconnecting");
+                _probeService.Restart();
+            }
+
+            SetWarnings(new[] { (enabled ? "Fonte RTD ligada: " : "Fonte RTD desligada: ") + sourceName + "." });
         }
 
         private void SaveRuntimeConfig()
@@ -557,13 +639,17 @@ namespace RtdDolarNative
             {
                 _snapshotsByAsset[snapshot.Asset] = snapshot;
             }
+
+            _flowProcessor.Post(snapshot);
         }
 
         private void FastTimer_Tick(object sender, EventArgs e)
         {
             MarketSnapshot snapshot = FocusedSnapshot();
             long version = _probeService.UpdatesReceived;
+            long flowVersion = _flowProcessor.Processed;
             bool changed = version != _lastVersion;
+            bool flowChanged = flowVersion != _lastFlowProcessed;
             DateTimeOffset now = DateTimeOffset.Now;
 
             if (snapshot != null)
@@ -584,7 +670,7 @@ namespace RtdDolarNative
                 SnapshotAgeText.Text = "-";
             }
 
-            if (changed && (now - _lastGridRefresh).TotalMilliseconds >= 500)
+            if ((changed || flowChanged) && (now - _lastGridRefresh).TotalMilliseconds >= 500)
             {
                 if (snapshot != null)
                 {
@@ -592,7 +678,9 @@ namespace RtdDolarNative
                 }
 
                 RenderTape();
+                RenderFlow(snapshot);
                 _lastGridRefresh = now;
+                _lastFlowProcessed = flowVersion;
             }
 
             UpdatesText.Text = _probeService.UpdatesReceived.ToString(_ptBr);
@@ -600,6 +688,7 @@ namespace RtdDolarNative
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
                 RenderRtdAssets();
+                RenderRtdSources();
                 _lastAssetGridRefresh = now;
             }
         }
@@ -625,6 +714,20 @@ namespace RtdDolarNative
         private void RenderTape()
         {
             string focused = FocusedAsset();
+            List<TradePrint> flowTrades = _flowProcessor.GetTrades(focused, 250);
+
+            if (flowTrades.Count > 0)
+            {
+                TapeGrid.ItemsSource = flowTrades;
+
+                if (FlowTapeGrid != null)
+                {
+                    FlowTapeGrid.ItemsSource = flowTrades;
+                }
+
+                return;
+            }
+
             IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
 
             if (!string.IsNullOrWhiteSpace(focused))
@@ -632,7 +735,13 @@ namespace RtdDolarNative
                 ticks = ticks.Where(x => string.Equals(x.Asset, focused, StringComparison.OrdinalIgnoreCase));
             }
 
-            TapeGrid.ItemsSource = ticks.Take(250).ToList();
+            List<TickEvent> legacyTicks = ticks.Take(250).ToList();
+            TapeGrid.ItemsSource = legacyTicks;
+
+            if (FlowTapeGrid != null)
+            {
+                FlowTapeGrid.ItemsSource = legacyTicks;
+            }
         }
 
         private void StartRtd()
@@ -664,6 +773,7 @@ namespace RtdDolarNative
             CsvFileText.Text = "Nenhum arquivo carregado";
             CsvCountText.Text = "0 pregoes";
             RenderRtdAssets();
+            RenderRtdSources();
         }
 
         private string FocusedAsset()
@@ -758,6 +868,67 @@ namespace RtdDolarNative
             RtdAssetSummaryText.Text = enabled.Count.ToString(_ptBr) + " ligado(s), foco " + focused;
         }
 
+        private void RenderRtdSources()
+        {
+            if (RtdSourcesGrid == null)
+            {
+                return;
+            }
+
+            _config.Rtd.NormalizeSources();
+            string selected = SelectedSourceName();
+            List<RtdSourceRow> rows = new List<RtdSourceRow>();
+            HashSet<string> enabledAssets = new HashSet<string>(_config.Rtd.GetEnabledAssets(), StringComparer.OrdinalIgnoreCase);
+
+            foreach (RtdSourceConfig source in _config.Rtd.Sources)
+            {
+                MarketSnapshot snapshot = null;
+
+                lock (_snapshotsLock)
+                {
+                    _snapshotsByAsset.TryGetValue(source.Asset, out snapshot);
+                }
+
+                RtdSourceRow row = new RtdSourceRow();
+                row.Name = source.Name;
+                row.Asset = source.Asset;
+                row.Role = source.Role;
+                row.EnabledText = source.Enabled ? "Ligado" : "Off";
+                row.FieldsText = source.Fields == null || source.Fields.Count == 0 ? "-" : string.Join(", ", source.Fields.ToArray());
+                row.PollText = source.PollIntervalMs.ToString(_ptBr) + " ms";
+
+                if (!enabledAssets.Contains(source.Asset))
+                {
+                    row.Status = "ativo off";
+                }
+                else if (!source.Enabled)
+                {
+                    row.Status = "fonte off";
+                }
+                else if (snapshot == null)
+                {
+                    row.Status = "aguardando";
+                }
+                else
+                {
+                    row.Status = EmptyToDash(snapshot.Status);
+                }
+
+                row.UpdatesText = source.Enabled && enabledAssets.Contains(source.Asset) ? _probeService.UpdatesReceived.ToString(_ptBr) : "0";
+                row.LastError = LastErrorText == null ? "-" : EmptyToDash(LastErrorText.Text);
+                rows.Add(row);
+            }
+
+            RtdSourcesGrid.ItemsSource = rows;
+
+            RtdSourceRow selectedRow = rows.FirstOrDefault(x => string.Equals(x.Name, selected, StringComparison.OrdinalIgnoreCase));
+
+            if (selectedRow != null)
+            {
+                RtdSourcesGrid.SelectedItem = selectedRow;
+            }
+        }
+
         private void ApplySnapshot(MarketSnapshot snapshot)
         {
             AssetText.Text = string.IsNullOrWhiteSpace(snapshot.Asset) ? FocusedAsset() : snapshot.Asset;
@@ -831,13 +1002,58 @@ namespace RtdDolarNative
             OpeningGrid.ItemsSource = _result.OpeningLevels.OrderBy(x => x.Price).ToList();
             PocGrid.ItemsSource = _result.PocDeviationLevels.OrderBy(x => x.Price).ToList();
             PercentGrid.ItemsSource = _result.PercentTable.OrderBy(x => x.Source).ThenBy(x => x.Price).ToList();
-            ProfileGrid.ItemsSource = _result.Profile == null ? null : _result.Profile.Bins.OrderByDescending(x => x.Price).ToList();
+            RenderVolumeProfile(snapshot, _flowProcessor.GetMetrics(FocusedAsset()));
             ConfluenceGrid.ItemsSource = _result.Confluence.ToList();
             BacktestGrid.ItemsSource = _result.Backtest.ToList();
             MetricsList.ItemsSource = BuildMetricLines(_result);
             SetWarnings(_result.Warnings);
             RenderDom(snapshot);
             ChartControl.SetData(_dailyBars, snapshot, _result);
+        }
+
+        private void RenderFlow(MarketSnapshot snapshot)
+        {
+            string focused = FocusedAsset();
+            FlowMetrics metrics = _flowProcessor.GetMetrics(focused);
+
+            if (metrics == null)
+            {
+                OrderFlowSummaryGrid.ItemsSource = null;
+                OrderFlowWindowsGrid.ItemsSource = null;
+                FlowSignalsGrid.ItemsSource = _flowProcessor.GetSignals(focused, 250);
+                RenderVolumeProfile(snapshot, null);
+                return;
+            }
+
+            OrderFlowSummaryGrid.ItemsSource = BuildFlowSummaryRows(metrics);
+            OrderFlowWindowsGrid.ItemsSource = metrics.Windows == null ? null : metrics.Windows.ToList();
+            FlowSignalsGrid.ItemsSource = _flowProcessor.GetSignals(focused, 250);
+            RenderVolumeProfile(snapshot, metrics);
+        }
+
+        private void RenderVolumeProfile(MarketSnapshot snapshot, FlowMetrics metrics)
+        {
+            VolumeProfileMetrics profile = metrics == null ? null : metrics.Profile;
+
+            if (profile != null && profile.Bins != null && profile.Bins.Count > 0)
+            {
+                ProfileSummaryGrid.ItemsSource = BuildProfileSummaryRows(profile, snapshot);
+                ProfileNodesGrid.ItemsSource = profile.Nodes == null ? null : profile.Nodes.ToList();
+                ProfileGrid.ItemsSource = profile.Bins.OrderByDescending(x => x.Price).ToList();
+                return;
+            }
+
+            if (_result != null && _result.Profile != null)
+            {
+                ProfileSummaryGrid.ItemsSource = BuildProxyProfileSummaryRows(_result.Profile, snapshot);
+                ProfileNodesGrid.ItemsSource = BuildProxyProfileNodes(_result.Profile);
+                ProfileGrid.ItemsSource = _result.Profile.Bins.OrderByDescending(x => x.Price).ToList();
+                return;
+            }
+
+            ProfileSummaryGrid.ItemsSource = null;
+            ProfileNodesGrid.ItemsSource = null;
+            ProfileGrid.ItemsSource = null;
         }
 
         private List<string> BuildMetricLines(QuantResult result)
@@ -859,9 +1075,129 @@ namespace RtdDolarNative
             return lines;
         }
 
+        private List<NameValueRow> BuildFlowSummaryRows(FlowMetrics metrics)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+
+            if (metrics == null)
+            {
+                return rows;
+            }
+
+            AddRow(rows, "Qualidade", metrics.DataQuality.ToString(), metrics.Derived ? "derived" : "real");
+            AddRow(rows, "Delta ultimo", metrics.LastDelta.ToString("N0", _ptBr), "ultimo print");
+            AddRow(rows, "Cumulative delta", metrics.CumulativeDelta.ToString("N0", _ptBr), "sessao");
+            AddRow(rows, "Imbalance top", FormatDecimal(metrics.TopBookImbalance, "N3"), "bid/ask volume");
+            AddRow(rows, "Microbias", FormatDecimal(metrics.MicroBias, "N3"), "microprice - mid");
+            AddRow(rows, "Spread", FormatDecimal(metrics.Spread, "N2"), "ask - bid");
+            AddRow(rows, "VWAP", FormatDecimal(metrics.Vwap, "N2"), "intraday/fallback MED");
+            AddRow(rows, "Dist VWAP", FormatDecimal(metrics.VwapDistance, "N2"), "preco - vwap");
+            AddRow(rows, "Fila drop", _flowProcessor.Dropped.ToString(_ptBr), "bounded queue");
+            return rows;
+        }
+
+        private List<NameValueRow> BuildProfileSummaryRows(VolumeProfileMetrics profile, MarketSnapshot snapshot)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+
+            if (profile == null)
+            {
+                return rows;
+            }
+
+            AddRow(rows, "Fonte", EmptyToDash(profile.Source), "profile");
+            AddRow(rows, "POC", FormatDecimal(profile.Poc, "N2"), DistanceText(snapshot, profile.Poc));
+            AddRow(rows, "VAH", FormatDecimal(profile.Vah, "N2"), DistanceText(snapshot, profile.Vah));
+            AddRow(rows, "VAL", FormatDecimal(profile.Val, "N2"), DistanceText(snapshot, profile.Val));
+            AddRow(rows, "Volume total", profile.TotalVolume.ToString("N0", _ptBr), "prints intraday");
+            AddRow(rows, "Volume area valor", profile.ValueAreaVolume.ToString("N0", _ptBr), (_config.Flow.ValueAreaPercent * 100m).ToString("N0", _ptBr) + "% alvo");
+            AddRow(rows, "HVNs", profile.Nodes.Count(x => string.Equals(x.Type, "hvn", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "nos de alto volume");
+            AddRow(rows, "LVNs", profile.Nodes.Count(x => string.Equals(x.Type, "lvn", StringComparison.OrdinalIgnoreCase)).ToString(_ptBr), "nos de baixo volume");
+            return rows;
+        }
+
+        private List<NameValueRow> BuildProxyProfileSummaryRows(VolumeProfileResult profile, MarketSnapshot snapshot)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+
+            if (profile == null)
+            {
+                return rows;
+            }
+
+            AddRow(rows, "Fonte", "CSV diario proxy", "fallback");
+            AddRow(rows, "POC", profile.Poc == null ? "-" : profile.Poc.Price.ToString("N2", _ptBr), profile.Poc == null ? "-" : DistanceText(snapshot, profile.Poc.Price));
+            AddRow(rows, "VAH", profile.Vah.ToString("N2", _ptBr), DistanceText(snapshot, profile.Vah));
+            AddRow(rows, "VAL", profile.Val.ToString("N2", _ptBr), DistanceText(snapshot, profile.Val));
+            AddRow(rows, "Bins", profile.Bins.Count.ToString(_ptBr), "historico");
+            AddRow(rows, "HVNs", profile.Hvn.Count.ToString(_ptBr), "proxy");
+            AddRow(rows, "LVNs", profile.Lvn.Count.ToString(_ptBr), "proxy");
+            return rows;
+        }
+
+        private List<VolumeNode> BuildProxyProfileNodes(VolumeProfileResult profile)
+        {
+            List<VolumeNode> nodes = new List<VolumeNode>();
+
+            if (profile == null)
+            {
+                return nodes;
+            }
+
+            foreach (ProfileBin bin in profile.Hvn.Take(10))
+            {
+                VolumeNode node = new VolumeNode();
+                node.Type = "hvn";
+                node.Price = bin.Price;
+                node.Low = bin.Low;
+                node.High = bin.High;
+                node.Volume = (decimal)bin.Volume;
+                node.Score = (decimal)Math.Min(100d, bin.Rank * 100d);
+                node.Description = "HVN proxy CSV";
+                nodes.Add(node);
+            }
+
+            foreach (ProfileBin bin in profile.Lvn.Take(10))
+            {
+                VolumeNode node = new VolumeNode();
+                node.Type = "lvn";
+                node.Price = bin.Price;
+                node.Low = bin.Low;
+                node.High = bin.High;
+                node.Volume = (decimal)bin.Volume;
+                node.Score = (decimal)Math.Min(100d, bin.Rank * 100d);
+                node.Description = "LVN proxy CSV";
+                nodes.Add(node);
+            }
+
+            return nodes;
+        }
+
+        private void AddRow(List<NameValueRow> rows, string name, string value, string detail)
+        {
+            NameValueRow row = new NameValueRow();
+            row.Name = name;
+            row.Value = string.IsNullOrWhiteSpace(value) ? "-" : value;
+            row.Detail = string.IsNullOrWhiteSpace(detail) ? "-" : detail;
+            rows.Add(row);
+        }
+
+        private string DistanceText(MarketSnapshot snapshot, decimal? level)
+        {
+            if (snapshot == null || !snapshot.Ultimo.HasValue || !level.HasValue)
+            {
+                return "-";
+            }
+
+            decimal distance = snapshot.Ultimo.Value - level.Value;
+            return distance.ToString("N2", _ptBr) + " pts";
+        }
+
         private void RenderDom(MarketSnapshot snapshot)
         {
-            IEnumerable<KeyLevel> levels = _result == null ? BasicLevels(snapshot) : _result.KeyLevels.Concat(_result.Confluence);
+            List<KeyLevel> levels = (_result == null ? BasicLevels(snapshot) : _result.KeyLevels.Concat(_result.Confluence)).ToList();
+            levels.AddRange(FlowProfileKeyLevels(snapshot));
+            levels.AddRange(FlowSignalKeyLevels(snapshot));
             DomGrid.ItemsSource = DomLadderModel.Build(snapshot, levels, _config.Rtd.TickSize, _config.Ui.DomTicksEachSide);
         }
 
@@ -880,6 +1216,67 @@ namespace RtdDolarNative
             AddBasic(levels, snapshot.Minima, "Minima", "Suporte", "RTD", 50d);
             AddBasic(levels, snapshot.Media, "VWAP/MED", "Valor", "RTD", 76d);
             return levels;
+        }
+
+        private IEnumerable<KeyLevel> FlowProfileKeyLevels(MarketSnapshot snapshot)
+        {
+            List<KeyLevel> result = new List<KeyLevel>();
+
+            if (snapshot == null)
+            {
+                return result;
+            }
+
+            FlowMetrics metrics = _flowProcessor.GetMetrics(FocusedAsset());
+
+            if (metrics == null || metrics.Profile == null || metrics.Profile.Levels == null)
+            {
+                return result;
+            }
+
+            foreach (ProfileLevel profileLevel in metrics.Profile.Levels)
+            {
+                KeyLevel level = new KeyLevel();
+                level.Price = profileLevel.Price;
+                level.Label = profileLevel.Label;
+                level.Type = profileLevel.Type;
+                level.Source = profileLevel.Source;
+                level.Score = profileLevel.Score;
+                level.Evidence = "Volume Profile intraday";
+                level.Layer = "Order Flow";
+                level.Tags = profileLevel.Type;
+                level.Distance = snapshot.Ultimo.HasValue ? snapshot.Ultimo.Value - profileLevel.Price : 0m;
+                result.Add(level);
+            }
+
+            return result;
+        }
+
+        private IEnumerable<KeyLevel> FlowSignalKeyLevels(MarketSnapshot snapshot)
+        {
+            List<KeyLevel> result = new List<KeyLevel>();
+
+            if (snapshot == null)
+            {
+                return result;
+            }
+
+            foreach (FlowSignal signal in _flowProcessor.GetSignals(FocusedAsset(), 20).Where(x => x.LevelPrice.HasValue))
+            {
+                KeyLevel level = new KeyLevel();
+                level.Price = signal.LevelPrice.Value;
+                level.Label = signal.Setup + " " + signal.Direction;
+                level.Type = "setup";
+                level.Source = "Setups";
+                level.Score = signal.Score;
+                level.Evidence = signal.Reasons;
+                level.Layer = "Order Flow";
+                level.Tags = signal.LevelName;
+                level.Distance = snapshot.Ultimo.HasValue ? snapshot.Ultimo.Value - signal.LevelPrice.Value : 0m;
+                result.Add(level);
+            }
+
+            return result;
         }
 
         private void AddBasic(List<KeyLevel> levels, decimal? price, string label, string type, string source, double score)
@@ -982,6 +1379,26 @@ namespace RtdDolarNative
             public string FocusText { get; set; }
             public string LastText { get; set; }
             public string Status { get; set; }
+        }
+
+        private sealed class RtdSourceRow
+        {
+            public string Name { get; set; }
+            public string Asset { get; set; }
+            public string Role { get; set; }
+            public string EnabledText { get; set; }
+            public string FieldsText { get; set; }
+            public string PollText { get; set; }
+            public string Status { get; set; }
+            public string UpdatesText { get; set; }
+            public string LastError { get; set; }
+        }
+
+        private sealed class NameValueRow
+        {
+            public string Name { get; set; }
+            public string Value { get; set; }
+            public string Detail { get; set; }
         }
     }
 }
