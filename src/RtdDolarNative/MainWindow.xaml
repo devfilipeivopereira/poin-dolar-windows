@@ -291,8 +291,10 @@
                 <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Controle">
+                <MenuItem Header="Boleta" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Risco" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Alertas" InputGestureText="F8" Tag="12" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Historico" InputGestureText="F10" Tag="17" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="13" Click="NavigateMenuItem_Click" />
                 <Separator />
                 <MenuItem Header="Abrir configuracao" Click="MenuOpenConfig_Click" />
@@ -417,6 +419,7 @@
                         <WrapPanel>
                             <Button Content="Painel" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Boleta" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>
@@ -469,6 +472,7 @@
                         <WrapPanel>
                             <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="88" />
                             <Button Content="Diagnostico" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="96" />
                             <Button Content="Atalhos" Tag="15" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </WrapPanel>
@@ -1233,6 +1237,166 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Boleta">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Boleta" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="TicketStateText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                            <UniformGrid Grid.Column="1" Columns="4" Margin="18,0">
+                                <StackPanel>
+                                    <TextBlock Text="Ativo" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="TicketAssetText" Text="-" FontWeight="Bold" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="ULT" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="TicketLastText" Text="-" Foreground="{StaticResource Accent}" FontWeight="Bold" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Bid / Ask" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="TicketBidAskText" Text="-" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="RTD" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="TicketRtdText" Text="-" />
+                                </StackPanel>
+                            </UniformGrid>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Registrar" Click="RegisterTicketButton_Click" />
+                                <Button Content="Limpar" Click="ClearTicketButton_Click" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="360" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="12"
+                                Margin="0,0,10,0">
+                            <StackPanel>
+                                <TextBlock Text="Ticket local" FontSize="15" FontWeight="Bold" Margin="0,0,0,10" />
+
+                                <TextBlock Text="Lado" Foreground="{StaticResource Muted}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,3,0,10">
+                                    <Button x:Name="TicketBuyButton" Content="Compra" Click="TicketBuyButton_Click" />
+                                    <Button x:Name="TicketSellButton" Content="Venda" Click="TicketSellButton_Click" Margin="0" />
+                                </StackPanel>
+
+                                <TextBlock Text="Tipo" Foreground="{StaticResource Muted}" />
+                                <TextBox x:Name="TicketTypeInput" Text="Limite" Margin="0,3,0,8" />
+
+                                <TextBlock Text="Quantidade" Foreground="{StaticResource Muted}" />
+                                <TextBox x:Name="TicketQuantityInput" Text="1" Margin="0,3,0,8" />
+
+                                <TextBlock Text="Preco" Foreground="{StaticResource Muted}" />
+                                <TextBox x:Name="TicketPriceInput" Margin="0,3,0,6" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="Bid" Click="TicketUseBidButton_Click" />
+                                    <Button Content="Ask" Click="TicketUseAskButton_Click" />
+                                    <Button Content="ULT" Click="TicketUseLastButton_Click" Margin="0" />
+                                </StackPanel>
+
+                                <TextBlock Text="Stop" Foreground="{StaticResource Muted}" />
+                                <TextBox x:Name="TicketStopInput" Margin="0,3,0,10" />
+
+                                <TextBlock x:Name="TicketValidationText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="TicketOrdersGrid"
+                                  Grid.Column="1"
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Hora" Binding="{Binding Time}" Width="80" />
+                                <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="120" />
+                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="80" />
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding Type}" Width="85" />
+                                <DataGridTextColumn Header="Qtde" Binding="{Binding Quantity}" Width="80" />
+                                <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="95" />
+                                <DataGridTextColumn Header="Stop" Binding="{Binding Stop}" Width="95" />
+                                <DataGridTextColumn Header="Referencia" Binding="{Binding Reference}" Width="*" />
+                                <DataGridTextColumn Header="Estado" Binding="{Binding Status}" Width="130" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Historico">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Historico" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="HistorySummaryText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Atualizar" Click="RefreshHistoryButton_Click" />
+                                <Button Content="Limpar" Click="ClearHistoryButton_Click" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid x:Name="HistoryGrid"
+                              Grid.Row="1"
+                              AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Hora" Binding="{Binding Time}" Width="90" />
+                            <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="120" />
+                            <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="105" />
+                            <DataGridTextColumn Header="Evento" Binding="{Binding Event}" Width="170" />
+                            <DataGridTextColumn Header="Detalhe" Binding="{Binding Detail}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </TabItem>
         </TabControl>
