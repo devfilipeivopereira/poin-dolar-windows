@@ -50,6 +50,19 @@
             </Setter>
         </Style>
 
+        <Style TargetType="Menu">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+
+        <Style TargetType="MenuItem">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Padding" Value="10,5" />
+        </Style>
+
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="{StaticResource InputBg}" />
             <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -101,17 +114,53 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
+        <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="12,0,6,0" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
             <Setter Property="Visibility" Value="Collapsed" />
         </Style>
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="Arquivo">
+                <MenuItem Header="Carregar CSV" Click="MenuLoadCsv_Click" />
+                <MenuItem Header="Calcular" Click="MenuRecalculate_Click" />
+                <Separator />
+                <MenuItem Header="Modo manual" Click="MenuManual_Click" />
+            </MenuItem>
+            <MenuItem Header="RTD">
+                <MenuItem Header="Conectar / Desconectar" Click="MenuConnect_Click" />
+                <MenuItem Header="Ativos" Tag="0" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Diagnostico" Tag="10" Click="NavigateMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="Mercado">
+                <MenuItem Header="Cotacao" Tag="1" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="DOM / Book" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Tape" Tag="3" Click="NavigateMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="Fluxo">
+                <MenuItem Header="Order Flow" Tag="4" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Volume Profile" Tag="5" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Setups" Tag="6" Click="NavigateMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="Analise">
+                <MenuItem Header="Niveis" Tag="7" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Grafico" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="Backtest" Tag="9" Click="NavigateMenuItem_Click" />
+            </MenuItem>
+        </Menu>
+
         <Border DockPanel.Dock="Top"
                 Background="{StaticResource Panel}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
-                Padding="14,10">
+                Padding="14,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -177,22 +226,49 @@
             </Grid>
         </Border>
 
-        <StackPanel x:Name="TopNavigation"
-                    DockPanel.Dock="Top"
-                    Orientation="Horizontal"
-                    Margin="12,12,12,0">
-            <Button Content="Ativos" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Cotacao" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="DOM / Book" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-            <Button Content="Tape" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Order Flow" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
-            <Button Content="Volume Profile" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
-            <Button Content="Setups" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Niveis" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Grafico" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Backtest" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-            <Button Content="Diagnostico" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
-        </StackPanel>
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource Panel}"
+                BorderBrush="{StaticResource Border}"
+                BorderThickness="0,1,0,0"
+                Padding="10,5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusBarText" Text="RTD idle" />
+                <TextBlock x:Name="DataQualityText" Grid.Column="1" Text="Qualidade -" Foreground="{StaticResource Muted}" />
+                <TextBlock x:Name="FlowStateText" Grid.Column="2" Text="Fluxo -" Foreground="{StaticResource Muted}" />
+                <TextBlock x:Name="QueueStateText" Grid.Column="3" Text="Fila -" Foreground="{StaticResource Muted}" HorizontalAlignment="Right" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer DockPanel.Dock="Top"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled"
+                      Margin="12,12,12,0">
+            <StackPanel x:Name="TopNavigation"
+                        Orientation="Horizontal">
+                <TextBlock Text="Cadastro" Style="{StaticResource TopNavGroupStyle}" Margin="0,0,6,0" />
+                <Button Content="Ativos" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
+                <Button Content="Cotacao" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="DOM / Book" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+                <Button Content="Tape" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
+                <Button Content="Order Flow" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="110" />
+                <Button Content="Volume Profile" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="140" />
+                <Button Content="Setups" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
+                <Button Content="Niveis" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Grafico" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <Button Content="Backtest" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                <TextBlock Text="Sistema" Style="{StaticResource TopNavGroupStyle}" />
+                <Button Content="Diagnostico" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="120" />
+            </StackPanel>
+        </ScrollViewer>
 
         <TabControl x:Name="MainTabs"
                     Margin="12,6,12,12"

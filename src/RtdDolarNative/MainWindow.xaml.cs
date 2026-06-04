@@ -163,20 +163,84 @@ namespace RtdDolarNative
         private void TopNavButton_Click(object sender, RoutedEventArgs e)
         {
             System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
-            int index;
 
-            if (button == null || button.Tag == null || !int.TryParse(button.Tag.ToString(), out index))
+            if (button == null)
             {
                 return;
             }
 
+            NavigateToTaggedTab(button.Tag);
+        }
+
+        private void NavigateMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Controls.MenuItem item = sender as System.Windows.Controls.MenuItem;
+
+            if (item == null)
+            {
+                return;
+            }
+
+            NavigateToTaggedTab(item.Tag);
+        }
+
+        private void NavigateToTaggedTab(object tag)
+        {
+            int index;
+
+            if (tag == null || !int.TryParse(tag.ToString(), out index))
+            {
+                return;
+            }
+
+            NavigateToTab(index);
+        }
+
+        private void NavigateToTab(int index)
+        {
             if (MainTabs == null || index < 0 || index >= MainTabs.Items.Count)
             {
                 return;
             }
 
             MainTabs.SelectedIndex = index;
+            MainTabs.UpdateLayout();
+
+            if (index == 2)
+            {
+                MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
+
+                if (snapshot != null)
+                {
+                    RenderDom(snapshot);
+                    RenderBook(snapshot);
+                }
+
+                RenderTape();
+            }
+
+            MainTabs.Focus();
             UpdateTopNavigation();
+        }
+
+        private void MenuConnect_Click(object sender, RoutedEventArgs e)
+        {
+            ConnectButton_Click(sender, e);
+        }
+
+        private void MenuLoadCsv_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCsvDialog();
+        }
+
+        private void MenuRecalculate_Click(object sender, RoutedEventArgs e)
+        {
+            Recalculate();
+        }
+
+        private void MenuManual_Click(object sender, RoutedEventArgs e)
+        {
+            ManualButton_Click(sender, e);
         }
 
         private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -1082,6 +1146,7 @@ namespace RtdDolarNative
             }
 
             UpdatesText.Text = _probeService.UpdatesReceived.ToString(_ptBr);
+            UpdateRuntimeStatusBar(snapshot);
 
             if ((now - _lastAssetGridRefresh).TotalMilliseconds >= 1000)
             {
@@ -1441,6 +1506,39 @@ namespace RtdDolarNative
             RenderRtdChannels();
             RenderRtdSources();
             UpdateTopNavigation();
+            UpdateRuntimeStatusBar(null);
+        }
+
+        private void UpdateRuntimeStatusBar(MarketSnapshot snapshot)
+        {
+            if (StatusBarText == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            string status = _probeService == null ? "idle" : _probeService.Status;
+            long updates = _probeService == null ? 0 : _probeService.UpdatesReceived;
+
+            StatusBarText.Text = "RTD " + EmptyToDash(status) +
+                                 " | Ativo " + EmptyToDash(focused) +
+                                 " | Updates " + updates.ToString(_ptBr);
+
+            FlowMetrics metrics = _flowProcessor == null ? null : _flowProcessor.GetMetrics(focused);
+
+            if (metrics != null)
+            {
+                DataQualityText.Text = "Qualidade " + metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+                FlowStateText.Text = "Delta " + metrics.LastDelta.ToString("N0", _ptBr) +
+                                     " | CD " + metrics.CumulativeDelta.ToString("N0", _ptBr);
+            }
+            else
+            {
+                DataQualityText.Text = snapshot == null ? "Qualidade -" : "Qualidade TopOfBook";
+                FlowStateText.Text = "Fluxo -";
+            }
+
+            QueueStateText.Text = "Fila drop " + (_flowProcessor == null ? 0 : _flowProcessor.Dropped).ToString(_ptBr);
         }
 
         private void UpdateTopNavigation()
