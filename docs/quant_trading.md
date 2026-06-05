@@ -22,14 +22,17 @@ A aba `Indicadores` expõe:
 - Bollinger20 inferior, media e superior.
 - z-score 20.
 - distancia ATR/VWAP.
+- momentum 10.
 - retorno medio 21.
 - volatilidade de retornos 21.
+- taxa de retornos positivos 21.
+- Sharpe21 e Sortino21.
 - downside deviation 21.
 - VaR95 21.
 - expected shortfall 95 21.
 - estado de tendencia, estado de reversao, fonte e tamanho da amostra.
 
-Esses indicadores entram como confluencia para sinais de reversao estatistica, pullback quantitativo, Bollinger mean reversion e zonas relevantes do historico.
+Esses indicadores entram como confluencia para sinais de reversao estatistica, pullback quantitativo, Bollinger mean reversion, continuidade por momentum e zonas relevantes do historico.
 
 ## Estatistica e backtest proxy
 
@@ -44,6 +47,9 @@ Para cada direcao, o backtest registra:
 - perda media adversa em pontos;
 - expectancy em pontos;
 - profit factor proxy.
+- confianca estatistica pela banda inferior Wilson;
+- risco/retorno proxy com alvo medio favoravel e risco medio adverso;
+- edge score composto.
 
 Esse proxy serve para auditoria rapida da amostra, nao como promessa de performance futura. Sinais quantitativos recebem ajuste de score pelo edge da propria direcao. Um setup de compra nao herda edge de venda, e o inverso tambem nao acontece.
 
@@ -68,7 +74,9 @@ O score sempre deve ser lido junto da qualidade:
 - `FullTimesAndTrades`: prints reais.
 - `FullDepth`: book profundo real.
 
-Sinais quant exibem score ajustado pelo fluxo e pelo edge direcional. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos. Edge fragil ou amostra de poucos toques limita o score mesmo quando o indicador tecnico parece bom.
+Sinais quant exibem score ajustado pelo fluxo e pelo edge direcional. Delta e imbalance a favor aumentam a confianca; conflito entre sinal tecnico e fluxo reduz o score e aparece nos motivos. Edge fragil, baixa confianca Wilson, risco/retorno ruim ou amostra de poucos toques limitam o score mesmo quando o indicador tecnico parece bom.
+
+Cada sinal quant tambem mostra `Conf`, `R/R` e `Gate`. O `Gate` informa por que o sinal ainda esta limitado, por exemplo amostra historica baixa, poucos toques, expectancy/PF insuficiente, confianca baixa, risco/retorno desfavoravel ou falta de confirmacao RTD de fluxo.
 
 ## Regua robusta de oportunidade
 
@@ -96,6 +104,8 @@ O score e capado quando a alimentacao nao sustenta a leitura:
 - CSV com menos de 21 pregoes em sinal quant: cap reduzido;
 - edge direcional sem expectancy positiva: cap reduzido;
 - profit factor proxy abaixo de `1,05`: cap reduzido;
+- confianca Wilson abaixo do minimo: cap reduzido;
+- risco/retorno proxy abaixo de `1`: cap reduzido;
 - sem `Book` e sem `Times`: cap reduzido;
 - divergencia entre fluxo e estatistica: penalidade explicita nos motivos.
 
@@ -112,6 +122,8 @@ A robustez financeira da leitura vem de confluencia, qualidade do dado e auditor
 
 Um sinal fica mais forte quando ha confirmacao entre nivel estatistico, edge direcional, fluxo, profile e tape. Quando ha conflito, baixa amostra, RTD derivado ou ausencia de book/times real, o score e limitado e a qualidade aparece na UI. Essa regra evita que uma leitura incompleta pareca mais confiavel do que realmente e.
 
+Nao existe garantia tecnica honesta de lucro ou acerto. O que a plataforma garante operacionalmente e que oportunidades classificadas como fortes precisam passar por varias travas quantitativas e de dados: RTD fresco, canais corretos, estatistica positiva, confianca minima, risco/retorno coerente, fluxo confirmando e qualidade real de tape/book quando necessaria.
+
 ## Tela Indicadores
 
 Use `Ctrl+Shift+I` ou o botao `Indic.` no menu superior. A tela mostra:
@@ -119,7 +131,8 @@ Use `Ctrl+Shift+I` ou o botao `Indic.` no menu superior. A tela mostra:
 - resumo de RTD, CSV, canais, qualidade e amostra;
 - grade de indicadores tecnicos;
 - sinais quant com score, nivel, edge, expectancy, profit factor, estado tecnico e motivos;
+- `Conf`, `R/R`, `Gate`, alvo medio e risco medio proxy por sinal;
 - volatilidade/estatistica;
-- backtest proxy direcional de toque/reversao/continuidade.
+- backtest proxy direcional de toque/reversao/continuidade, confianca, R/R e edge score.
 
 Essa tela deve ser usada antes de `Oportunidades` quando for necessario auditar por que um setup apareceu.

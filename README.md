@@ -17,9 +17,9 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - UI WPF com cotacao, DOM/book real, tape real ou derivado, niveis, volume profile, setups, backtest e grafico nativo;
 - parser CSV diario com delimitadores `;`, `,` e tab;
 - carregamento de CSV por ativo via botao, duplo clique, arrastar/soltar, caminho manual, `Ctrl+O` e auto-load em `Downloads\Dados_Dolar`;
-- calculos de volatilidade, ATR, RSI, medias moveis, MACD, Bollinger, z-score, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais, confluencias e sinais quant;
-- metricas de risco estatistico de retornos, incluindo retorno medio 21, volatilidade de retornos, downside deviation, VaR95 e expected shortfall;
-- backtest proxy direcional com compra/venda separadas, taxa de reversao, continuidade, expectancy em pontos e profit factor;
+- calculos de volatilidade, ATR, RSI, medias moveis, MACD, Bollinger, z-score, momentum, profile proxy, AVWAP, suporte/resistencia, desvios, percentuais, confluencias e sinais quant;
+- metricas de risco estatistico de retornos, incluindo retorno medio 21, retornos positivos, volatilidade de retornos, downside deviation, Sharpe21, Sortino21, VaR95 e expected shortfall;
+- backtest proxy direcional com compra/venda separadas, taxa de reversao, continuidade, expectancy em pontos, profit factor, confianca Wilson, risco/retorno e edge score;
 - regua de oportunidade robusta em `Scanner` e `Oportunidades`, combinando RTD, CSV, indicadores, fluxo, volume profile, edge direcional, backtest proxy e qualidade dos canais;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
 
@@ -90,14 +90,15 @@ O parser aceita CSV em `UTF-8` e `Windows-1252`, incluindo exportacoes do Profit
 A tela `Indicadores` mostra os calculos que sustentam a triagem:
 
 - RSI14, SMA20/50, EMA9/21/50, MACD, Bollinger20, z-score 20 e distancia ATR/VWAP.
-- volatilidade historica, janelas, percentil, backtest proxy direcional, expectancy, profit factor e amostra usada.
-- sinais quant com score ajustado por fluxo, nivel associado, edge estatistico, estado tecnico e motivos.
+- Momentum10, retornos positivos 21, Sharpe21, Sortino21, VaR95 e expected shortfall.
+- volatilidade historica, janelas, percentil, backtest proxy direcional, expectancy, profit factor, confianca Wilson, risco/retorno, edge score e amostra usada.
+- sinais quant com score ajustado por fluxo, nivel associado, edge estatistico, `Conf`, `R/R`, `Gate`, estado tecnico e motivos.
 - robustez da oportunidade: `Robusto`, `Acionavel`, `Monitorar`, `Fraco` ou `Bloqueado`.
 - qualidade da alimentacao: RTD, CSV, canais `Cotacao`, `Book`, `Times`, tape real ou derivado.
 
 O caminho esperado de decisao e: cadastrar ativo e canais RTD, conectar, validar qualidade em `Diagnostico`, acompanhar `Mesa`, auditar `DOM / Book` e `Tape`, revisar `Order Flow`, `Volume Profile`, `Indicadores`, `Setups`, `Scanner` e `Oportunidades`. Os RTDs alimentam preco/volume, book e prints; o CSV historico alimenta volatilidade, desvios, indicadores, profile proxy, risco estatistico de retornos e backtest proxy.
 
-O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado. `Robusto` exige RTD fresco, fluxo confirmando, qualidade real de dados e edge direcional positivo; com `TopOfBookOnly`, tape derivado, snapshot atrasado, CSV insuficiente ou estatistica conflitante, a UI informa a qualidade do dado e o score fica limitado.
+O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado. `Robusto` exige RTD fresco, fluxo confirmando, qualidade real de dados, edge direcional positivo, confianca estatistica minima e risco/retorno coerente; com `TopOfBookOnly`, tape derivado, snapshot atrasado, CSV insuficiente ou estatistica conflitante, a UI informa a qualidade do dado e o score fica limitado.
 
 Detalhes: `docs/quant_trading.md`.
 

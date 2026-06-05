@@ -123,6 +123,9 @@ namespace RtdDolarNative.Quant
         public decimal AverageAdversePoints { get; set; }
         public decimal ExpectancyPoints { get; set; }
         public double ProfitFactor { get; set; }
+        public double Confidence { get; set; }
+        public decimal RiskReward { get; set; }
+        public double EdgeScore { get; set; }
     }
 
     public sealed class TechnicalIndicatorSnapshot
@@ -146,6 +149,10 @@ namespace RtdDolarNative.Quant
         public decimal? ReturnMean21Pct { get; set; }
         public decimal? ReturnStd21Pct { get; set; }
         public decimal? DownsideStd21Pct { get; set; }
+        public decimal? Momentum10Pct { get; set; }
+        public decimal? PositiveReturnRate21Pct { get; set; }
+        public decimal? Sharpe21 { get; set; }
+        public decimal? Sortino21 { get; set; }
         public decimal? ValueAtRisk95Pct { get; set; }
         public decimal? ExpectedShortfall95Pct { get; set; }
         public string TrendState { get; set; }
@@ -169,6 +176,13 @@ namespace RtdDolarNative.Quant
         public double ProfitFactor { get; set; }
         public decimal? ExpectancyPoints { get; set; }
         public string EdgeQuality { get; set; }
+        public double Confidence { get; set; }
+        public double ExpectedWinRate { get; set; }
+        public decimal RiskReward { get; set; }
+        public decimal? TargetPoints { get; set; }
+        public decimal? StopPoints { get; set; }
+        public string RiskModel { get; set; }
+        public string RobustnessGate { get; set; }
     }
 
     public sealed class QuantResult

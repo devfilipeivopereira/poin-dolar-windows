@@ -2049,6 +2049,9 @@
                                 <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="64" />
                                 <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="150" />
                                 <DataGridTextColumn Header="Edge" Binding="{Binding Edge}" Width="185" />
+                                <DataGridTextColumn Header="Conf" Binding="{Binding Confidence}" Width="64" />
+                                <DataGridTextColumn Header="R/R" Binding="{Binding RiskReward}" Width="58" />
+                                <DataGridTextColumn Header="Gate" Binding="{Binding Gate}" Width="175" />
                                 <DataGridTextColumn Header="Estado" Binding="{Binding TechnicalState}" Width="145" />
                                 <DataGridTextColumn Header="Motivos" Binding="{Binding Reasons}" Width="*" />
                             </DataGrid.Columns>
@@ -2080,6 +2083,9 @@
                                 <DataGridTextColumn Header="Cont" Binding="{Binding ContinuationRate}" Width="70" />
                                 <DataGridTextColumn Header="Exp" Binding="{Binding Expectancy}" Width="72" />
                                 <DataGridTextColumn Header="PF" Binding="{Binding ProfitFactor}" Width="60" />
+                                <DataGridTextColumn Header="Conf" Binding="{Binding Confidence}" Width="64" />
+                                <DataGridTextColumn Header="R/R" Binding="{Binding RiskReward}" Width="58" />
+                                <DataGridTextColumn Header="Edge" Binding="{Binding EdgeScore}" Width="58" />
                                 <DataGridTextColumn Header="Leitura" Binding="{Binding EdgeQuality}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>

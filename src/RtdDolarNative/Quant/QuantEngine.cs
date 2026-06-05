@@ -593,6 +593,11 @@ namespace RtdDolarNative.Quant
                 row.TouchRate = row.Samples == 0 ? 0d : (double)row.Touches / row.Samples * 100d;
                 row.ReversalRate = row.Touches == 0 ? 0d : (double)row.Reversals / row.Touches * 100d;
                 row.ContinuationRate = row.Touches == 0 ? 0d : (double)row.Continuations / row.Touches * 100d;
+                row.Confidence = WilsonLowerBoundPct(row.Reversals, row.Touches);
+                row.RiskReward = row.AverageAdversePoints <= 0m
+                    ? (row.AverageReversalPoints > 0m ? 99m : 0m)
+                    : row.AverageReversalPoints / row.AverageAdversePoints;
+                row.EdgeScore = BacktestEdgeScore(row);
             }
 
             return rows;
@@ -712,11 +717,22 @@ namespace RtdDolarNative.Quant
 
             decimal var95 = Percentile(recent, 0.05d);
             List<decimal> tail = recent.Where(x => x <= var95).ToList();
+            decimal stdev = StdevDecimal(recent);
+            decimal downside = DownsideDeviation(recent);
+            decimal mean = recent.Average();
             snapshot.ReturnMean21Pct = recent.Average();
-            snapshot.ReturnStd21Pct = StdevDecimal(recent);
-            snapshot.DownsideStd21Pct = DownsideDeviation(recent);
+            snapshot.ReturnStd21Pct = stdev;
+            snapshot.DownsideStd21Pct = downside;
+            snapshot.PositiveReturnRate21Pct = recent.Count == 0 ? 0m : recent.Count(x => x > 0m) * 100m / recent.Count;
+            snapshot.Sharpe21 = stdev <= 0m ? (decimal?)null : mean / stdev * Dec(Math.Sqrt(window));
+            snapshot.Sortino21 = downside <= 0m ? (decimal?)null : mean / downside * Dec(Math.Sqrt(window));
             snapshot.ValueAtRisk95Pct = var95;
             snapshot.ExpectedShortfall95Pct = tail.Count == 0 ? var95 : tail.Average();
+
+            if (closes.Count >= 11 && closes[closes.Count - 11] > 0m)
+            {
+                snapshot.Momentum10Pct = ((closes[closes.Count - 1] / closes[closes.Count - 11]) - 1m) * 100m;
+            }
         }
 
         private static List<QuantSignal> BuildQuantSignals(QuantResult result, decimal tickSize)
@@ -773,6 +789,28 @@ namespace RtdDolarNative.Quant
             {
                 KeyLevel level = new KeyLevel { Price = result.Technicals.Ema21.Value, Label = "EMA21 pullback", Type = "Resistencia", Source = "Tecnico", Score = 68d, Evidence = "EMA9<EMA21<EMA50" };
                 AddQuantSignal(signals, result, "Pullback quantitativo", "Sell", Math.Min(cap, 63 + TrendBonus(result.Technicals)), level, "tendencia vendedora com pullback para EMA21");
+            }
+
+            if (IsBullTrend(result.Technicals) &&
+                result.Technicals.MacdHistogram.HasValue &&
+                result.Technicals.MacdHistogram.Value > 0m &&
+                result.Technicals.Momentum10Pct.HasValue &&
+                result.Technicals.Momentum10Pct.Value > 0m &&
+                price >= result.Intraday.Vwap)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Intraday.Vwap, Label = result.Intraday.VwapIsProxy ? "VWAP proxy" : "VWAP/MED", Type = "Valor", Source = "RTD+Tecnico", Score = 72d, Evidence = "EMA/MACD/momentum" };
+                AddQuantSignal(signals, result, "Momentum continuation", "Buy", Math.Min(cap, 65 + TrendBonus(result.Technicals)), level, "tendencia, MACD e momentum confirmam acima da VWAP");
+            }
+
+            if (IsBearTrend(result.Technicals) &&
+                result.Technicals.MacdHistogram.HasValue &&
+                result.Technicals.MacdHistogram.Value < 0m &&
+                result.Technicals.Momentum10Pct.HasValue &&
+                result.Technicals.Momentum10Pct.Value < 0m &&
+                price <= result.Intraday.Vwap)
+            {
+                KeyLevel level = new KeyLevel { Price = result.Intraday.Vwap, Label = result.Intraday.VwapIsProxy ? "VWAP proxy" : "VWAP/MED", Type = "Valor", Source = "RTD+Tecnico", Score = 72d, Evidence = "EMA/MACD/momentum" };
+                AddQuantSignal(signals, result, "Momentum continuation", "Sell", Math.Min(cap, 65 + TrendBonus(result.Technicals)), level, "tendencia, MACD e momentum confirmam abaixo da VWAP");
             }
 
             return signals
@@ -1195,13 +1233,18 @@ namespace RtdDolarNative.Quant
             }
 
             BacktestRow edge = BestDirectionalBacktestRow(result, direction);
-            int adjustedScore = score + DirectionalEdgeAdjustment(edge);
+            int adjustedScore = score + DirectionalEdgeAdjustment(edge) + ConfidenceScoreAdjustment(edge);
             adjustedScore = Math.Min(adjustedScore, DirectionalEdgeCap(edge));
 
             if (adjustedScore < 60)
             {
                 return;
             }
+
+            decimal fallbackRisk = result.Atr == null || result.Atr.Points <= 0m ? 0m : result.Atr.Points * 0.35m;
+            decimal targetPoints = edge != null && edge.AverageReversalPoints > 0m ? edge.AverageReversalPoints : fallbackRisk;
+            decimal stopPoints = edge != null && edge.AverageAdversePoints > 0m ? edge.AverageAdversePoints : fallbackRisk;
+            decimal riskReward = stopPoints <= 0m ? 0m : targetPoints / stopPoints;
 
             QuantSignal signal = new QuantSignal();
             signal.Setup = setup;
@@ -1219,6 +1262,13 @@ namespace RtdDolarNative.Quant
             signal.ProfitFactor = edge == null ? 0d : edge.ProfitFactor;
             signal.ExpectancyPoints = edge == null ? (decimal?)null : edge.ExpectancyPoints;
             signal.EdgeQuality = DirectionalEdgeQuality(edge);
+            signal.Confidence = edge == null ? 0d : edge.Confidence;
+            signal.ExpectedWinRate = edge == null ? 0d : edge.ReversalRate;
+            signal.RiskReward = riskReward;
+            signal.TargetPoints = targetPoints <= 0m ? (decimal?)null : targetPoints;
+            signal.StopPoints = stopPoints <= 0m ? (decimal?)null : stopPoints;
+            signal.RiskModel = RiskModelText(edge, targetPoints, stopPoints);
+            signal.RobustnessGate = RobustnessGateText(result, edge);
             signals.Add(signal);
         }
 
@@ -1244,12 +1294,12 @@ namespace RtdDolarNative.Quant
                 return -6;
             }
 
-            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d)
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d && edge.Confidence >= 45d)
             {
                 return 9;
             }
 
-            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 52d)
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 52d && edge.Confidence >= 30d)
             {
                 return 5;
             }
@@ -1257,6 +1307,31 @@ namespace RtdDolarNative.Quant
             if (edge.ExpectancyPoints < 0m || edge.ReversalRate < 45d)
             {
                 return -12;
+            }
+
+            return 0;
+        }
+
+        private static int ConfidenceScoreAdjustment(BacktestRow edge)
+        {
+            if (edge == null || edge.Touches == 0)
+            {
+                return -4;
+            }
+
+            if (edge.Confidence >= 55d && edge.RiskReward >= 1.15m)
+            {
+                return 5;
+            }
+
+            if (edge.Confidence >= 40d && edge.RiskReward >= 1m)
+            {
+                return 2;
+            }
+
+            if (edge.Confidence < 25d || edge.RiskReward < 0.85m)
+            {
+                return -8;
             }
 
             return 0;
@@ -1272,6 +1347,16 @@ namespace RtdDolarNative.Quant
             if (edge.ExpectancyPoints < 0m || edge.ReversalRate < 45d)
             {
                 return 68;
+            }
+
+            if (edge.Confidence < 25d || edge.RiskReward < 0.85m)
+            {
+                return 72;
+            }
+
+            if (edge.Confidence < 40d || edge.RiskReward < 1m)
+            {
+                return 84;
             }
 
             if (edge.ExpectancyPoints <= 0m || edge.ProfitFactor < 1.05d)
@@ -1294,12 +1379,12 @@ namespace RtdDolarNative.Quant
                 return "amostra baixa";
             }
 
-            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d)
+            if (edge.ExpectancyPoints > 0m && edge.ReversalRate >= 58d && edge.ProfitFactor >= 1.25d && edge.Confidence >= 45d)
             {
                 return "positivo";
             }
 
-            if (edge.ExpectancyPoints > 0m && edge.ProfitFactor >= 1.05d)
+            if (edge.ExpectancyPoints > 0m && edge.ProfitFactor >= 1.05d && edge.Confidence >= 30d)
             {
                 return "moderado";
             }
@@ -1321,7 +1406,8 @@ namespace RtdDolarNative.Quant
 
             return "edge " + DirectionalEdgeQuality(edge) +
                    " exp " + edge.ExpectancyPoints.ToString("N1") +
-                   " pts PF " + edge.ProfitFactor.ToString("N2");
+                   " pts PF " + edge.ProfitFactor.ToString("N2") +
+                   " conf " + edge.Confidence.ToString("N1") + "%";
         }
 
         private static string StatisticalEdgeText(QuantResult result, string direction, BacktestRow edge)
@@ -1339,7 +1425,58 @@ namespace RtdDolarNative.Quant
             return direction + " rev " + edge.ReversalRate.ToString("N1") +
                    "% | exp " + edge.ExpectancyPoints.ToString("N1") +
                    " pts | PF " + edge.ProfitFactor.ToString("N2") +
+                   " | conf " + edge.Confidence.ToString("N1") +
+                   "% | R/R " + edge.RiskReward.ToString("N2") +
                    " | " + edge.Multiplier.ToString("N1") + " sigma";
+        }
+
+        private static string RiskModelText(BacktestRow edge, decimal targetPoints, decimal stopPoints)
+        {
+            if (edge == null || edge.Touches == 0)
+            {
+                return "risco proxy por ATR; sem toques historicos";
+            }
+
+            return "alvo medio " + targetPoints.ToString("N1") +
+                   " pts | risco medio " + stopPoints.ToString("N1") +
+                   " pts | R/R " + (stopPoints <= 0m ? 0m : targetPoints / stopPoints).ToString("N2");
+        }
+
+        private static string RobustnessGateText(QuantResult result, BacktestRow edge)
+        {
+            int samples = result == null || result.Bars == null ? 0 : result.Bars.Count;
+
+            if (edge == null || edge.Touches == 0)
+            {
+                return "bloqueado: sem toques no backtest proxy";
+            }
+
+            if (samples < 63)
+            {
+                return "limitado: amostra historica <63";
+            }
+
+            if (edge.Touches < 8)
+            {
+                return "limitado: poucos toques historicos";
+            }
+
+            if (edge.ExpectancyPoints <= 0m || edge.ProfitFactor < 1.05d)
+            {
+                return "limitado: expectancy/PF insuficiente";
+            }
+
+            if (edge.Confidence < 45d)
+            {
+                return "limitado: confianca estatistica baixa";
+            }
+
+            if (edge.RiskReward < 1m)
+            {
+                return "limitado: risco/retorno desfavoravel";
+            }
+
+            return "aprovado: exige confirmacao RTD de fluxo";
         }
 
         private static void AddTechnicalLevel(List<KeyLevel> levels, decimal? price, string label, decimal current, double score)
@@ -1422,6 +1559,36 @@ namespace RtdDolarNative.Quant
 
             int below = values.Count(v => v <= x);
             return below * 100d / values.Count;
+        }
+
+        private static double WilsonLowerBoundPct(int successes, int total)
+        {
+            if (total <= 0 || successes <= 0)
+            {
+                return 0d;
+            }
+
+            double z = 1.96d;
+            double n = total;
+            double p = successes / n;
+            double denominator = 1d + z * z / n;
+            double centre = p + z * z / (2d * n);
+            double margin = z * Math.Sqrt((p * (1d - p) + z * z / (4d * n)) / n);
+            return Math.Max(0d, (centre - margin) / denominator * 100d);
+        }
+
+        private static double BacktestEdgeScore(BacktestRow row)
+        {
+            if (row == null || row.Touches == 0)
+            {
+                return 0d;
+            }
+
+            double expectancy = row.ExpectancyPoints <= 0m ? 0d : Math.Min(20d, D(row.ExpectancyPoints));
+            double pf = Math.Min(25d, Math.Max(0d, row.ProfitFactor - 1d) * 25d);
+            double rr = row.RiskReward <= 0m ? 0d : Math.Min(15d, D(row.RiskReward) * 7.5d);
+            double sample = Math.Min(15d, row.Touches * 1.5d);
+            return Clamp(row.Confidence * 0.25d + expectancy + pf + rr + sample, 0d, 100d);
         }
 
         private static string PercentLabel(double pct)

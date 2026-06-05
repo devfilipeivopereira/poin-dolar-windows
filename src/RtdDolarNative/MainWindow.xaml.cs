@@ -2601,6 +2601,7 @@ namespace RtdDolarNative
             AddRow(rows, "Delta", metrics == null ? "-" : metrics.CumulativeDelta.ToString("N0", _ptBr), metrics == null ? "-" : "imb " + FormatDecimal(metrics.TopBookImbalance, "N3") + " | microbias " + FormatDecimal(metrics.MicroBias, "N3"));
             AddRow(rows, "Sinais Quant", quantCount.ToString(_ptBr), IndicatorScoreCapText(metrics));
             AddRow(rows, "Edge Quant", QuantEdgeValue(bestQuant), QuantEdgeDetail(bestQuant));
+            AddRow(rows, "Risco/Retorno", QuantRiskRewardValue(bestQuant), bestQuant == null ? "sem sinal quant" : EmptyToDash(bestQuant.RiskModel));
             AddRow(rows, "Uso", "analise", "plataforma nao envia ordens");
 
             return rows;
@@ -2648,7 +2649,7 @@ namespace RtdDolarNative
 
             return EmptyToDash(signal.EdgeQuality) +
                    " | exp " + FormatDecimal(signal.ExpectancyPoints, "N1") +
-                   " pts";
+                   " pts | conf " + signal.Confidence.ToString("N1", _ptBr) + "%";
         }
 
         private string QuantEdgeDetail(QuantSignal signal)
@@ -2660,7 +2661,20 @@ namespace RtdDolarNative
 
             return "rev " + signal.ReversalRate.ToString("N1", _ptBr) +
                    "% | PF " + signal.ProfitFactor.ToString("N2", _ptBr) +
+                   " | R/R " + signal.RiskReward.ToString("N2", _ptBr) +
                    " | " + EmptyToDash(signal.StatisticalEdge);
+        }
+
+        private string QuantRiskRewardValue(QuantSignal signal)
+        {
+            if (signal == null)
+            {
+                return "-";
+            }
+
+            return "R/R " + signal.RiskReward.ToString("N2", _ptBr) +
+                   " | alvo " + FormatDecimal(signal.TargetPoints, "N1") +
+                   " | risco " + FormatDecimal(signal.StopPoints, "N1");
         }
 
         private List<IndicatorAuditRow> BuildTechnicalIndicatorRows(MarketSnapshot snapshot)
@@ -2693,8 +2707,12 @@ namespace RtdDolarNative
             AddIndicatorRow(rows, "Bollinger20", FormatBollinger(technicals), BollingerState(technicals, price), source);
             AddIndicatorRow(rows, "ZScore20", FormatDecimal(technicals.ZScore20, "N2"), ZScoreState(technicals.ZScore20), source);
             AddIndicatorRow(rows, "ATR/VWAP", FormatDecimal(technicals.AtrVwapDistance, "N2"), AtrVwapState(technicals.AtrVwapDistance), "ATR historico + RTD MED/VWAP");
+            AddIndicatorRow(rows, "Momentum10", FormatPercent(technicals.Momentum10Pct, "N2"), MomentumState(technicals.Momentum10Pct), source);
             AddIndicatorRow(rows, "Retorno medio 21", FormatPercent(technicals.ReturnMean21Pct, "N2"), ReturnState(technicals.ReturnMean21Pct), source);
             AddIndicatorRow(rows, "Vol retorno 21", FormatPercent(technicals.ReturnStd21Pct, "N2"), "desvio de retornos", source);
+            AddIndicatorRow(rows, "Positivos 21", FormatPercent(technicals.PositiveReturnRate21Pct, "N1"), PositiveRateState(technicals.PositiveReturnRate21Pct), source);
+            AddIndicatorRow(rows, "Sharpe21", FormatDecimal(technicals.Sharpe21, "N2"), SharpeState(technicals.Sharpe21), source);
+            AddIndicatorRow(rows, "Sortino21", FormatDecimal(technicals.Sortino21, "N2"), SharpeState(technicals.Sortino21), source);
             AddIndicatorRow(rows, "Downside 21", FormatPercent(technicals.DownsideStd21Pct, "N2"), "risco de cauda curta", source);
             AddIndicatorRow(rows, "VaR95 21", FormatPercent(technicals.ValueAtRisk95Pct, "N2"), "percentil 5%", source);
             AddIndicatorRow(rows, "ES95 21", FormatPercent(technicals.ExpectedShortfall95Pct, "N2"), "media da cauda", source);
@@ -2728,6 +2746,9 @@ namespace RtdDolarNative
                 waiting.Score = "-";
                 waiting.Level = "-";
                 waiting.Edge = _result == null ? "sem calculo" : "sem setup no contexto atual";
+                waiting.Confidence = "-";
+                waiting.RiskReward = "-";
+                waiting.Gate = _result == null ? "carregar CSV/RTD" : "aguardando confluencia";
                 waiting.TechnicalState = _result == null || _result.Technicals == null ? "-" : EmptyToDash(_result.Technicals.TrendState) + " / " + EmptyToDash(_result.Technicals.ReversionState);
                 waiting.Reasons = _dailyBars.Count == 0 ? "carregar CSV historico do ativo" : "aguardando confluencia estatistica e fluxo";
                 rows.Add(waiting);
@@ -2743,8 +2764,11 @@ namespace RtdDolarNative
                 row.Score = QuantFlowAdjustedScore(signal, metrics).ToString(_ptBr);
                 row.Level = EmptyToDash(signal.LevelName) + (signal.LevelPrice.HasValue ? " @ " + signal.LevelPrice.Value.ToString("N2", _ptBr) : string.Empty);
                 row.Edge = EmptyToDash(signal.StatisticalEdge) + " | amostra " + signal.SampleSize.ToString(_ptBr);
+                row.Confidence = signal.Confidence.ToString("N1", _ptBr) + "%";
+                row.RiskReward = signal.RiskReward.ToString("N2", _ptBr);
+                row.Gate = EmptyToDash(signal.RobustnessGate);
                 row.TechnicalState = EmptyToDash(signal.TechnicalState);
-                row.Reasons = EmptyToDash(signal.Reasons) + "; " + QuantFlowConfirmation(signal, metrics);
+                row.Reasons = EmptyToDash(signal.Reasons) + "; " + EmptyToDash(signal.RiskModel) + "; " + QuantFlowConfirmation(signal, metrics);
                 rows.Add(row);
             }
 
@@ -2834,6 +2858,9 @@ namespace RtdDolarNative
                 waiting.ContinuationRate = "-";
                 waiting.Expectancy = "-";
                 waiting.ProfitFactor = "-";
+                waiting.Confidence = "-";
+                waiting.RiskReward = "-";
+                waiting.EdgeScore = "-";
                 waiting.EdgeQuality = "CSV insuficiente";
                 rows.Add(waiting);
                 return rows;
@@ -2851,6 +2878,9 @@ namespace RtdDolarNative
                 row.ContinuationRate = rowSource.ContinuationRate.ToString("N1", _ptBr) + "%";
                 row.Expectancy = rowSource.ExpectancyPoints.ToString("N1", _ptBr);
                 row.ProfitFactor = rowSource.ProfitFactor.ToString("N2", _ptBr);
+                row.Confidence = rowSource.Confidence.ToString("N1", _ptBr) + "%";
+                row.RiskReward = rowSource.RiskReward.ToString("N2", _ptBr);
+                row.EdgeScore = rowSource.EdgeScore.ToString("N0", _ptBr);
                 row.EdgeQuality = BacktestEdgeQuality(rowSource);
                 rows.Add(row);
             }
@@ -2870,12 +2900,18 @@ namespace RtdDolarNative
                 return "amostra baixa";
             }
 
-            if (row.ExpectancyPoints > 0m && row.ReversalRate >= 58d && row.ProfitFactor >= 1.25d)
+            if (row.ExpectancyPoints > 0m &&
+                row.ReversalRate >= 58d &&
+                row.ProfitFactor >= 1.25d &&
+                row.Confidence >= 45d &&
+                row.RiskReward >= 1m)
             {
                 return "edge positivo";
             }
 
-            if (row.ExpectancyPoints > 0m && row.ProfitFactor >= 1.05d)
+            if (row.ExpectancyPoints > 0m &&
+                row.ProfitFactor >= 1.05d &&
+                row.Confidence >= 30d)
             {
                 return "edge moderado";
             }
@@ -3065,6 +3101,66 @@ namespace RtdDolarNative
             if (value.Value < -0.15m)
             {
                 return "vies negativo";
+            }
+
+            return "neutro";
+        }
+
+        private string MomentumState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value >= 0.35m)
+            {
+                return "momentum comprador";
+            }
+
+            if (value.Value <= -0.35m)
+            {
+                return "momentum vendedor";
+            }
+
+            return "neutro";
+        }
+
+        private string PositiveRateState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value >= 58m)
+            {
+                return "assimetria positiva";
+            }
+
+            if (value.Value <= 42m)
+            {
+                return "assimetria negativa";
+            }
+
+            return "equilibrado";
+        }
+
+        private string SharpeState(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            if (value.Value >= 1m)
+            {
+                return "favoravel";
+            }
+
+            if (value.Value <= -1m)
+            {
+                return "desfavoravel";
             }
 
             return "neutro";
@@ -3577,7 +3673,9 @@ namespace RtdDolarNative
                    signal.ExpectancyPoints.HasValue &&
                    signal.ExpectancyPoints.Value > 0m &&
                    signal.ReversalRate >= 58d &&
-                   signal.ProfitFactor >= 1.25d;
+                   signal.ProfitFactor >= 1.25d &&
+                   signal.Confidence >= 45d &&
+                   signal.RiskReward >= 1m;
         }
 
         private bool QuantSignalHasUsableEdge(QuantSignal signal)
@@ -3586,7 +3684,9 @@ namespace RtdDolarNative
                    signal.ExpectancyPoints.HasValue &&
                    signal.ExpectancyPoints.Value > 0m &&
                    signal.ReversalRate >= 52d &&
-                   signal.ProfitFactor >= 1.05d;
+                   signal.ProfitFactor >= 1.05d &&
+                   signal.Confidence >= 30d &&
+                   signal.RiskReward >= 0.85m;
         }
 
         private QuantSignal FindMatchingQuantSignal(string assetName, FlowSignal flowSignal)
@@ -6985,6 +7085,9 @@ namespace RtdDolarNative
             public string Score { get; set; }
             public string Level { get; set; }
             public string Edge { get; set; }
+            public string Confidence { get; set; }
+            public string RiskReward { get; set; }
+            public string Gate { get; set; }
             public string TechnicalState { get; set; }
             public string Reasons { get; set; }
         }
@@ -7009,6 +7112,9 @@ namespace RtdDolarNative
             public string ContinuationRate { get; set; }
             public string Expectancy { get; set; }
             public string ProfitFactor { get; set; }
+            public string Confidence { get; set; }
+            public string RiskReward { get; set; }
+            public string EdgeScore { get; set; }
             public string EdgeQuality { get; set; }
         }
 
