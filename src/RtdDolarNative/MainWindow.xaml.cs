@@ -450,20 +450,107 @@ namespace RtdDolarNative
             }
         }
 
+        private string WorkspaceGroupName(int index)
+        {
+            switch (index)
+            {
+                case TabDashboard:
+                case TabAssets:
+                case TabMonitor:
+                case TabDiagnostics:
+                    return "Operacao";
+                case TabQuote:
+                case TabDomBook:
+                case TabTape:
+                case TabChart:
+                    return "Mercado";
+                case TabOrderFlow:
+                case TabFlowMap:
+                case TabVolumeProfile:
+                case TabSetups:
+                    return "Fluxo";
+                case TabScanner:
+                case TabOpportunities:
+                case TabIndicators:
+                case TabLevels:
+                case TabBacktest:
+                    return "Analise";
+                case TabRisk:
+                case TabAlerts:
+                case TabHistory:
+                case TabShortcuts:
+                    return "Controle";
+                default:
+                    return "Operacao";
+            }
+        }
+
+        private string WorkspaceHeaderText(int index)
+        {
+            switch (index)
+            {
+                case TabDashboard:
+                    return "Oper / Mesa";
+                case TabAssets:
+                    return "Oper / Ativos";
+                case TabMonitor:
+                    return "Oper / Monitor";
+                case TabDiagnostics:
+                    return "Oper / Diag";
+                case TabQuote:
+                    return "Merc / Cotacao";
+                case TabDomBook:
+                    return "Merc / DOM";
+                case TabTape:
+                    return "Merc / Tape";
+                case TabChart:
+                    return "Merc / Grafico";
+                case TabOrderFlow:
+                    return "Fluxo / Order";
+                case TabFlowMap:
+                    return "Fluxo / Mapa";
+                case TabVolumeProfile:
+                    return "Fluxo / Profile";
+                case TabSetups:
+                    return "Fluxo / Setups";
+                case TabScanner:
+                    return "Anal / Scanner";
+                case TabOpportunities:
+                    return "Anal / Oportun.";
+                case TabIndicators:
+                    return "Anal / Indic.";
+                case TabLevels:
+                    return "Anal / Niveis";
+                case TabBacktest:
+                    return "Anal / Back";
+                case TabRisk:
+                    return "Ctrl / Risco";
+                case TabAlerts:
+                    return "Ctrl / Alertas";
+                case TabHistory:
+                    return "Ctrl / Hist";
+                case TabShortcuts:
+                    return "Ctrl / Atalhos";
+                default:
+                    return "Oper / Mesa";
+            }
+        }
+
         private void UpdateWorkspaceContext()
         {
             int index = CurrentMainTabIndex();
+            string group = WorkspaceGroupName(index);
             string name = WorkspaceName(index);
             string hint = WorkspaceHint(index);
 
             if (WorkspaceText != null)
             {
-                WorkspaceText.Text = name;
+                WorkspaceText.Text = WorkspaceHeaderText(index);
             }
 
             if (WorkspaceHintText != null)
             {
-                WorkspaceHintText.Text = name + " | " + hint;
+                WorkspaceHintText.Text = group + " / " + name + " | " + hint;
             }
         }
 
@@ -4781,6 +4868,32 @@ namespace RtdDolarNative
             Brush normalForeground = FindResource("Text") as Brush;
 
             UpdateTopNavigationButtons(TopNavigation, selectedBackground, normalBackground, selectedBorder, normalBorder, selectedForeground, normalForeground);
+            UpdateTopNavigationGroupLabels(CurrentMainTabIndex(), selectedForeground, FindResource("Muted") as Brush);
+        }
+
+        private void UpdateTopNavigationGroupLabels(int index, Brush selectedForeground, Brush normalForeground)
+        {
+            string group = WorkspaceGroupName(index);
+            Brush selected = selectedForeground ?? FindResource("Accent") as Brush ?? Brushes.LimeGreen;
+            Brush normal = normalForeground ?? FindResource("Muted") as Brush ?? Brushes.Gray;
+
+            SetTopNavigationGroupLabel(TopNavOperationLabel, group, "Operacao", selected, normal);
+            SetTopNavigationGroupLabel(TopNavMarketLabel, group, "Mercado", selected, normal);
+            SetTopNavigationGroupLabel(TopNavFlowLabel, group, "Fluxo", selected, normal);
+            SetTopNavigationGroupLabel(TopNavAnalysisLabel, group, "Analise", selected, normal);
+            SetTopNavigationGroupLabel(TopNavControlLabel, group, "Controle", selected, normal);
+        }
+
+        private void SetTopNavigationGroupLabel(TextBlock label, string currentGroup, string group, Brush selected, Brush normal)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            bool isSelected = string.Equals(currentGroup, group, StringComparison.OrdinalIgnoreCase);
+            label.Foreground = isSelected ? selected : normal;
+            label.FontWeight = isSelected ? FontWeights.Bold : FontWeights.Normal;
         }
 
         private void UpdateTopNavigationButtons(DependencyObject root, Brush selectedBackground, Brush normalBackground, Brush selectedBorder, Brush normalBorder, Brush selectedForeground, Brush normalForeground)
