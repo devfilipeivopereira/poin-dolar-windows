@@ -41,6 +41,8 @@
             <Setter Property="Padding" Value="12,6" />
             <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="MinHeight" Value="30" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -48,8 +50,8 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -365,6 +367,16 @@
             <Setter Property="Margin" Value="0,0,3,0" />
         </Style>
 
+        <Style x:Key="DashboardWorkflowButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="MinHeight" Value="58" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+
         <Style x:Key="HiddenMainTabItemStyle" TargetType="TabItem">
             <Setter Property="Visibility" Value="Collapsed" />
         </Style>
@@ -623,15 +635,75 @@
                     Margin="12,6,12,12"
                     Style="{StaticResource MainShellTabControlStyle}"
                     ItemContainerStyle="{StaticResource HiddenMainTabItemStyle}"
+                    SelectedIndex="0"
                     SelectionChanged="MainTabs_SelectionChanged">
             <TabItem Header="Mesa">
                 <Grid Margin="0,10,0,0">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="168" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <UniformGrid Columns="4" Margin="0,0,0,10">
+                    <UniformGrid Columns="5" Margin="0,0,0,10">
+                        <Button x:Name="WorkflowAssetButton"
+                                Tag="1"
+                                Click="TopNavButton_Click"
+                                Style="{StaticResource DashboardWorkflowButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="1 Ativo" Foreground="{StaticResource Muted}" FontWeight="Bold" />
+                                <TextBlock x:Name="WorkflowAssetValueText" Text="-" FontSize="15" FontWeight="Bold" Margin="0,4,0,0" />
+                                <TextBlock x:Name="WorkflowAssetStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="WorkflowRtdButton"
+                                Tag="13"
+                                Click="TopNavButton_Click"
+                                Style="{StaticResource DashboardWorkflowButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="2 RTD" Foreground="{StaticResource Muted}" FontWeight="Bold" />
+                                <TextBlock x:Name="WorkflowRtdValueText" Text="-" FontSize="15" FontWeight="Bold" Margin="0,4,0,0" />
+                                <TextBlock x:Name="WorkflowRtdStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="WorkflowHistoryButton"
+                                Tag="20"
+                                Click="TopNavButton_Click"
+                                Style="{StaticResource DashboardWorkflowButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="3 Historico" Foreground="{StaticResource Muted}" FontWeight="Bold" />
+                                <TextBlock x:Name="WorkflowHistoryValueText" Text="-" FontSize="15" FontWeight="Bold" Margin="0,4,0,0" />
+                                <TextBlock x:Name="WorkflowHistoryStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="WorkflowFlowButton"
+                                Tag="5"
+                                Click="TopNavButton_Click"
+                                Style="{StaticResource DashboardWorkflowButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="4 Fluxo" Foreground="{StaticResource Muted}" FontWeight="Bold" />
+                                <TextBlock x:Name="WorkflowFlowValueText" Text="-" FontSize="15" FontWeight="Bold" Margin="0,4,0,0" />
+                                <TextBlock x:Name="WorkflowFlowStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="WorkflowOpportunityButton"
+                                Tag="16"
+                                Click="TopNavButton_Click"
+                                Style="{StaticResource DashboardWorkflowButtonStyle}"
+                                Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="5 Oportunidade" Foreground="{StaticResource Muted}" FontWeight="Bold" />
+                                <TextBlock x:Name="WorkflowOpportunityValueText" Text="-" FontSize="15" FontWeight="Bold" Margin="0,4,0,0" />
+                                <TextBlock x:Name="WorkflowOpportunityStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+
+                    <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,10">
                         <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
                             <StackPanel>
                                 <TextBlock Text="Resumo Mercado" Foreground="{StaticResource Muted}" />
@@ -687,7 +759,7 @@
                         </Border>
                     </UniformGrid>
 
-                    <Grid Grid.Row="1">
+                    <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1.35*" />
                             <ColumnDefinition Width="1.05*" />

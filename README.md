@@ -27,7 +27,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 
 Use o menu superior como navegacao principal; ele seleciona cada tela diretamente e fica operacional mesmo antes de conectar o RTD. O menu e a barra rapida ficam organizados pelo mesmo fluxo de trabalho: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`. O menu `Janelas` lista todas as telas em uma unica lista quando for preciso navegar sem procurar o grupo.
 
-- `Mesa`: primeira tela operacional com grafico, DOM, tape, fluxo, niveis e oportunidades.
+- `Mesa`: primeira tela operacional com faixa de prontidao, grafico, DOM, tape, fluxo, niveis e oportunidades.
 - `Ativos`: cadastro de ativo, canais RTD e CSV historico.
 - `Cotacao`: campos RTD de preco, volume e indicadores.
 - `DOM / Book`: escada por tick, book real `0..49`, volumes bid/ask, marcacoes por preco e tape recente.

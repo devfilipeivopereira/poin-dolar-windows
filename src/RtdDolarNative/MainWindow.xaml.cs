@@ -126,6 +126,14 @@ namespace RtdDolarNative
             _quantTimer.Start();
             _chartTimer.Start();
             _flowProcessor.Start();
+            if (MainTabs != null && MainTabs.SelectedIndex < 0)
+            {
+                MainTabs.SelectedIndex = TabDashboard;
+            }
+
+            UpdateWorkspaceContext();
+            UpdateTopNavigation();
+            ScheduleRenderActiveTab();
             AddHistory("App", "Aberto", "Janela principal carregada.");
             if (_config.Rtd.AutoConnect)
             {
@@ -1963,6 +1971,8 @@ namespace RtdDolarNative
                 ? "Snapshot -"
                 : "Snapshot " + Math.Max(0, (int)(DateTimeOffset.Now - snapshot.LocalTimestamp).TotalMilliseconds).ToString(_ptBr) + " ms";
 
+            UpdateDashboardWorkflow(asset, snapshot, metrics);
+
             DashboardRtdText.Text = "RTD " + EmptyToDash(_probeService.Status) + " | Updates " + _probeService.UpdatesReceived.ToString(_ptBr);
             DashboardCsvText.Text = "CSV " + FocusedAssetCsvText(asset);
 
@@ -1987,6 +1997,255 @@ namespace RtdDolarNative
             RefreshDashboardHeavyGrids(snapshot, asset);
 
             RefreshDashboardChart(snapshot);
+        }
+
+        private void UpdateDashboardWorkflow(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics)
+        {
+            if (WorkflowAssetValueText == null)
+            {
+                return;
+            }
+
+            string focused = FocusedAsset();
+            string assetState = asset == null
+                ? "cadastrar ativo"
+                : asset.Enabled ? "ativo ligado" : "ativo desligado";
+            Brush assetBrush = asset == null
+                ? FindResource("Danger") as Brush
+                : asset.Enabled ? FindResource("Accent") as Brush : FindResource("Warn") as Brush;
+            SetWorkflowStep(WorkflowAssetButton, WorkflowAssetValueText, WorkflowAssetStateText, EmptyToDash(focused), assetState, assetBrush);
+
+            string rtdStatus = _probeService == null ? "idle" : EmptyToDash(_probeService.Status);
+            string rtdState = RtdWorkflowState(snapshot);
+            Brush rtdBrush = WorkflowStateBrush(rtdState, rtdStatus);
+            SetWorkflowStep(WorkflowRtdButton, WorkflowRtdValueText, WorkflowRtdStateText, rtdStatus, rtdState, rtdBrush);
+
+            string historyValue = _dailyBars.Count.ToString(_ptBr) + " pregoes";
+            string historyState = HistoryWorkflowState(asset);
+            Brush historyBrush = WorkflowHistoryBrush(historyState);
+            SetWorkflowStep(WorkflowHistoryButton, WorkflowHistoryValueText, WorkflowHistoryStateText, historyValue, historyState, historyBrush);
+
+            string flowValue = metrics == null ? "sem fluxo" : metrics.DataQuality.ToString();
+            string flowState = FlowWorkflowState(metrics);
+            Brush flowBrush = WorkflowFlowBrush(metrics);
+            SetWorkflowStep(WorkflowFlowButton, WorkflowFlowValueText, WorkflowFlowStateText, flowValue, flowState, flowBrush);
+
+            WorkflowOpportunity opportunity = BuildWorkflowOpportunity(asset, snapshot, metrics);
+            SetWorkflowStep(
+                WorkflowOpportunityButton,
+                WorkflowOpportunityValueText,
+                WorkflowOpportunityStateText,
+                opportunity.Value,
+                opportunity.State,
+                opportunity.Brush);
+        }
+
+        private void SetWorkflowStep(Button button, TextBlock valueText, TextBlock stateText, string value, string state, Brush brush)
+        {
+            Brush effective = brush ?? FindResource("Muted") as Brush ?? Brushes.Gray;
+
+            if (button != null)
+            {
+                button.BorderBrush = effective;
+            }
+
+            if (valueText != null)
+            {
+                valueText.Text = EmptyToDash(value);
+                valueText.Foreground = effective;
+            }
+
+            if (stateText != null)
+            {
+                stateText.Text = EmptyToDash(state);
+                stateText.Foreground = effective;
+            }
+        }
+
+        private string RtdWorkflowState(MarketSnapshot snapshot)
+        {
+            if (_probeService == null || !_probeService.IsRunning)
+            {
+                return "conectar RTD";
+            }
+
+            if (snapshot == null)
+            {
+                return "aguardando snapshot";
+            }
+
+            double ageSeconds = Math.Max(0d, (DateTimeOffset.Now - snapshot.LocalTimestamp).TotalSeconds);
+
+            if (ageSeconds >= 15d)
+            {
+                return "snapshot atrasado";
+            }
+
+            if (ageSeconds >= 5d)
+            {
+                return "snapshot lento";
+            }
+
+            return "snapshot fresco";
+        }
+
+        private Brush WorkflowStateBrush(string state, string status)
+        {
+            if (string.Equals(state, "snapshot fresco", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Accent") as Brush;
+            }
+
+            if (string.Equals(state, "snapshot atrasado", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Danger") as Brush;
+            }
+
+            return StateBrush(status);
+        }
+
+        private string HistoryWorkflowState(RtdAssetConfig asset)
+        {
+            if (asset == null)
+            {
+                return "sem cadastro";
+            }
+
+            if (_dailyBars.Count >= 126)
+            {
+                return "amostra forte";
+            }
+
+            if (_dailyBars.Count >= 63)
+            {
+                return "amostra boa";
+            }
+
+            if (_dailyBars.Count >= 21)
+            {
+                return "amostra minima";
+            }
+
+            if (string.IsNullOrWhiteSpace(asset.CsvPath))
+            {
+                return "selecionar CSV";
+            }
+
+            return "CSV insuficiente";
+        }
+
+        private Brush WorkflowHistoryBrush(string state)
+        {
+            if (string.Equals(state, "amostra forte", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "amostra boa", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Accent") as Brush;
+            }
+
+            if (string.Equals(state, "amostra minima", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(state, "selecionar CSV", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Warn") as Brush;
+            }
+
+            return FindResource("Danger") as Brush;
+        }
+
+        private string FlowWorkflowState(FlowMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return "aguardar feed";
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.FullDepth)
+            {
+                return "book profundo real";
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.FullTimesAndTrades)
+            {
+                return "times real";
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.DerivedTape)
+            {
+                return "tape derivado";
+            }
+
+            return "top book";
+        }
+
+        private Brush WorkflowFlowBrush(FlowMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return FindResource("Warn") as Brush;
+            }
+
+            if (!metrics.Derived &&
+                (metrics.DataQuality == MarketDataQuality.FullDepth ||
+                 metrics.DataQuality == MarketDataQuality.FullTimesAndTrades))
+            {
+                return FindResource("Accent") as Brush;
+            }
+
+            if (metrics.DataQuality == MarketDataQuality.DerivedTape)
+            {
+                return FindResource("Warn") as Brush;
+            }
+
+            return FindResource("Muted") as Brush;
+        }
+
+        private WorkflowOpportunity BuildWorkflowOpportunity(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics)
+        {
+            WorkflowOpportunity result = new WorkflowOpportunity();
+            result.Value = "sem setup";
+            result.State = "monitorar";
+            result.Brush = FindResource("Muted") as Brush;
+
+            string focused = FocusedAsset();
+            List<FlowSignal> flowSignals = _flowProcessor.GetSignals(focused, 1) ?? new List<FlowSignal>();
+            FlowSignal flow = flowSignals.OrderByDescending(x => x.Score).ThenByDescending(x => x.LocalTimestamp).FirstOrDefault();
+            QuantSignal quant = BestQuantSignalForAsset(focused, metrics);
+
+            if (flow == null && quant == null)
+            {
+                OpportunityScore waiting = ScoreOpportunity(asset, snapshot, metrics, null, null, null);
+                result.State = waiting.Robustness;
+                result.Brush = WorkflowRobustnessBrush(waiting.Robustness);
+                return result;
+            }
+
+            OpportunityScore score = ScoreOpportunity(asset, snapshot, metrics, flow, quant, null);
+            string setup = flow != null ? flow.Setup : quant.Setup;
+            string direction = flow != null ? flow.Direction : quant.Direction;
+            result.Value = score.Score.ToString(_ptBr) + " " + score.Robustness;
+            result.State = EmptyToDash(setup) + " " + TranslateDirection(direction);
+            result.Brush = WorkflowRobustnessBrush(score.Robustness);
+            return result;
+        }
+
+        private Brush WorkflowRobustnessBrush(string robustness)
+        {
+            if (string.Equals(robustness, "Robusto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(robustness, "Acionavel", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Accent") as Brush;
+            }
+
+            if (string.Equals(robustness, "Monitorar", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Warn") as Brush;
+            }
+
+            if (string.Equals(robustness, "Bloqueado", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Danger") as Brush;
+            }
+
+            return FindResource("Muted") as Brush;
         }
 
         private void RefreshDashboardHeavyGrids(MarketSnapshot snapshot, RtdAssetConfig asset)
@@ -6576,6 +6835,13 @@ namespace RtdDolarNative
             public int Score { get; set; }
             public string Robustness { get; set; }
             public string Detail { get; set; }
+        }
+
+        private sealed class WorkflowOpportunity
+        {
+            public string Value { get; set; }
+            public string State { get; set; }
+            public Brush Brush { get; set; }
         }
 
         private sealed class OpportunityLevelRow
