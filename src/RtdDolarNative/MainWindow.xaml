@@ -574,55 +574,60 @@
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Mesa" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Ativos" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Monitor" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Diag" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Mesa" ToolTip="Mesa operacional" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Ativos" ToolTip="Cadastro de ativos, RTDs e CSV" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Monitor" ToolTip="Monitor de fontes e status" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Diag" ToolTip="Diagnostico RTD" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Cotacao" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="DOM" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Tape" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Grafico" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Cotacao" ToolTip="Campos RTD de preco e volume" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="DOM" ToolTip="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Tape" ToolTip="Times and trades" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Grafico" ToolTip="Grafico nativo com niveis" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Order" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
-                            <Button Content="Mapa" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="60" />
-                            <Button Content="Setups" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Order" ToolTip="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
+                            <Button Content="Mapa" ToolTip="Mapa de fluxo" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Profile" ToolTip="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="60" />
+                            <Button Content="Setups" ToolTip="Setups de fluxo" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Scanner" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Oportun." Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
-                            <Button Content="Indic." Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
-                            <Button Content="Niveis" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Back" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Scanner" ToolTip="Scanner de ativos" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Oportun." ToolTip="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
+                            <Button Content="Indic." ToolTip="Indicadores Quant" Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
+                            <Button Content="Niveis" ToolTip="Niveis e confluencias" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Back" ToolTip="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Risco" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Hist" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Risco" ToolTip="Risco operacional" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Alertas" ToolTip="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="Hist" ToolTip="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
