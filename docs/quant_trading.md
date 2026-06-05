@@ -65,6 +65,18 @@ O `FlowProcessor` roda fora da thread RTD e usa fila limitada com descarte dos e
 - agressao por quote rule/tick rule;
 - sinais de absorcao, defesa/perda de nivel, exaustao, rompimento com fluxo, sweep aproximado, VWAP reversion/continuation, rejeicao em LVN e defesa/perda de POC.
 
+## Heatmap de book e negocios
+
+A aba `Heatmap` usa ideias de plataformas de leitura visual de livro de ofertas: liquidez passiva por preco, volume executado sobreposto, delta/CVD e destaque de areas de absorcao ou interesse. O objetivo e mostrar onde o mercado deixou ordens no book e onde de fato houve negocio.
+
+Entradas:
+
+- `Book`: precos e volumes bid/ask por nivel para formar as barras de liquidez.
+- `Times`: preco, quantidade e agressor para formar prints/volume dots, delta e CVD.
+- `Cotacao`: ultimo preco e top-of-book como fallback quando o book profundo ainda nao esta ativo.
+
+A leitura segue a mesma semantica de cor da plataforma: verde para compra/suporte/agressao compradora, vermelho para venda/resistencia/agressao vendedora e branco para neutro. A persistencia fica em SQLite local com fila em segundo plano.
+
 ## Score e qualidade
 
 O score sempre deve ser lido junto da qualidade:

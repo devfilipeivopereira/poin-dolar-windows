@@ -5,7 +5,7 @@
 1. Abrir `RtdDolarNative.sln`.
 2. Selecionar `Debug|x64`.
 3. Rodar com o Profit Pro aberto.
-4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Mesa`, `Ativos`, `Cotacao`, `DOM / Book`, `Tape` e `Diagnostico` antes de conectar.
+4. Confirmar que a janela abre em `idle`, sem travar, e que o menu superior abre `Mesa`, `Ativos`, `Cotacao`, `DOM / Book`, `Tape`, `Heatmap` e `Diagnostico` antes de conectar.
 5. Confirmar que o menu superior e a barra rapida usam a mesma ordem: `Operacao`, `Mercado`, `Fluxo`, `Analise` e `Controle`, e que o menu `Janelas` lista todas as telas.
 6. Clicar em `Conectar`.
 7. Confirmar que `ServerStart` retorna valor positivo no log.
@@ -49,18 +49,24 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 11. Confirmar que `DOM / Book` preenche linhas reais quando `Book` esta ligado.
 12. Confirmar que `Tape` mostra linhas reais quando `Times` esta ligado; se `Times` estiver desligado ou vazio, deve mostrar tape derivado.
 13. Confirmar `Order Flow` com delta, cumulative delta, imbalance, microbias e janelas.
-14. Confirmar `Volume Profile` com POC, VAH, VAL, HVN e LVN quando houver prints suficientes ou fallback por CSV.
-15. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
+14. Confirmar `Heatmap` por `Ctrl+Shift+H`:
+   - A tela abre sem travar.
+   - O grafico mostra barras de liquidez do book quando `Book` esta ativo.
+   - Prints reais de `Times` aparecem como volume por preco quando `Times` esta ativo.
+   - A tabela de interesse mostra direcao verde para compra, vermelho para venda e branco para neutro.
+   - O banco `%LOCALAPPDATA%\PoinDolarWindows\data\market_heatmap.sqlite` e criado e atualizado.
+15. Confirmar `Volume Profile` com POC, VAH, VAL, HVN e LVN quando houver prints suficientes ou fallback por CSV.
+16. Confirmar `Indicadores` por `Ctrl+Shift+I` ou botao `Indic.`:
    - RSI14, EMAs, SMA, MACD, Bollinger, z-score e ATR/VWAP aparecem quando ha CSV/snapshot suficiente.
    - Momentum10, retornos positivos 21, Sharpe21, Sortino21, VaR95 e ES95 aparecem quando ha amostra suficiente.
    - A tela mostra fonte tecnica, amostra, CSV carregado, status RTD e qualidade do fluxo.
    - Backtest mostra compra/venda separados, taxa de reversao, continuidade, expectancy, profit factor, confianca, R/R e edge score.
    - Sinais quant mostram score ajustado, nivel, edge direcional, `Conf`, `R/R`, `Gate`, estado tecnico e motivos.
    - Quando `Times`/`Book` nao estao reais, a qualidade informa tape derivado/top-of-book e o score fica limitado.
-16. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
-17. Confirmar que `Scanner` e `Oportunidades` mostram apenas leitura, score, nivel, motivo e qualidade; nao deve existir boleta nem envio de ordens.
-18. Confirmar que oportunidade com edge direcional fragil fica limitada e nao aparece como `Robusto`.
-19. Confirmar que `Robusto` exige fluxo confirmando, RTD fresco, dados reais e edge direcional positivo.
+17. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
+18. Confirmar que `Scanner` e `Oportunidades` mostram apenas leitura, score, nivel, motivo e qualidade; nao deve existir boleta nem envio de ordens.
+19. Confirmar que oportunidade com edge direcional fragil fica limitada e nao aparece como `Robusto`.
+20. Confirmar que `Robusto` exige fluxo confirmando, RTD fresco, dados reais e edge direcional positivo.
 
 ## Performance
 
@@ -71,3 +77,4 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 - Scores acima de 85 devem aparecer apenas quando uma fonte real de times and trades/book profundo for implementada.
 - `Robusto` nao deve aparecer com `TopOfBookOnly`, tape derivado, CSV insuficiente, expectancy direcional negativa, confianca baixa ou R/R desfavoravel.
 - A aba `Indicadores` deve atualizar sem travar a UI e sem recalcular pesado na thread RTD.
+- A aba `Heatmap` deve usar SQLite em background; crescimento da fila nao deve travar navegacao, menus ou RTD.

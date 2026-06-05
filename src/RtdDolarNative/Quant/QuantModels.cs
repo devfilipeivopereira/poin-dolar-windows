@@ -6,6 +6,8 @@ namespace RtdDolarNative.Quant
 {
     public sealed class KeyLevel
     {
+        private string _direction;
+
         public decimal Price { get; set; }
         public string Label { get; set; }
         public string Type { get; set; }
@@ -15,6 +17,32 @@ namespace RtdDolarNative.Quant
         public string Layer { get; set; }
         public decimal Distance { get; set; }
         public string Tags { get; set; }
+
+        public string Direction
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_direction))
+                {
+                    return _direction;
+                }
+
+                if (string.Equals(Type, "Suporte", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Type, "val", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Compra";
+                }
+
+                if (string.Equals(Type, "Resistencia", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Type, "vah", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Venda";
+                }
+
+                return "Neutro";
+            }
+            set { _direction = value; }
+        }
     }
 
     public sealed class IntradayContext

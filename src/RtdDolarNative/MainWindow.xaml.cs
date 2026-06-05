@@ -12,6 +12,7 @@ using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
 using RtdDolarNative.Flow;
+using RtdDolarNative.Heatmap;
 using RtdDolarNative.Logging;
 using RtdDolarNative.LowLatency;
 using RtdDolarNative.MarketData;
@@ -43,6 +44,7 @@ namespace RtdDolarNative
         private const int TabScanner = 18;
         private const int TabFlowMap = 19;
         private const int TabIndicators = 20;
+        private const int TabHeatmap = 21;
         private const int DashboardChartRefreshMs = 1500;
         private const int DashboardHeavyRefreshMs = 1000;
 
@@ -52,6 +54,7 @@ namespace RtdDolarNative
         private readonly LatestSnapshotBuffer _snapshotBuffer;
         private readonly RtdProbeService _probeService;
         private readonly FlowProcessor _flowProcessor;
+        private readonly HeatmapProcessor _heatmapProcessor;
         private readonly RingBuffer<TickEvent> _ticks;
         private readonly DispatcherTimer _fastTimer;
         private readonly DispatcherTimer _quantTimer;
@@ -85,6 +88,7 @@ namespace RtdDolarNative
         private string _lastHistoryRtdStatus;
         private readonly List<HistoryRow> _historyRows = new List<HistoryRow>();
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _postedTimesLock = new object();
 
         public MainWindow()
         {
@@ -101,6 +105,7 @@ namespace RtdDolarNative
             _probeService.TickReceived += ProbeService_TickReceived;
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
             _flowProcessor = new FlowProcessor(_config.Rtd.TickSize, _config.Flow, _log);
+            _heatmapProcessor = new HeatmapProcessor(_config.Rtd.TickSize, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "market_heatmap.sqlite"), _log);
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
             _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 200));
@@ -126,6 +131,7 @@ namespace RtdDolarNative
             _quantTimer.Start();
             _chartTimer.Start();
             _flowProcessor.Start();
+            _heatmapProcessor.Start();
             if (MainTabs != null && MainTabs.SelectedIndex < 0)
             {
                 MainTabs.SelectedIndex = TabDashboard;
@@ -153,6 +159,7 @@ namespace RtdDolarNative
             _quantTimer.Stop();
             _chartTimer.Stop();
             _flowProcessor.Dispose();
+            _heatmapProcessor.Dispose();
             _probeService.Dispose();
         }
 
@@ -394,6 +401,8 @@ namespace RtdDolarNative
                     return "Mapa de Fluxo";
                 case TabIndicators:
                     return "Indicadores";
+                case TabHeatmap:
+                    return "Heatmap";
                 default:
                     return "Mesa";
             }
@@ -445,6 +454,8 @@ namespace RtdDolarNative
                     return "Liquidez, delta e niveis em uma leitura";
                 case TabIndicators:
                     return "Indicadores tecnicos, estatistica e sinais quant";
+                case TabHeatmap:
+                    return "Mapa de calor de book e negocios";
                 default:
                     return "Mesa operacional de analise";
             }
@@ -466,6 +477,7 @@ namespace RtdDolarNative
                     return "Mercado";
                 case TabOrderFlow:
                 case TabFlowMap:
+                case TabHeatmap:
                 case TabVolumeProfile:
                 case TabSetups:
                     return "Fluxo";
@@ -509,6 +521,8 @@ namespace RtdDolarNative
                     return "Fluxo / Order";
                 case TabFlowMap:
                     return "Fluxo / Mapa";
+                case TabHeatmap:
+                    return "Fluxo / Heat";
                 case TabVolumeProfile:
                     return "Fluxo / Profile";
                 case TabSetups:
@@ -604,6 +618,9 @@ namespace RtdDolarNative
                     break;
                 case TabFlowMap:
                     RenderFlowMap(snapshot);
+                    break;
+                case TabHeatmap:
+                    RenderHeatmap(snapshot);
                     break;
                 case TabIndicators:
                     RenderIndicators(snapshot);
@@ -720,6 +737,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabIndicators);
+                return;
+            }
+
+            if (control && shift && e.Key == Key.H)
+            {
+                e.Handled = true;
+                NavigateToTab(TabHeatmap);
                 return;
             }
 
@@ -1817,6 +1841,8 @@ namespace RtdDolarNative
                 _snapshotsByAsset[snapshot.Asset] = snapshot;
             }
 
+            _heatmapProcessor.PostSnapshot(snapshot);
+            PostRealTimes(snapshot, BuildTimesRows(snapshot));
             _flowProcessor.Post(snapshot);
         }
 
@@ -1837,6 +1863,7 @@ namespace RtdDolarNative
             bool showTape = selectedTab == TabDomBook || selectedTab == TabTape;
             bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
             bool showFlowMap = selectedTab == TabFlowMap;
+            bool showHeatmap = selectedTab == TabHeatmap;
             bool showRisk = selectedTab == TabRisk;
             bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
@@ -1851,6 +1878,7 @@ namespace RtdDolarNative
             bool renderedOpportunities = false;
             bool renderedScanner = false;
             bool renderedFlowMap = false;
+            bool renderedHeatmap = false;
             bool renderedIndicators = false;
 
             if (snapshot != null)
@@ -1908,6 +1936,12 @@ namespace RtdDolarNative
                 {
                     RenderFlowMap(snapshot);
                     renderedFlowMap = true;
+                }
+
+                if (showHeatmap)
+                {
+                    RenderHeatmap(snapshot);
+                    renderedHeatmap = true;
                 }
 
                 if (showRisk)
@@ -1993,6 +2027,11 @@ namespace RtdDolarNative
                 if (showFlowMap && !renderedFlowMap)
                 {
                     RenderFlowMap(snapshot);
+                }
+
+                if (showHeatmap && !renderedHeatmap)
+                {
+                    RenderHeatmap(snapshot);
                 }
 
                 if (showIndicators && !renderedIndicators)
@@ -2537,6 +2576,7 @@ namespace RtdDolarNative
             AddShortcut(rows, "Ctrl+4", "Tape", "Abrir Tape", "Ver times and trades real ou derivado.");
             AddShortcut(rows, "Ctrl+5", "Order Flow", "Abrir Order Flow", "Ver delta, microbias, VWAP e janelas.");
             AddShortcut(rows, "Ctrl+Shift+F", "Mapa de Fluxo", "Abrir Mapa de Fluxo", "Ver liquidez, delta, profile e setups na mesma tela.");
+            AddShortcut(rows, "Ctrl+Shift+H", "Heatmap", "Abrir Heatmap", "Ver mapa de calor do book, prints, delta e niveis de interesse.");
             AddShortcut(rows, "Ctrl+Shift+I", "Indicadores", "Abrir Indicadores", "Auditar RSI, EMAs, MACD, Bollinger, z-score, ATR/VWAP e sinais quant.");
             AddShortcut(rows, "Ctrl+6", "Volume Profile", "Abrir Volume Profile", "Ver POC, VAH, VAL, HVN, LVN e bins.");
             AddShortcut(rows, "Ctrl+7", "Setups", "Abrir Setups", "Ver sinais e motivos do motor de fluxo.");
@@ -2566,14 +2606,15 @@ namespace RtdDolarNative
             AddWorkflow(rows, "7", "Tape", "Tape", "Usar Ctrl+4 para separar prints reais de tape derivado e agressao compra/venda.");
             AddWorkflow(rows, "8", "Fluxo", "Order Flow", "Usar Ctrl+5 para acompanhar delta, cumulative delta, imbalance, microbias e VWAP.");
             AddWorkflow(rows, "9", "Fluxo", "Mapa de Fluxo", "Usar Ctrl+Shift+F para cruzar liquidez, delta, niveis e setups no mesmo mapa.");
-            AddWorkflow(rows, "10", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN, LVN, bins e distancia do preco.");
-            AddWorkflow(rows, "11", "Quant", "Indicadores", "Usar Ctrl+Shift+I para auditar RSI, medias, MACD, Bollinger, z-score, ATR/VWAP e edge.");
-            AddWorkflow(rows, "12", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco, nivel, motivo e qualidade dos dados.");
-            AddWorkflow(rows, "13", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao por score, fluxo, nivel e qualidade.");
-            AddWorkflow(rows, "14", "Triagem", "Oportunidades", "Usar F2 para priorizar oportunidades por confluencia e idade do sinal.");
-            AddWorkflow(rows, "15", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila, canais e limites antes de decidir.");
-            AddWorkflow(rows, "16", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de agir fora do app.");
-            AddWorkflow(rows, "17", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD, CSV, calculos e telas.");
+            AddWorkflow(rows, "10", "Fluxo", "Heatmap", "Usar Ctrl+Shift+H para ver liquidez passiva, negocios efetivados, delta e absorcao por preco.");
+            AddWorkflow(rows, "11", "Profile", "Volume Profile", "Usar Ctrl+6 para checar POC, VAH, VAL, HVN, LVN, bins e distancia do preco.");
+            AddWorkflow(rows, "12", "Quant", "Indicadores", "Usar Ctrl+Shift+I para auditar RSI, medias, MACD, Bollinger, z-score, ATR/VWAP e edge.");
+            AddWorkflow(rows, "13", "Sinais", "Setups", "Usar Ctrl+7 para revisar score, direcao, preco, nivel, motivo e qualidade dos dados.");
+            AddWorkflow(rows, "14", "Triagem", "Scanner", "Usar F3 para escolher qual ativo merece atencao por score, fluxo, nivel e qualidade.");
+            AddWorkflow(rows, "15", "Triagem", "Oportunidades", "Usar F2 para priorizar oportunidades por confluencia e idade do sinal.");
+            AddWorkflow(rows, "16", "Controle", "Risco", "Usar F9 para ver qualidade dos dados, CSV, fila, canais e limites antes de decidir.");
+            AddWorkflow(rows, "17", "Controle", "Alertas", "Usar F8 para tratar alertas operacionais antes de agir fora do app.");
+            AddWorkflow(rows, "18", "Auditoria", "Historico", "Usar F10 para conferir eventos locais, RTD, CSV, calculos e telas.");
 
             return rows;
         }
@@ -2606,6 +2647,11 @@ namespace RtdDolarNative
         private void RefreshIndicatorsButton_Click(object sender, RoutedEventArgs e)
         {
             RenderIndicators(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RefreshHeatmapButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
         }
 
         private void RenderIndicators(MarketSnapshot snapshot)
@@ -3917,6 +3963,7 @@ namespace RtdDolarNative
                 row.Score = level.Score.ToString("N0", _ptBr);
                 row.Distance = level.Distance.ToString("N2", _ptBr);
                 row.Evidence = EmptyToDash(level.Evidence);
+                row.Direction = level.Direction;
                 rows.Add(row);
             }
 
@@ -4088,6 +4135,7 @@ namespace RtdDolarNative
                 level.Source = "Setups";
                 level.Score = signal.Score;
                 level.Evidence = signal.Reasons;
+                level.Direction = signal.Direction;
                 levels.Add(level);
             }
 
@@ -4636,11 +4684,6 @@ namespace RtdDolarNative
                 return;
             }
 
-            if (_postedTimesKeys.Count > 5000)
-            {
-                _postedTimesKeys.Clear();
-            }
-
             foreach (TimesTradeRow row in rows.OrderByDescending(x => x.Linha))
             {
                 decimal? price = ValueParser.ToDecimal(row.Preco);
@@ -4653,12 +4696,20 @@ namespace RtdDolarNative
 
                 string key = snapshot.Asset + "|" + row.Data + "|" + row.Compradora + "|" + row.Preco + "|" + row.Quantidade + "|" + row.Vendedora + "|" + row.Agressor;
 
-                if (_postedTimesKeys.Contains(key))
+                lock (_postedTimesLock)
                 {
-                    continue;
-                }
+                    if (_postedTimesKeys.Count > 5000)
+                    {
+                        _postedTimesKeys.Clear();
+                    }
 
-                _postedTimesKeys.Add(key);
+                    if (_postedTimesKeys.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    _postedTimesKeys.Add(key);
+                }
 
                 decimal qty = quantity.HasValue && quantity.Value > 0m ? quantity.Value : 1m;
                 string aggressor = NormalizeAggressor(row.Agressor);
@@ -4677,6 +4728,7 @@ namespace RtdDolarNative
                 trade.Bid = snapshot.OfertaCompra;
                 trade.Ask = snapshot.OfertaVenda;
                 _flowProcessor.PostTrade(trade, snapshot);
+                _heatmapProcessor.PostTrade(trade);
             }
         }
 
@@ -6573,6 +6625,91 @@ namespace RtdDolarNative
                 row.Source = EmptyToDash(level.Source);
                 row.Score = level.Score.ToString("N0", _ptBr);
                 row.Read = FlowMapLevelRead(level);
+                row.Direction = level.Direction;
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private void RenderHeatmap(MarketSnapshot snapshot)
+        {
+            string focused = FocusedAsset();
+            MarketSnapshot effective = snapshot ?? FocusedSnapshot();
+
+            if (effective == null &&
+                _lastSnapshot != null &&
+                (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
+            {
+                effective = _lastSnapshot;
+            }
+
+            HeatmapSnapshot heatmap = _heatmapProcessor.GetSnapshot(focused, effective == null ? (decimal?)null : effective.Ultimo, 72);
+
+            if (HeatmapChart != null)
+            {
+                HeatmapChart.SetData(heatmap);
+            }
+
+            if (HeatmapSummaryGrid != null)
+            {
+                HeatmapSummaryGrid.ItemsSource = BuildHeatmapSummaryRows(heatmap, effective);
+            }
+
+            if (HeatmapInterestGrid != null)
+            {
+                HeatmapInterestGrid.ItemsSource = BuildHeatmapInterestRows(heatmap).Take(80).ToList();
+            }
+
+            if (HeatmapStateText != null)
+            {
+                string age = effective == null ? "sem snapshot" : "snapshot " + AgeText(effective.LocalTimestamp);
+                HeatmapStateText.Text = EmptyToDash(focused) +
+                                        " | " + age +
+                                        " | book " + heatmap.BookLevels.ToString(_ptBr) +
+                                        " | trades " + heatmap.TradeCount.ToString(_ptBr) +
+                                        " | " + heatmap.StorageStatus;
+            }
+        }
+
+        private List<NameValueRow> BuildHeatmapSummaryRows(HeatmapSnapshot heatmap, MarketSnapshot snapshot)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+
+            if (heatmap == null)
+            {
+                return rows;
+            }
+
+            AddRow(rows, "Ativo", EmptyToDash(heatmap.Asset), snapshot == null ? "sem snapshot" : AgeText(snapshot.LocalTimestamp));
+            AddRow(rows, "Book compra", heatmap.TotalBidLiquidity.ToString("N0", _ptBr), "liquidez passiva bid");
+            AddRow(rows, "Book venda", heatmap.TotalAskLiquidity.ToString("N0", _ptBr), "liquidez passiva ask");
+            AddRow(rows, "Negocios compra", heatmap.TotalBuyVolume.ToString("N0", _ptBr), "agressoes compra");
+            AddRow(rows, "Negocios venda", heatmap.TotalSellVolume.ToString("N0", _ptBr), "agressoes venda");
+            AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
+            AddRow(rows, "SQLite", heatmap.StorageStatus, _heatmapProcessor.DatabasePath);
+            return rows;
+        }
+
+        private List<HeatmapInterestRow> BuildHeatmapInterestRows(HeatmapSnapshot heatmap)
+        {
+            List<HeatmapInterestRow> rows = new List<HeatmapInterestRow>();
+
+            if (heatmap == null || heatmap.Cells == null)
+            {
+                return rows;
+            }
+
+            foreach (HeatmapCell cell in heatmap.Cells.OrderByDescending(x => x.InterestScore).ThenBy(x => Math.Abs(x.Price - (heatmap.CurrentPrice ?? x.Price))))
+            {
+                HeatmapInterestRow row = new HeatmapInterestRow();
+                row.Price = cell.Price.ToString("N2", _ptBr);
+                row.Direction = string.IsNullOrWhiteSpace(cell.Direction) ? "Neutro" : cell.Direction;
+                row.Score = cell.InterestScore.ToString("N0", _ptBr);
+                row.Book = "C " + cell.BidLiquidity.ToString("N0", _ptBr) + " / V " + cell.AskLiquidity.ToString("N0", _ptBr);
+                row.Trades = "C " + cell.BuyVolume.ToString("N0", _ptBr) + " / V " + cell.SellVolume.ToString("N0", _ptBr);
+                row.Delta = cell.Delta.ToString("N0", _ptBr);
+                row.Read = EmptyToDash(cell.Read);
                 rows.Add(row);
             }
 
@@ -6855,6 +6992,7 @@ namespace RtdDolarNative
                 level.Evidence = signal.Reasons;
                 level.Layer = "Order Flow";
                 level.Tags = signal.LevelName;
+                level.Direction = signal.Direction;
                 level.Distance = snapshot.Ultimo.HasValue ? snapshot.Ultimo.Value - signal.LevelPrice.Value : 0m;
                 result.Add(level);
             }
@@ -7065,6 +7203,7 @@ namespace RtdDolarNative
             public string Score { get; set; }
             public string Distance { get; set; }
             public string Evidence { get; set; }
+            public string Direction { get; set; }
         }
 
         private sealed class ScannerRow
@@ -7110,6 +7249,18 @@ namespace RtdDolarNative
             public string Distance { get; set; }
             public string Source { get; set; }
             public string Score { get; set; }
+            public string Read { get; set; }
+            public string Direction { get; set; }
+        }
+
+        private sealed class HeatmapInterestRow
+        {
+            public string Price { get; set; }
+            public string Direction { get; set; }
+            public string Score { get; set; }
+            public string Book { get; set; }
+            public string Trades { get; set; }
+            public string Delta { get; set; }
             public string Read { get; set; }
         }
 

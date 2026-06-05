@@ -13,7 +13,7 @@ Profit Pro
   -> FlowProcessor em background com fila bounded/drop-old
   -> FlowEngine / VolumeProfileEngine / SetupDetector
   -> DispatcherTimer WPF
-  -> Mesa / Ativos / Cotacao / DOM Book / Tape / Order Flow / Volume Profile / Setups / Indicadores / Niveis / Grafico
+  -> Mesa / Ativos / Cotacao / DOM Book / Tape / Order Flow / Heatmap / Volume Profile / Setups / Indicadores / Niveis / Grafico
 ```
 
 Regras aplicadas desde o primeiro marco:
@@ -21,7 +21,7 @@ Regras aplicadas desde o primeiro marco:
 - RTD roda fora da thread de UI.
 - A janela abre em `idle`; o RTD so inicia quando o usuario clica em `Conectar` ou quando `Rtd.AutoConnect` estiver explicitamente ligado.
 - A UI nao recebe fila de ticks; ela le sempre o snapshot mais recente.
-- A thread RTD nao grava SQLite e nao atualiza controles WPF.
+- A thread RTD nao grava SQLite diretamente e nao atualiza controles WPF.
 - O app assina os campos configurados em `Rtd.Sources[]`; `Rtd.Fields` permanece como fallback legado.
 - O app assina todos os ativos ligados em `Rtd.Assets` e mantem snapshots isolados por ativo.
 - Cada ativo cadastra `QuoteCode`, `BookTopic`, `TimesTopic`, `CsvPath`, `QuoteEnabled`, `BookEnabled` e `TimesEnabled`.
@@ -48,6 +48,7 @@ Telas principais:
 - `DOM / Book`: ladder por tick, profundidade real do book e niveis.
 - `Tape`: prints reais quando disponiveis ou derivados por quote/tick rule.
 - `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas 1s/5s/15s/60s/300s.
+- `Heatmap`: mapa por preco combinando liquidez passiva do book, negocios efetivados, delta, CVD e leituras de absorcao/interesse.
 - `Volume Profile`: grafico horizontal por preco com POC, VAH/VAL 70%, HVN/LVN, tabela de nos e fallback por CSV diario.
 - `Setups`: absorcao, defesa/perda de POC, rompimento com fluxo, rejeicao em LVN e VWAP reversion/continuation.
 - `Indicadores`: auditoria de RSI, medias, MACD, Bollinger, z-score, ATR/VWAP, volatilidade, backtest proxy e sinais quant.
@@ -55,3 +56,9 @@ Telas principais:
 - `Grafico`: desenho WPF customizado, com candles e niveis.
 - `Backtest`: toque/reversao dos desvios historicos.
 - `Diagnostico`: fontes RTD, topicos assinados, indices, erros e metricas.
+
+## Heatmap e SQLite
+
+O `HeatmapProcessor` recebe snapshots do book e prints reais de `Times` fora da thread RTD. A memoria mantem a janela recente para desenhar a tela; o `MarketHeatmapSqliteStore` grava `book_levels` e `trades` em `%LOCALAPPDATA%\PoinDolarWindows\data\market_heatmap.sqlite`.
+
+A gravacao usa fila limitada, batch em background e SQLite com WAL/synchronous normal. Isso permite leitura futura e auditoria do fluxo sem colocar escrita de disco na thread do RTD ou no render da UI.

@@ -33,6 +33,7 @@ Use o menu superior como navegacao principal; ele seleciona cada tela diretament
 - `DOM / Book`: escada por tick, book real `0..49`, volumes bid/ask, marcacoes por preco e tape recente.
 - `Tape`: times and trades real quando `Times` estiver ligado; fallback para tape derivado.
 - `Order Flow`: delta, cumulative delta, imbalance, microbias, VWAP e janelas.
+- `Heatmap`: mapa de calor por preco com liquidez do book, negocios efetivados, delta, CVD e leituras de absorcao.
 - `Volume Profile`: bins, POC, VAH, VAL, HVN e LVN.
 - `Setups`: sinais de fluxo, direcao, score, nivel associado e qualidade do dado.
 - `Indicadores`: auditoria de tecnicos, estatistica, score quant, fonte RTD/CSV e confirmacao de fluxo.
@@ -96,7 +97,9 @@ A tela `Indicadores` mostra os calculos que sustentam a triagem:
 - robustez da oportunidade: `Robusto`, `Acionavel`, `Monitorar`, `Fraco` ou `Bloqueado`.
 - qualidade da alimentacao: RTD, CSV, canais `Cotacao`, `Book`, `Times`, tape real ou derivado.
 
-O caminho esperado de decisao e: cadastrar ativo e canais RTD, conectar, validar qualidade em `Diagnostico`, acompanhar `Mesa`, auditar `DOM / Book` e `Tape`, revisar `Order Flow`, `Volume Profile`, `Indicadores`, `Setups`, `Scanner` e `Oportunidades`. Os RTDs alimentam preco/volume, book e prints; o CSV historico alimenta volatilidade, desvios, indicadores, profile proxy, risco estatistico de retornos e backtest proxy.
+O caminho esperado de decisao e: cadastrar ativo e canais RTD, conectar, validar qualidade em `Diagnostico`, acompanhar `Mesa`, auditar `DOM / Book` e `Tape`, revisar `Order Flow`, `Heatmap`, `Volume Profile`, `Indicadores`, `Setups`, `Scanner` e `Oportunidades`. Os RTDs alimentam preco/volume, book e prints; o CSV historico alimenta volatilidade, desvios, indicadores, profile proxy, risco estatistico de retornos e backtest proxy.
+
+O `Heatmap` usa o book para mapear liquidez passiva por preco e o times and trades para marcar volume executado e agressao. Os dados sao persistidos em SQLite em `%LOCALAPPDATA%\PoinDolarWindows\data\market_heatmap.sqlite`, com escrita em segundo plano para nao travar RTD ou UI.
 
 O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado. `Robusto` exige RTD fresco, fluxo confirmando, qualidade real de dados, edge direcional positivo, confianca estatistica minima e risco/retorno coerente; com `TopOfBookOnly`, tape derivado, snapshot atrasado, CSV insuficiente ou estatistica conflitante, a UI informa a qualidade do dado e o score fica limitado.
 

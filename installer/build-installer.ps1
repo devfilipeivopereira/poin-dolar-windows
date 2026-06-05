@@ -33,12 +33,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $payloadRoot "app\x64"),(Jo
 
 $x64Out = Join-Path $projectDir "bin\x64\$Configuration"
 $x86Out = Join-Path $projectDir "bin\x86\$Configuration"
-$files = @("RtdDolarNative.exe", "RtdDolarNative.exe.config", "appsettings.json")
-
-foreach ($file in $files) {
-    Copy-Item -Force (Join-Path $x64Out $file) (Join-Path $payloadRoot "app\x64")
-    Copy-Item -Force (Join-Path $x86Out $file) (Join-Path $payloadRoot "app\x86")
-}
+Copy-Item -Recurse -Force (Join-Path $x64Out "*") (Join-Path $payloadRoot "app\x64")
+Copy-Item -Recurse -Force (Join-Path $x86Out "*") (Join-Path $payloadRoot "app\x86")
 
 Copy-Item -Force (Join-Path $root "README.md") $payloadRoot
 Copy-Item -Recurse -Force (Join-Path $root "docs\*") (Join-Path $payloadRoot "docs")

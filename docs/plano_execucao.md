@@ -45,5 +45,6 @@
 - [x] Tape derivado, delta, cumulative delta, imbalance, microbias, VWAP e janelas.
 - [x] Volume Profile intraday com POC, VAH, VAL, HVN, LVN e fallback por CSV diario.
 - [x] Setups MVP: absorcao, defesa/perda de POC, rompimento com fluxo, rejeicao em LVN e VWAP reversion/continuation.
-- [ ] SQLite opcional em segundo plano.
+- [x] SQLite em segundo plano para heatmap de book/trades.
+- [x] Tela `Heatmap` com liquidez do book, negocios efetivados, delta, CVD e niveis de interesse.
 - [ ] Testes automatizados de paridade com fixtures reais do HTML.

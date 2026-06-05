@@ -78,6 +78,10 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Data.SQLite">
+      <HintPath>External\SQLite\System.Data.SQLite.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xaml" />
@@ -100,6 +104,7 @@
     </Compile>
     <Compile Include="Config\AppConfig.cs" />
     <Compile Include="Charts\NativeChartControl.cs" />
+    <Compile Include="Charts\HeatmapChartControl.cs" />
     <Compile Include="Charts\VolumeProfileChartControl.cs" />
     <Compile Include="Csv\DailyBar.cs" />
     <Compile Include="Csv\DailyCsvParser.cs" />
@@ -110,6 +115,9 @@
     <Compile Include="Flow\FlowProcessor.cs" />
     <Compile Include="Flow\SetupDetector.cs" />
     <Compile Include="Flow\VolumeProfileEngine.cs" />
+    <Compile Include="Heatmap\HeatmapModels.cs" />
+    <Compile Include="Heatmap\HeatmapProcessor.cs" />
+    <Compile Include="Heatmap\MarketHeatmapSqliteStore.cs" />
     <Compile Include="Logging\Logger.cs" />
     <Compile Include="LowLatency\LatestSnapshotBuffer.cs" />
     <Compile Include="LowLatency\RingBuffer.cs" />
@@ -130,6 +138,17 @@
     <None Include="App.config" />
     <Resource Include="Assets\AppIcon.ico" />
     <None Include="Assets\AppIcon.svg" />
+    <Content Include="External\SQLite\System.Data.SQLite.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="External\SQLite\x64\SQLite.Interop.dll">
+      <Link>x64\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="External\SQLite\x86\SQLite.Interop.dll">
+      <Link>x86\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
