@@ -6902,7 +6902,7 @@ namespace RtdDolarNative
 
         private void RenderLevelsWorkspace(MarketSnapshot snapshot)
         {
-            if (LevelsGrid == null || OpeningMapGrid == null || LevelsSummaryGrid == null || OpeningGrid == null || PocGrid == null || StdDevGrid == null || PercentGrid == null || ConfluenceGrid == null)
+            if (LevelsGrid == null || OpeningMapGrid == null || LevelsSummaryGrid == null || OpeningGrid == null || PocGrid == null || StdDevGrid == null || GaussGrid == null || PercentGrid == null || ConfluenceGrid == null)
             {
                 return;
             }
@@ -6915,6 +6915,7 @@ namespace RtdDolarNative
                 OpeningGrid.ItemsSource = null;
                 PocGrid.ItemsSource = null;
                 StdDevGrid.ItemsSource = null;
+                GaussGrid.ItemsSource = null;
                 PercentGrid.ItemsSource = null;
                 ConfluenceGrid.ItemsSource = null;
                 LevelsMapStateText.Text = "Carregue o CSV diario para montar os niveis.";
@@ -6934,7 +6935,8 @@ namespace RtdDolarNative
             LevelsSummaryGrid.ItemsSource = BuildLevelsSummaryRows(effective, openingRows);
             LevelsGrid.ItemsSource = BuildLevelRows(_result.KeyLevels, effective);
             PocGrid.ItemsSource = BuildDeviationRows(_result.PocDeviationLevels, effective, "POC");
-            StdDevGrid.ItemsSource = BuildDeviationRows(_result.StandardDeviationLevels, effective, "Media");
+            StdDevGrid.ItemsSource = BuildDeviationRows(_result.StandardDeviationLevels, effective, "Desvio");
+            GaussGrid.ItemsSource = BuildDeviationRows(_result.GaussLevels, effective, "Gauss");
             PercentGrid.ItemsSource = BuildLevelRows(_result.PercentTable, effective);
             ConfluenceGrid.ItemsSource = BuildLevelRows(_result.Confluence, effective);
 
@@ -6975,7 +6977,9 @@ namespace RtdDolarNative
 
             foreach (DeviationLevel level in (levels ?? new List<DeviationLevel>()).OrderByDescending(x => x.Price))
             {
-                string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
+                string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase)
+                    ? "Sell"
+                    : (string.Equals(level.Side, "Compra", StringComparison.OrdinalIgnoreCase) ? "Buy" : "Opening");
                 rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), level.Price, level.Price - currentPrice, level.DistanceReference, source, false));
             }
 
@@ -6994,7 +6998,9 @@ namespace RtdDolarNative
             row.Source = source;
             row.IsOpening = isOpening;
             row.SortPrice = price;
-            row.Direction = isOpening ? "Neutro" : (string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra");
+            row.Direction = isOpening || !string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) && !string.Equals(side, "Compra", StringComparison.OrdinalIgnoreCase)
+                ? "Neutro"
+                : (string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra");
             return row;
         }
 

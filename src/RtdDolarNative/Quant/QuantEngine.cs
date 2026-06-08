@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
@@ -10,6 +11,8 @@ namespace RtdDolarNative.Quant
     public static class QuantEngine
     {
         private static readonly double[] PercentVariations = new[] { 3d, 2.5d, 2d, 1.5d, 1d, 0.5d, 0d, -0.5d, -1d, -1.5d, -2d, -2.5d, -3d };
+        private static readonly decimal[] GaussPercents = new[] { 0.02m, 0.0175m, 0.015m, 0.0125m, 0.01m, 0.0075m, 0.005m, 0.0025m, -0.0025m, -0.005m, -0.0075m, -0.01m, -0.0125m, -0.015m, -0.0175m, -0.02m };
+        private const decimal GaussFixedPoints = 52m;
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays)
         {
@@ -57,7 +60,8 @@ namespace RtdDolarNative.Quant
             result.RogersSatchell = CalcRogersSatchell(selectedWindow, windowDays);
             result.YangZhang = CalcYangZhang(selectedWindow, windowDays);
             result.CloseToClose = CalcCloseToClose(selectedWindow, windowDays);
-            result.StandardDeviation = CalcStandardDeviation(selectedWindow, windowDays);
+            result.StandardDeviation = CalcStandardDeviation(selectedWindow, windowDays, tickSize);
+            result.Gauss = CalcGauss(result.PreviousDay, windowDays);
             result.Atr = CalcAtr(selectedWindow, windowDays, result.Bars);
             result.Metrics.Add(result.GarmanKlass);
             result.Metrics.Add(result.Parkinson);
@@ -65,6 +69,7 @@ namespace RtdDolarNative.Quant
             result.Metrics.Add(result.YangZhang);
             result.Metrics.Add(result.CloseToClose);
             result.Metrics.Add(result.StandardDeviation);
+            result.Metrics.Add(result.Gauss);
             result.Metrics.Add(result.Atr);
 
             if (selectedWindow.Count >= 2)
@@ -77,9 +82,11 @@ namespace RtdDolarNative.Quant
             result.Profile = VolumeProfileProxy(selectedWindow);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
+            decimal standardDeviationReference = snapshot != null && snapshot.Abertura.HasValue ? result.Intraday.Open : result.PreviousDay.Open;
             result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
-            result.StandardDeviationLevels = StandardDeviationLevels(selectedWindow, result.Intraday.Price);
+            result.StandardDeviationLevels = StandardDeviationLevels(selectedWindow, standardDeviationReference, result.Intraday.Price, tickSize);
+            result.GaussLevels = GaussLevels(result.PreviousDay, result.Intraday.Price);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, windowDays);
@@ -221,24 +228,29 @@ namespace RtdDolarNative.Quant
             return VolMetric("Close-to-close", window, bars, Stdev(returns, true));
         }
 
-        private static VolatilityMetric CalcStandardDeviation(List<DailyBar> bars, int window)
+        private static VolatilityMetric CalcStandardDeviation(List<DailyBar> bars, int window, decimal tickSize)
         {
             if (bars == null || bars.Count == 0)
             {
-                return VolMetric("Desvio padrao", window, new List<DailyBar>(), 0d);
+                return PointMetric("Desvio padrao", window, 0m, 0m);
             }
 
-            List<decimal> closes = bars.Select(x => x.Close).Where(x => x > 0m).ToList();
+            List<decimal> ranges = bars.Select(x => x.High - x.Low).Where(x => x > 0m).ToList();
 
-            if (closes.Count < 2)
+            if (ranges.Count < 2)
             {
-                return VolMetric("Desvio padrao", window, bars, 0d);
+                return PointMetric("Desvio padrao", window, 0m, bars.Average(x => x.Close));
             }
 
-            decimal mean = closes.Average();
-            decimal stdev = StdevDecimal(closes);
-            double ratio = mean <= 0m ? 0d : D(stdev) / D(mean);
-            return VolMetric("Desvio padrao", window, bars, ratio);
+            decimal price = bars.Average(x => x.Close);
+            decimal stdev = RoundToStep(PopulationStdevDecimal(ranges), tickSize);
+            return PointMetric("Desvio padrao", window, stdev, price);
+        }
+
+        private static VolatilityMetric CalcGauss(DailyBar previousDay, int window)
+        {
+            decimal reference = previousDay == null ? 0m : previousDay.Close;
+            return PointMetric("Gauss", window, GaussFixedPoints, reference);
         }
 
         private static VolatilityMetric CalcAtr(List<DailyBar> bars, int window, List<DailyBar> allBars)
@@ -260,11 +272,16 @@ namespace RtdDolarNative.Quant
         private static VolatilityMetric VolMetric(string name, int window, List<DailyBar> bars, double ratio)
         {
             decimal price = bars.Count == 0 ? 0m : bars.Average(x => x.Close);
+            return PointMetric(name, window, Dec(ratio * D(price)), price);
+        }
+
+        private static VolatilityMetric PointMetric(string name, int window, decimal points, decimal referencePrice)
+        {
             VolatilityMetric metric = new VolatilityMetric();
             metric.Name = name;
             metric.Window = window;
-            metric.Points = Dec(ratio * D(price));
-            metric.Percent = ratio * 100d;
+            metric.Points = points;
+            metric.Percent = referencePrice <= 0m ? 0d : D(points) / D(referencePrice) * 100d;
             metric.Percentile = 0d;
             return metric;
         }
@@ -503,7 +520,7 @@ namespace RtdDolarNative.Quant
             return levels;
         }
 
-        private static List<DeviationLevel> StandardDeviationLevels(List<DailyBar> bars, decimal currentPrice)
+        private static List<DeviationLevel> StandardDeviationLevels(List<DailyBar> bars, decimal openPrice, decimal currentPrice, decimal tickSize)
         {
             List<DeviationLevel> levels = new List<DeviationLevel>();
 
@@ -512,25 +529,57 @@ namespace RtdDolarNative.Quant
                 return levels;
             }
 
-            List<decimal> closes = bars.Select(x => x.Close).Where(x => x > 0m).ToList();
+            List<decimal> ranges = bars.Select(x => x.High - x.Low).Where(x => x > 0m).ToList();
 
-            if (closes.Count < 2)
+            if (ranges.Count < 2 || openPrice <= 0m)
             {
                 return levels;
             }
 
-            decimal mean = closes.Average();
-            decimal sigma = StdevDecimal(closes);
+            decimal sigma = RoundToStep(PopulationStdevDecimal(ranges), tickSize);
 
-            if (mean <= 0m || sigma <= 0m)
+            if (sigma <= 0m)
             {
                 return levels;
             }
 
-            return ReferenceDeviationLevels("Media", mean, sigma, currentPrice);
+            for (int m = 1; m <= 4; m++)
+            {
+                decimal sell = openPrice + m * sigma;
+                decimal buy = openPrice - m * sigma;
+                levels.Add(Deviation("Venda", "sell", m, sell, openPrice, currentPrice, "Ponto " + m + " | Abertura +" + m + " desvio"));
+                levels.Add(Deviation("Compra", "buy", -m, buy, openPrice, currentPrice, "Ponto " + (m + 4) + " | Abertura -" + m + " desvio"));
+            }
+
+            return levels;
         }
 
-        private static DeviationLevel Deviation(string side, string dir, int sigma, decimal price, decimal reference, decimal current, string label)
+        private static List<DeviationLevel> GaussLevels(DailyBar previousDay, decimal currentPrice)
+        {
+            List<DeviationLevel> levels = new List<DeviationLevel>();
+
+            if (previousDay == null || previousDay.Close <= 0m)
+            {
+                return levels;
+            }
+
+            decimal reference = previousDay.Close;
+            levels.Add(Deviation("Venda", "sell", GaussFixedPoints, reference + GaussFixedPoints, reference, currentPrice, "GAUSS_VENDA +52 pts"));
+
+            foreach (decimal percent in GaussPercents)
+            {
+                decimal price = reference + reference * percent;
+                string side = percent > 0m ? "Venda" : "Compra";
+                string direction = percent > 0m ? "sell" : "buy";
+                string label = "Gauss " + percent.ToString("+0.##%;-0.##%", CultureInfo.GetCultureInfo("pt-BR"));
+                levels.Add(Deviation(side, direction, percent, price, reference, currentPrice, label));
+            }
+
+            levels.Add(Deviation("Compra", "buy", -GaussFixedPoints, reference - GaussFixedPoints, reference, currentPrice, "GAUSS_COMPRA -52 pts"));
+            return levels;
+        }
+
+        private static DeviationLevel Deviation(string side, string dir, decimal sigma, decimal price, decimal reference, decimal current, string label)
         {
             DeviationLevel level = new DeviationLevel();
             level.Side = side;
@@ -1112,6 +1161,28 @@ namespace RtdDolarNative.Quant
             decimal avg = values.Average();
             double variance = values.Sum(x => Math.Pow(D(x - avg), 2d)) / Math.Max(1, values.Count - 1);
             return Dec(Math.Sqrt(variance));
+        }
+
+        private static decimal PopulationStdevDecimal(List<decimal> values)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return 0m;
+            }
+
+            decimal avg = values.Average();
+            double variance = values.Sum(x => Math.Pow(D(x - avg), 2d)) / Math.Max(1, values.Count);
+            return Dec(Math.Sqrt(variance));
+        }
+
+        private static decimal RoundToStep(decimal value, decimal step)
+        {
+            if (step <= 0m)
+            {
+                return value;
+            }
+
+            return Math.Round(value / step, 0, MidpointRounding.AwayFromZero) * step;
         }
 
         private static decimal DownsideDeviation(List<decimal> values)

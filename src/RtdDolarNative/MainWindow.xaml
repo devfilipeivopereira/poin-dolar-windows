@@ -2068,7 +2068,20 @@
                                     <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
                                     <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
-                                    <DataGridTextColumn Header="Dist Media" Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                    <DataGridTextColumn Header="Dist Abert." Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="110" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <TabItem Header="Gauss">
+                            <DataGrid x:Name="GaussGrid" Margin="0,10,0,0" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                    <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                    <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                    <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                    <DataGridTextColumn Header="Dist D-1" Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="110" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </TabItem>
