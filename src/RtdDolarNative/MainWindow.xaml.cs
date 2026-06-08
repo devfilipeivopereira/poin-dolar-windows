@@ -7037,13 +7037,14 @@ namespace RtdDolarNative
             List<NameValueRow> rows = new List<NameValueRow>();
             decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
             decimal openPrice = _result == null || _result.Intraday == null ? 0m : _result.Intraday.Open;
-            LevelsMapRow nearestSell = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Sell", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
-            LevelsMapRow nearestBuy = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Buy", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
 
             AddRow(rows, "Atual", currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr), DescribeCurrentVsOpen(currentPrice, openPrice));
             AddRow(rows, "Abertura", openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr), "linha central do mapa");
-            AddRow(rows, "Venda prox.", nearestSell == null ? "-" : nearestSell.Price, nearestSell == null ? "-" : "dist " + nearestSell.DistanceCurrent);
-            AddRow(rows, "Compra prox.", nearestBuy == null ? "-" : nearestBuy.Price, nearestBuy == null ? "-" : "dist " + nearestBuy.DistanceCurrent);
+
+            AddMetricSummaryRows(rows, "Garman-Klass", _result == null ? null : _result.GarmanKlass, _result == null ? null : _result.OpeningLevels, currentPrice, "base abertura");
+            AddMetricSummaryRows(rows, "Gauss", _result == null ? null : _result.Gauss, _result == null ? null : _result.GaussLevels, currentPrice, "base D-1");
+            AddMetricSummaryRows(rows, "Desvio padrão", _result == null ? null : _result.StandardDeviation, _result == null ? null : _result.StandardDeviationLevels, currentPrice, "base abertura");
+
             AddRow(rows, "Faixa", OpeningBandText(openingRows), "amplitude entre a compra e a venda mais extremas");
             AddRow(rows, "Regime", EmptyToDash(_result.Regime), _result.Technicals == null ? "-" : EmptyToDash(_result.Technicals.TrendState));
             return rows;
@@ -7056,16 +7057,67 @@ namespace RtdDolarNative
             LevelsMapRow nearestSell = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Sell", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
             LevelsMapRow nearestBuy = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Buy", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
 
-            LevelsMapStateText.Text = EmptyToDash(FocusedAsset()) +
-                                      " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)) +
-                                      " | abertura no centro | RTD " + EmptyToDash(_probeService.Status) +
-                                      " | " + openingRows.Count(x => !x.IsOpening).ToString(_ptBr) + " nivel(is)";
+            string header = EmptyToDash(FocusedAsset()) +
+                            " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)) +
+                            " | abertura no centro | RTD " + EmptyToDash(_probeService.Status) +
+                            " | " + (openingRows == null ? 0 : openingRows.Count(x => !x.IsOpening)).ToString(_ptBr) + " nivel(is)";
+            if (_result != null)
+            {
+                header += " | GK " + MetricPointsText(_result.GarmanKlass == null ? 0m : _result.GarmanKlass.Points) +
+                          " | Gauss " + MetricPointsText(_result.Gauss == null ? 0m : _result.Gauss.Points) +
+                          " | Desvio " + MetricPointsText(_result.StandardDeviation == null ? 0m : _result.StandardDeviation.Points);
+            }
+
+            LevelsMapStateText.Text = header;
             LevelsCurrentPriceText.Text = currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr);
             LevelsOpenPriceText.Text = openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr);
             LevelsOpenDistanceText.Text = openPrice <= 0m ? "-" : FormatPoints(currentPrice - openPrice);
             LevelsNearestSellText.Text = nearestSell == null ? "-" : nearestSell.Price + " | " + nearestSell.DistanceCurrent;
             LevelsNearestBuyText.Text = nearestBuy == null ? "-" : nearestBuy.Price + " | " + nearestBuy.DistanceCurrent;
             LevelsOpenDistanceText.Foreground = VariationBrush(currentPrice - openPrice);
+        }
+
+        private string MetricPointsText(decimal points)
+        {
+            decimal rounded = Math.Round(points, 2, MidpointRounding.AwayFromZero);
+            return rounded.ToString("N2", _ptBr) + " pts";
+        }
+
+        private void AddMetricSummaryRows(List<NameValueRow> rows, string metricName, VolatilityMetric metric, IEnumerable<DeviationLevel> levels, decimal currentPrice, string basis)
+        {
+            string label = NormalizeMetricLabel(metricName);
+            string standardLabel = string.Equals(label, "Desvio padrão", StringComparison.OrdinalIgnoreCase) ? label : label + " padrão";
+            AddRow(rows, standardLabel, MetricPointsText(metric == null ? 0m : metric.Points), basis);
+
+            DeviationLevel nearestSell = NearestDeviationLevel(levels, "Venda", currentPrice);
+            DeviationLevel nearestBuy = NearestDeviationLevel(levels, "Compra", currentPrice);
+
+            AddRow(rows, label + " venda", nearestSell == null ? "-" : nearestSell.Price.ToString("N2", _ptBr), nearestSell == null ? "-" : nearestSell.DistanceCurrent + " | " + EmptyToDash(nearestSell.Label));
+            AddRow(rows, label + " compra", nearestBuy == null ? "-" : nearestBuy.Price.ToString("N2", _ptBr), nearestBuy == null ? "-" : nearestBuy.DistanceCurrent + " | " + EmptyToDash(nearestBuy.Label));
+        }
+
+        private string NormalizeMetricLabel(string metricName)
+        {
+            if (string.IsNullOrWhiteSpace(metricName))
+            {
+                return "-";
+            }
+
+            if (string.Equals(metricName, "Desvio padrÃ£o", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(metricName, "Desvio padrao", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Desvio padrão";
+            }
+
+            return metricName;
+        }
+
+        private DeviationLevel NearestDeviationLevel(IEnumerable<DeviationLevel> levels, string side, decimal currentPrice)
+        {
+            return (levels ?? new List<DeviationLevel>())
+                .Where(x => string.Equals(x.Side, side, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => Math.Abs(x.Price - currentPrice))
+                .FirstOrDefault();
         }
 
         private List<OpportunityLevelRow> BuildLevelRows(IEnumerable<KeyLevel> levels, MarketSnapshot snapshot)
