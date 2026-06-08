@@ -73,6 +73,7 @@ namespace RtdDolarNative
         private bool _renderActiveTabQueued;
         private bool _domCenterQueued;
         private bool _dashboardDomCenterQueued;
+        private bool _levelsMapCenterQueued;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastDashboardChartRefresh = DateTimeOffset.MinValue;
@@ -652,6 +653,9 @@ namespace RtdDolarNative
                     break;
                 case TabIndicators:
                     RenderIndicators(snapshot);
+                    break;
+                case TabLevels:
+                    RenderLevelsWorkspace(snapshot);
                     break;
                 case TabChart:
                     ChartControl.SetData(_dailyBars, CurrentSnapshotForCalc(), _result);
@@ -2170,6 +2174,7 @@ namespace RtdDolarNative
             bool showHistory = selectedTab == TabHistory;
             bool showScanner = selectedTab == TabScanner;
             bool showIndicators = selectedTab == TabIndicators;
+            bool showLevels = selectedTab == TabLevels;
             bool showRtdComplete = selectedTab == TabRtdComplete;
             bool renderedDashboard = false;
             bool renderedMonitor = false;
@@ -2180,6 +2185,7 @@ namespace RtdDolarNative
             bool renderedFlowMap = false;
             bool renderedHeatmap = false;
             bool renderedIndicators = false;
+            bool renderedLevels = false;
             bool renderedRtdComplete = false;
 
             if (snapshot != null)
@@ -2194,6 +2200,12 @@ namespace RtdDolarNative
                     if (showQuote)
                     {
                         RenderQuoteFields(snapshot);
+                    }
+
+                    if (showLevels)
+                    {
+                        RenderLevelsWorkspace(snapshot);
+                        renderedLevels = true;
                     }
 
                     if (showRtdComplete)
@@ -2281,6 +2293,12 @@ namespace RtdDolarNative
                     renderedIndicators = true;
                 }
 
+                if (showLevels && !renderedLevels)
+                {
+                    RenderLevelsWorkspace(snapshot);
+                    renderedLevels = true;
+                }
+
                 if (showRtdComplete && !renderedRtdComplete)
                 {
                     RenderRtdComplete(snapshot);
@@ -2350,6 +2368,11 @@ namespace RtdDolarNative
                 if (showIndicators && !renderedIndicators)
                 {
                     RenderIndicators(snapshot);
+                }
+
+                if (showLevels && !renderedLevels)
+                {
+                    RenderLevelsWorkspace(snapshot);
                 }
 
                 if (showRtdComplete && !renderedRtdComplete)
@@ -6862,14 +6885,9 @@ namespace RtdDolarNative
                 return;
             }
 
-            LevelsGrid.ItemsSource = _result.KeyLevels.OrderBy(x => Math.Abs(x.Distance)).ToList();
             DomLevelsGrid.ItemsSource = _result.Confluence.OrderBy(x => Math.Abs(x.Distance)).Take(80).ToList();
-            OpeningGrid.ItemsSource = _result.OpeningLevels.OrderBy(x => x.Price).ToList();
-            PocGrid.ItemsSource = _result.PocDeviationLevels.OrderBy(x => x.Price).ToList();
-            StdDevGrid.ItemsSource = _result.StandardDeviationLevels.OrderBy(x => x.Price).ToList();
-            PercentGrid.ItemsSource = _result.PercentTable.OrderBy(x => x.Source).ThenBy(x => x.Price).ToList();
+            RenderLevelsWorkspace(snapshot);
             RenderVolumeProfile(snapshot, _flowProcessor.GetMetrics(FocusedAsset()));
-            ConfluenceGrid.ItemsSource = _result.Confluence.ToList();
             BacktestGrid.ItemsSource = _result.Backtest.ToList();
             MetricsList.ItemsSource = BuildMetricLines(_result);
             SetWarnings(_result.Warnings);
@@ -6880,6 +6898,211 @@ namespace RtdDolarNative
             {
                 RenderIndicators(snapshot);
             }
+        }
+
+        private void RenderLevelsWorkspace(MarketSnapshot snapshot)
+        {
+            if (LevelsGrid == null || OpeningMapGrid == null || LevelsSummaryGrid == null || OpeningGrid == null || PocGrid == null || StdDevGrid == null || PercentGrid == null || ConfluenceGrid == null)
+            {
+                return;
+            }
+
+            if (_result == null)
+            {
+                OpeningMapGrid.ItemsSource = null;
+                LevelsSummaryGrid.ItemsSource = null;
+                LevelsGrid.ItemsSource = null;
+                OpeningGrid.ItemsSource = null;
+                PocGrid.ItemsSource = null;
+                StdDevGrid.ItemsSource = null;
+                PercentGrid.ItemsSource = null;
+                ConfluenceGrid.ItemsSource = null;
+                LevelsMapStateText.Text = "Carregue o CSV diario para montar os niveis.";
+                LevelsCurrentPriceText.Text = "-";
+                LevelsOpenPriceText.Text = "-";
+                LevelsOpenDistanceText.Text = "-";
+                LevelsNearestSellText.Text = "-";
+                LevelsNearestBuyText.Text = "-";
+                return;
+            }
+
+            MarketSnapshot effective = snapshot ?? CurrentSnapshotForCalc();
+            List<LevelsMapRow> openingRows = BuildOpeningMapRows(effective);
+
+            OpeningMapGrid.ItemsSource = openingRows;
+            OpeningGrid.ItemsSource = openingRows;
+            LevelsSummaryGrid.ItemsSource = BuildLevelsSummaryRows(effective, openingRows);
+            LevelsGrid.ItemsSource = BuildLevelRows(_result.KeyLevels, effective);
+            PocGrid.ItemsSource = BuildDeviationRows(_result.PocDeviationLevels, effective, "POC");
+            StdDevGrid.ItemsSource = BuildDeviationRows(_result.StandardDeviationLevels, effective, "Media");
+            PercentGrid.ItemsSource = BuildLevelRows(_result.PercentTable, effective);
+            ConfluenceGrid.ItemsSource = BuildLevelRows(_result.Confluence, effective);
+
+            UpdateLevelsHeader(effective, openingRows);
+            ScheduleLevelsMapCenter();
+        }
+
+        private List<LevelsMapRow> BuildOpeningMapRows(MarketSnapshot snapshot)
+        {
+            List<LevelsMapRow> rows = new List<LevelsMapRow>();
+
+            if (_result == null || _result.Intraday == null)
+            {
+                return rows;
+            }
+
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+            decimal openPrice = _result.Intraday.Open;
+
+            rows.Add(NewLevelsMapRow("Opening", "Abertura", "Abertura do dia", openPrice, openPrice - currentPrice, 0m, "RTD", true));
+
+            foreach (DeviationLevel level in (_result.OpeningLevels ?? new List<DeviationLevel>()).OrderByDescending(x => x.Price))
+            {
+                string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
+                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), level.Price, level.Price - currentPrice, level.Price - openPrice, "Abertura", false));
+            }
+
+            return rows
+                .OrderByDescending(x => x.SortPrice)
+                .ThenBy(x => x.IsOpening ? 0 : 1)
+                .ToList();
+        }
+
+        private List<LevelsMapRow> BuildDeviationRows(IEnumerable<DeviationLevel> levels, MarketSnapshot snapshot, string source)
+        {
+            List<LevelsMapRow> rows = new List<LevelsMapRow>();
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+
+            foreach (DeviationLevel level in (levels ?? new List<DeviationLevel>()).OrderByDescending(x => x.Price))
+            {
+                string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
+                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), level.Price, level.Price - currentPrice, level.DistanceReference, source, false));
+            }
+
+            return rows;
+        }
+
+        private LevelsMapRow NewLevelsMapRow(string zone, string side, string label, decimal price, decimal distanceCurrent, decimal distanceReference, string source, bool isOpening)
+        {
+            LevelsMapRow row = new LevelsMapRow();
+            row.Zone = zone;
+            row.Side = side;
+            row.Label = label;
+            row.Price = price.ToString("N2", _ptBr);
+            row.DistanceCurrent = FormatPoints(distanceCurrent);
+            row.DistanceReference = FormatPoints(distanceReference);
+            row.Source = source;
+            row.IsOpening = isOpening;
+            row.SortPrice = price;
+            row.Direction = isOpening ? "Neutro" : (string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra");
+            return row;
+        }
+
+        private List<NameValueRow> BuildLevelsSummaryRows(MarketSnapshot snapshot, List<LevelsMapRow> openingRows)
+        {
+            List<NameValueRow> rows = new List<NameValueRow>();
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+            decimal openPrice = _result == null || _result.Intraday == null ? 0m : _result.Intraday.Open;
+            LevelsMapRow nearestSell = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Sell", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
+            LevelsMapRow nearestBuy = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Buy", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
+
+            AddRow(rows, "Atual", currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr), DescribeCurrentVsOpen(currentPrice, openPrice));
+            AddRow(rows, "Abertura", openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr), "linha central do mapa");
+            AddRow(rows, "Venda prox.", nearestSell == null ? "-" : nearestSell.Price, nearestSell == null ? "-" : "dist " + nearestSell.DistanceCurrent);
+            AddRow(rows, "Compra prox.", nearestBuy == null ? "-" : nearestBuy.Price, nearestBuy == null ? "-" : "dist " + nearestBuy.DistanceCurrent);
+            AddRow(rows, "Faixa", OpeningBandText(openingRows), "amplitude entre a compra e a venda mais extremas");
+            AddRow(rows, "Regime", EmptyToDash(_result.Regime), _result.Technicals == null ? "-" : EmptyToDash(_result.Technicals.TrendState));
+            return rows;
+        }
+
+        private void UpdateLevelsHeader(MarketSnapshot snapshot, List<LevelsMapRow> openingRows)
+        {
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+            decimal openPrice = _result == null || _result.Intraday == null ? 0m : _result.Intraday.Open;
+            LevelsMapRow nearestSell = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Sell", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
+            LevelsMapRow nearestBuy = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Buy", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
+
+            LevelsMapStateText.Text = EmptyToDash(FocusedAsset()) +
+                                      " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)) +
+                                      " | abertura no centro | RTD " + EmptyToDash(_probeService.Status) +
+                                      " | " + openingRows.Count(x => !x.IsOpening).ToString(_ptBr) + " nivel(is)";
+            LevelsCurrentPriceText.Text = currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr);
+            LevelsOpenPriceText.Text = openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr);
+            LevelsOpenDistanceText.Text = openPrice <= 0m ? "-" : FormatPoints(currentPrice - openPrice);
+            LevelsNearestSellText.Text = nearestSell == null ? "-" : nearestSell.Price + " | " + nearestSell.DistanceCurrent;
+            LevelsNearestBuyText.Text = nearestBuy == null ? "-" : nearestBuy.Price + " | " + nearestBuy.DistanceCurrent;
+            LevelsOpenDistanceText.Foreground = VariationBrush(currentPrice - openPrice);
+        }
+
+        private List<OpportunityLevelRow> BuildLevelRows(IEnumerable<KeyLevel> levels, MarketSnapshot snapshot)
+        {
+            List<OpportunityLevelRow> rows = new List<OpportunityLevelRow>();
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+
+            foreach (KeyLevel level in (levels ?? new List<KeyLevel>()).OrderBy(x => Math.Abs(x.Price - currentPrice)).ThenByDescending(x => x.Score))
+            {
+                OpportunityLevelRow row = new OpportunityLevelRow();
+                row.Price = level.Price.ToString("N2", _ptBr);
+                row.Label = EmptyToDash(level.Label);
+                row.Source = EmptyToDash(level.Source);
+                row.Score = level.Score.ToString("N0", _ptBr);
+                row.Distance = FormatPoints(level.Price - currentPrice);
+                row.Evidence = EmptyToDash(level.Evidence);
+                row.Direction = EmptyToDash(level.Direction);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private decimal ResolveLevelsCurrentPrice(MarketSnapshot snapshot)
+        {
+            if (snapshot != null && snapshot.Ultimo.HasValue && snapshot.Ultimo.Value > 0m)
+            {
+                return snapshot.Ultimo.Value;
+            }
+
+            if (_result != null && _result.Intraday != null && _result.Intraday.Price > 0m)
+            {
+                return _result.Intraday.Price;
+            }
+
+            return 0m;
+        }
+
+        private string DescribeCurrentVsOpen(decimal currentPrice, decimal openPrice)
+        {
+            if (currentPrice <= 0m || openPrice <= 0m)
+            {
+                return "-";
+            }
+
+            decimal distance = currentPrice - openPrice;
+
+            if (Math.Abs(distance) <= _config.Rtd.TickSize)
+            {
+                return "preco em teste da abertura";
+            }
+
+            return distance > 0m ? "preco acima da abertura" : "preco abaixo da abertura";
+        }
+
+        private string OpeningBandText(List<LevelsMapRow> openingRows)
+        {
+            if (openingRows == null || openingRows.Count == 0)
+            {
+                return "-";
+            }
+
+            LevelsMapRow highest = openingRows.OrderByDescending(x => x.SortPrice).FirstOrDefault(x => !x.IsOpening);
+            LevelsMapRow lowest = openingRows.OrderBy(x => x.SortPrice).FirstOrDefault(x => !x.IsOpening);
+
+            if (highest == null || lowest == null)
+            {
+                return "-";
+            }
+
+            return FormatPoints(highest.SortPrice - lowest.SortPrice);
         }
 
         private void RenderRisk(MarketSnapshot snapshot)
@@ -8039,6 +8262,24 @@ namespace RtdDolarNative
             return distance.ToString("N2", _ptBr) + " pts";
         }
 
+        private string FormatPoints(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            decimal rounded = Math.Round(value.Value, 2, MidpointRounding.AwayFromZero);
+            string formatted = rounded.ToString("N2", _ptBr);
+
+            if (rounded > 0m)
+            {
+                formatted = "+" + formatted;
+            }
+
+            return formatted + " pts";
+        }
+
         private void RenderDom(MarketSnapshot snapshot)
         {
             if (DomGrid == null)
@@ -8083,6 +8324,49 @@ namespace RtdDolarNative
             }));
         }
 
+        private void ScheduleLevelsMapCenter()
+        {
+            if (_levelsMapCenterQueued || OpeningMapGrid == null)
+            {
+                return;
+            }
+
+            _levelsMapCenterQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(delegate
+            {
+                _levelsMapCenterQueued = false;
+                CenterLevelsMapOnOpening();
+            }));
+        }
+
+        private void CenterLevelsMapOnOpening()
+        {
+            if (OpeningMapGrid == null || OpeningMapGrid.Items == null || OpeningMapGrid.Items.Count == 0)
+            {
+                return;
+            }
+
+            int openingIndex = -1;
+
+            for (int index = 0; index < OpeningMapGrid.Items.Count; index++)
+            {
+                LevelsMapRow row = OpeningMapGrid.Items[index] as LevelsMapRow;
+
+                if (row != null && row.IsOpening)
+                {
+                    openingIndex = index;
+                    break;
+                }
+            }
+
+            if (openingIndex < 0)
+            {
+                openingIndex = OpeningMapGrid.Items.Count / 2;
+            }
+
+            CenterDataGridOnIndex(OpeningMapGrid, openingIndex);
+        }
+
         private void CenterDomGridOnCurrentPrice(System.Windows.Controls.DataGrid grid)
         {
             if (grid == null || grid.Items == null || grid.Items.Count == 0)
@@ -8106,6 +8390,16 @@ namespace RtdDolarNative
             if (currentIndex < 0)
             {
                 currentIndex = grid.Items.Count / 2;
+            }
+
+            CenterDataGridOnIndex(grid, currentIndex);
+        }
+
+        private void CenterDataGridOnIndex(System.Windows.Controls.DataGrid grid, int currentIndex)
+        {
+            if (grid == null || grid.Items == null || grid.Items.Count == 0 || currentIndex < 0 || currentIndex >= grid.Items.Count)
+            {
+                return;
             }
 
             grid.ScrollIntoView(grid.Items[currentIndex]);
@@ -8502,6 +8796,20 @@ namespace RtdDolarNative
             public string Score { get; set; }
             public string Distance { get; set; }
             public string Evidence { get; set; }
+            public string Direction { get; set; }
+        }
+
+        private sealed class LevelsMapRow
+        {
+            public string Zone { get; set; }
+            public string Side { get; set; }
+            public string Label { get; set; }
+            public string Price { get; set; }
+            public string DistanceCurrent { get; set; }
+            public string DistanceReference { get; set; }
+            public string Source { get; set; }
+            public bool IsOpening { get; set; }
+            public decimal SortPrice { get; set; }
             public string Direction { get; set; }
         }
 
