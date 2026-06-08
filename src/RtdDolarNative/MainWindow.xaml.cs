@@ -6237,8 +6237,8 @@ namespace RtdDolarNative
             PriceText.Text = FormatDecimal(snapshot.Ultimo, "N2");
             VolumeText.Text = FormatDecimal(snapshot.Volume, "N0");
             BidAskText.Text = FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
-            decimal? dayVariation = DayVariationPoints(snapshot);
-            DayVariationText.Text = FormatSignedDecimal(dayVariation, "N2");
+            decimal? dayVariation = snapshot.VariacaoPercentual;
+            DayVariationText.Text = dayVariation.HasValue ? FormatSignedDecimal(dayVariation, "N2") + "%" : "-";
             DayHighText.Text = FormatDecimal(snapshot.Maxima, "N2");
             DayLowText.Text = FormatDecimal(snapshot.Minima, "N2");
             DayAmplitudeText.Text = FormatDecimal(snapshot.AmplitudeDia, "N2");
@@ -7796,34 +7796,6 @@ namespace RtdDolarNative
             }
 
             return new SolidColorBrush(Color.FromRgb(255, 59, 48));
-        }
-
-        private decimal? DayVariationPoints(MarketSnapshot snapshot)
-        {
-            if (snapshot == null)
-            {
-                return null;
-            }
-
-            if (snapshot.VariacaoPontos.HasValue)
-            {
-                return snapshot.VariacaoPontos;
-            }
-
-            if (snapshot.Ultimo.HasValue)
-            {
-                if (snapshot.Abertura.HasValue)
-                {
-                    return snapshot.Ultimo.Value - snapshot.Abertura.Value;
-                }
-
-                if (snapshot.FechamentoAnterior.HasValue)
-                {
-                    return snapshot.Ultimo.Value - snapshot.FechamentoAnterior.Value;
-                }
-            }
-
-            return null;
         }
 
         private Brush VariationBrush(decimal? value)

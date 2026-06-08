@@ -64,6 +64,21 @@ namespace RtdDolarNative.MarketData
             get { return GetDecimal("VARPTS"); }
         }
 
+        public decimal? VariacaoPercentual
+        {
+            get
+            {
+                if (!Ultimo.HasValue || !FechamentoAnterior.HasValue || FechamentoAnterior.Value == 0m)
+                {
+                    return null;
+                }
+
+                decimal baseClose = FechamentoAnterior.Value;
+                decimal change = Ultimo.Value - baseClose;
+                return change / baseClose * 100m;
+            }
+        }
+
         public decimal? Media
         {
             get { return GetDecimal("MED") ?? GetDecimal("67"); }
