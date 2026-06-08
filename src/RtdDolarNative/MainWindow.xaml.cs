@@ -90,6 +90,7 @@ namespace RtdDolarNative
         private readonly List<HistoryRow> _historyRows = new List<HistoryRow>();
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object _postedTimesLock = new object();
+        private bool _syncCalculationDaysSelection = true;
 
         public MainWindow()
         {
@@ -121,6 +122,7 @@ namespace RtdDolarNative
             _chartTimer.Tick += ChartTimer_Tick;
 
             InitializeStaticText();
+            InitializeCalculationDaysSelection();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -897,6 +899,26 @@ namespace RtdDolarNative
 
         private void RecalcButton_Click(object sender, RoutedEventArgs e)
         {
+            Recalculate();
+        }
+
+        private void CalculationDaysComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncCalculationDaysSelection || CalculationDaysComboBox == null)
+            {
+                return;
+            }
+
+            int selectedDays = SelectedCalculationDays();
+
+            if (_config.Ui.CalculationDays != selectedDays)
+            {
+                _config.Ui.CalculationDays = selectedDays;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Janela de calculo", selectedDays.ToString(_ptBr) + " dias selecionados.");
+            }
+
             Recalculate();
         }
 
@@ -2256,17 +2278,19 @@ namespace RtdDolarNative
                 return "sem cadastro";
             }
 
-            if (_dailyBars.Count >= 126)
+            int calculationDays = SelectedCalculationDays();
+
+            if (_dailyBars.Count >= calculationDays * 3)
             {
                 return "amostra forte";
             }
 
-            if (_dailyBars.Count >= 63)
+            if (_dailyBars.Count >= calculationDays * 2)
             {
                 return "amostra boa";
             }
 
-            if (_dailyBars.Count >= 21)
+            if (_dailyBars.Count >= calculationDays)
             {
                 return "amostra minima";
             }
@@ -2848,6 +2872,8 @@ namespace RtdDolarNative
             }
 
             string source = EmptyToDash(technicals.Source);
+            int calculationDays = _result != null && _result.CalculationDays > 0 ? _result.CalculationDays : SelectedCalculationDays();
+            string calculationDaysText = calculationDays.ToString(_ptBr);
             AddIndicatorRow(rows, "Preco RTD", FormatDecimal(price, "N2"), snapshot == null ? "sem snapshot" : AgeText(snapshot.LocalTimestamp), "ULT");
             AddIndicatorRow(rows, "RSI14", FormatDecimal(technicals.Rsi14, "N1"), RsiState(technicals.Rsi14), source);
             AddIndicatorRow(rows, "SMA20", FormatDecimal(technicals.Sma20, "N2"), VsPriceState(technicals.Sma20, price), source);
@@ -2860,14 +2886,15 @@ namespace RtdDolarNative
             AddIndicatorRow(rows, "ZScore20", FormatDecimal(technicals.ZScore20, "N2"), ZScoreState(technicals.ZScore20), source);
             AddIndicatorRow(rows, "ATR/VWAP", FormatDecimal(technicals.AtrVwapDistance, "N2"), AtrVwapState(technicals.AtrVwapDistance), "ATR historico + RTD MED/VWAP");
             AddIndicatorRow(rows, "Momentum10", FormatPercent(technicals.Momentum10Pct, "N2"), MomentumState(technicals.Momentum10Pct), source);
-            AddIndicatorRow(rows, "Retorno medio 21", FormatPercent(technicals.ReturnMean21Pct, "N2"), ReturnState(technicals.ReturnMean21Pct), source);
-            AddIndicatorRow(rows, "Vol retorno 21", FormatPercent(technicals.ReturnStd21Pct, "N2"), "desvio de retornos", source);
-            AddIndicatorRow(rows, "Positivos 21", FormatPercent(technicals.PositiveReturnRate21Pct, "N1"), PositiveRateState(technicals.PositiveReturnRate21Pct), source);
-            AddIndicatorRow(rows, "Sharpe21", FormatDecimal(technicals.Sharpe21, "N2"), SharpeState(technicals.Sharpe21), source);
-            AddIndicatorRow(rows, "Sortino21", FormatDecimal(technicals.Sortino21, "N2"), SharpeState(technicals.Sortino21), source);
-            AddIndicatorRow(rows, "Downside 21", FormatPercent(technicals.DownsideStd21Pct, "N2"), "risco de cauda curta", source);
-            AddIndicatorRow(rows, "VaR95 21", FormatPercent(technicals.ValueAtRisk95Pct, "N2"), "percentil 5%", source);
-            AddIndicatorRow(rows, "ES95 21", FormatPercent(technicals.ExpectedShortfall95Pct, "N2"), "media da cauda", source);
+            AddIndicatorRow(rows, "Janela calculo", calculationDaysText + " dias", "historico selecionado", source);
+            AddIndicatorRow(rows, "Retorno medio " + calculationDaysText, FormatPercent(technicals.ReturnMean21Pct, "N2"), ReturnState(technicals.ReturnMean21Pct), source);
+            AddIndicatorRow(rows, "Vol retorno " + calculationDaysText, FormatPercent(technicals.ReturnStd21Pct, "N2"), "desvio de retornos", source);
+            AddIndicatorRow(rows, "Positivos " + calculationDaysText, FormatPercent(technicals.PositiveReturnRate21Pct, "N1"), PositiveRateState(technicals.PositiveReturnRate21Pct), source);
+            AddIndicatorRow(rows, "Sharpe" + calculationDaysText, FormatDecimal(technicals.Sharpe21, "N2"), SharpeState(technicals.Sharpe21), source);
+            AddIndicatorRow(rows, "Sortino" + calculationDaysText, FormatDecimal(technicals.Sortino21, "N2"), SharpeState(technicals.Sortino21), source);
+            AddIndicatorRow(rows, "Downside " + calculationDaysText, FormatPercent(technicals.DownsideStd21Pct, "N2"), "risco de cauda curta", source);
+            AddIndicatorRow(rows, "VaR95 " + calculationDaysText, FormatPercent(technicals.ValueAtRisk95Pct, "N2"), "percentil 5%", source);
+            AddIndicatorRow(rows, "ES95 " + calculationDaysText, FormatPercent(technicals.ExpectedShortfall95Pct, "N2"), "media da cauda", source);
             AddIndicatorRow(rows, "Tendencia", EmptyToDash(technicals.TrendState), "estado", source);
             AddIndicatorRow(rows, "Reversao", EmptyToDash(technicals.ReversionState), "estado", source);
             AddIndicatorRow(rows, "Amostra", technicals.SampleSize.ToString(_ptBr), "barras usadas", source);
@@ -5299,6 +5326,71 @@ namespace RtdDolarNative
             return string.IsNullOrWhiteSpace(topic) ? fallback : topic.Trim().ToUpperInvariant();
         }
 
+        private void InitializeCalculationDaysSelection()
+        {
+            if (CalculationDaysComboBox == null)
+            {
+                return;
+            }
+
+            _syncCalculationDaysSelection = true;
+
+            try
+            {
+                CalculationDaysComboBox.SelectedIndex = CalculationDaysIndex(_config.Ui == null ? UiConfig.DefaultCalculationDays : _config.Ui.CalculationDays);
+            }
+            finally
+            {
+                _syncCalculationDaysSelection = false;
+            }
+        }
+
+        private int SelectedCalculationDays()
+        {
+            if (CalculationDaysComboBox == null)
+            {
+                return UiConfig.NormalizeCalculationDays(_config.Ui == null ? UiConfig.DefaultCalculationDays : _config.Ui.CalculationDays);
+            }
+
+            return CalculationDaysFromIndex(CalculationDaysComboBox.SelectedIndex);
+        }
+
+        private int CalculationDaysIndex(int days)
+        {
+            int normalized = UiConfig.NormalizeCalculationDays(days);
+
+            switch (normalized)
+            {
+                case 21:
+                    return 0;
+                case 45:
+                    return 1;
+                case 63:
+                    return 2;
+                case 90:
+                    return 3;
+                default:
+                    return 1;
+            }
+        }
+
+        private int CalculationDaysFromIndex(int index)
+        {
+            switch (index)
+            {
+                case 0:
+                    return 21;
+                case 1:
+                    return 45;
+                case 2:
+                    return 63;
+                case 3:
+                    return 90;
+                default:
+                    return UiConfig.DefaultCalculationDays;
+            }
+        }
+
         private MarketSnapshot FocusedSnapshot()
         {
             string focused = FocusedAsset();
@@ -5859,7 +5951,7 @@ namespace RtdDolarNative
             try
             {
                 MarketSnapshot calcSnapshot = CurrentSnapshotForCalc();
-                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize);
+                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize, SelectedCalculationDays());
                 _lastQuantVersion = _lastVersion;
                 RenderResult(calcSnapshot);
             }
@@ -6450,6 +6542,15 @@ namespace RtdDolarNative
         {
             List<string> lines = new List<string>();
 
+            if (result == null)
+            {
+                return lines;
+            }
+
+            int calculationDays = result.CalculationDays <= 0 ? SelectedCalculationDays() : result.CalculationDays;
+
+            lines.Add("Janela calculo: " + calculationDays.ToString(_ptBr) + " dias");
+
             foreach (VolatilityMetric metric in result.Metrics)
             {
                 lines.Add(metric.Name + " " + metric.Window + ": " + metric.Points.ToString("N1", _ptBr) + " pts (" + metric.Percent.ToString("N2", _ptBr) + "%)");
@@ -6476,7 +6577,8 @@ namespace RtdDolarNative
                           FormatDecimal(result.Technicals.BollingerUpper20, "N2"));
                 lines.Add("Tecnico: " + EmptyToDash(result.Technicals.TrendState) +
                           " | " + EmptyToDash(result.Technicals.ReversionState) +
-                          " | amostra " + result.Technicals.SampleSize.ToString(_ptBr));
+                          " | amostra " + result.Technicals.SampleSize.ToString(_ptBr) +
+                          " | janela " + calculationDays.ToString(_ptBr) + "d");
             }
 
             if (result.QuantSignals != null && result.QuantSignals.Count > 0)

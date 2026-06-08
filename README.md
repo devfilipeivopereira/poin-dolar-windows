@@ -92,6 +92,7 @@ A tela `Indicadores` mostra os calculos que sustentam a triagem:
 
 - RSI14, SMA20/50, EMA9/21/50, MACD, Bollinger20, z-score 20 e distancia ATR/VWAP.
 - Momentum10, retornos positivos 21, Sharpe21, Sortino21, VaR95 e expected shortfall.
+- Seletor de janela historica 21/45/63/90 dias na barra superior, com 45 dias como padrao, para ajustar os calculos quant.
 - volatilidade historica, janelas, percentil, backtest proxy direcional, expectancy, profit factor, confianca Wilson, risco/retorno, edge score e amostra usada.
 - sinais quant com score ajustado por fluxo, nivel associado, edge estatistico, `Conf`, `R/R`, `Gate`, estado tecnico e motivos.
 - robustez da oportunidade: `Robusto`, `Acionavel`, `Monitorar`, `Fraco` ou `Bloqueado`.

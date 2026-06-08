@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
 using RtdDolarNative.MarketData;
 
@@ -10,22 +11,24 @@ namespace RtdDolarNative.Quant
     {
         private static readonly double[] PercentVariations = new[] { 3d, 2.5d, 2d, 1.5d, 1d, 0.5d, 0d, -0.5d, -1d, -1.5d, -2d, -2.5d, -3d };
 
-        public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize)
+        public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays)
         {
             QuantResult result = new QuantResult();
             result.Bars = allBars == null ? new List<DailyBar>() : allBars.OrderBy(x => x.Date).ToList();
+            int windowDays = UiConfig.NormalizeCalculationDays(calculationDays);
+            result.CalculationDays = windowDays;
 
             if (result.Bars.Count == 0)
             {
                 result.Warnings.Add("Carregue um CSV diario para calcular os niveis.");
                 result.Intraday = BuildIntraday(snapshot, null);
-                result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, null);
+                result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, null, windowDays);
                 return result;
             }
 
-            if (result.Bars.Count < 21)
+            if (result.Bars.Count < windowDays)
             {
-                result.Warnings.Add("CSV tem menos de 21 pregoes validos; calculos ficam incompletos.");
+                result.Warnings.Add("CSV tem menos de " + windowDays + " pregoes validos; calculos ficam incompletos.");
             }
 
             result.PreviousDay = result.Bars[result.Bars.Count - 1];
@@ -46,15 +49,15 @@ namespace RtdDolarNative.Quant
                 result.Warnings.Add("RTD VOL ausente; leitura de participacao por volume fica limitada.");
             }
 
-            List<DailyBar> window = result.Bars.Skip(Math.Max(0, result.Bars.Count - 63)).ToList();
-            List<DailyBar> w21 = result.Bars.Skip(Math.Max(0, result.Bars.Count - 21)).ToList();
+            List<DailyBar> window = result.Bars.Skip(Math.Max(0, result.Bars.Count - windowDays)).ToList();
+            List<DailyBar> selectedWindow = window.Count > 0 ? window : result.Bars;
 
-            result.GarmanKlass = CalcGarmanKlass(w21, 21);
-            result.Parkinson = CalcParkinson(w21, 21);
-            result.RogersSatchell = CalcRogersSatchell(w21, 21);
-            result.YangZhang = CalcYangZhang(w21, 21);
-            result.CloseToClose = CalcCloseToClose(w21, 21);
-            result.Atr = CalcAtr(w21, 21, result.Bars);
+            result.GarmanKlass = CalcGarmanKlass(selectedWindow, windowDays);
+            result.Parkinson = CalcParkinson(selectedWindow, windowDays);
+            result.RogersSatchell = CalcRogersSatchell(selectedWindow, windowDays);
+            result.YangZhang = CalcYangZhang(selectedWindow, windowDays);
+            result.CloseToClose = CalcCloseToClose(selectedWindow, windowDays);
+            result.Atr = CalcAtr(selectedWindow, windowDays, result.Bars);
             result.Metrics.Add(result.GarmanKlass);
             result.Metrics.Add(result.Parkinson);
             result.Metrics.Add(result.RogersSatchell);
@@ -62,28 +65,22 @@ namespace RtdDolarNative.Quant
             result.Metrics.Add(result.CloseToClose);
             result.Metrics.Add(result.Atr);
 
-            int[] windows = new[] { 21, 45, 63 };
-            foreach (int days in windows)
+            if (selectedWindow.Count >= 2)
             {
-                List<DailyBar> bars = result.Bars.Skip(Math.Max(0, result.Bars.Count - days)).ToList();
-
-                if (bars.Count >= 2)
-                {
-                    result.WindowMetrics.Add(CalcGarmanKlass(bars, days));
-                    result.WindowMetrics.Add(CalcYangZhang(bars, days));
-                    result.WindowMetrics.Add(CalcAtr(bars, days, result.Bars));
-                }
+                result.WindowMetrics.Add(CalcGarmanKlass(selectedWindow, windowDays));
+                result.WindowMetrics.Add(CalcYangZhang(selectedWindow, windowDays));
+                result.WindowMetrics.Add(CalcAtr(selectedWindow, windowDays, result.Bars));
             }
 
-            result.Profile = VolumeProfileProxy(window.Count > 0 ? window : result.Bars);
-            result.SupportResistance = SupportResistanceEngine(window, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
-            result.Avwaps = AnchoredVwaps(window);
+            result.Profile = VolumeProfileProxy(selectedWindow);
+            result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
+            result.Avwaps = AnchoredVwaps(selectedWindow);
             result.OpeningLevels = ReferenceDeviationLevels(result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels(result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
-            result.Backtest = BacktestProxy(result.Bars, 21);
-            result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, result.Atr);
+            result.Backtest = BacktestProxy(result.Bars, windowDays);
+            result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, result.Atr, windowDays);
             result.KeyLevels = BuildRawLevels(result);
             result.Confluence = MergeInterestLevels(result.KeyLevels, result.Intraday.Price, tickSize);
             result.Regime = DetectRegime(result.Atr, result.CloseToClose, result.Intraday, result.PreviousDay);
@@ -639,7 +636,7 @@ namespace RtdDolarNative.Quant
                 : D(row.AverageReversalPoints / row.AverageAdversePoints);
         }
 
-        private static TechnicalIndicatorSnapshot BuildTechnicalIndicators(List<DailyBar> bars, IntradayContext intraday, VolatilityMetric atr)
+        private static TechnicalIndicatorSnapshot BuildTechnicalIndicators(List<DailyBar> bars, IntradayContext intraday, VolatilityMetric atr, int windowDays)
         {
             TechnicalIndicatorSnapshot snapshot = new TechnicalIndicatorSnapshot();
             snapshot.Source = "CSV diario + RTD atual";
@@ -685,7 +682,7 @@ namespace RtdDolarNative.Quant
                 snapshot.AtrVwapDistance = (intraday.Price - intraday.Vwap) / atr.Points;
             }
 
-            ApplyReturnRiskMetrics(snapshot, closes, 21);
+            ApplyReturnRiskMetrics(snapshot, closes, windowDays);
             snapshot.TrendState = TechnicalTrendState(snapshot, intraday);
             snapshot.ReversionState = TechnicalReversionState(snapshot);
             return snapshot;

@@ -259,5 +259,6 @@ namespace RtdDolarNative.Quant
         public TechnicalIndicatorSnapshot Technicals { get; set; }
         public List<QuantSignal> QuantSignals { get; set; }
         public string Regime { get; set; }
+        public int CalculationDays { get; set; }
     }
 }

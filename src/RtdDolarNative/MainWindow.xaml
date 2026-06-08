@@ -37,6 +37,8 @@
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#E6EDF3" />
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#E6EDF3" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#050605" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E6EDF3" />
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#003B24" />
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E6EDF3" />
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#003B24" />
@@ -145,6 +147,32 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="7,5" />
             <Setter Property="MinHeight" Value="28" />
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="6,2" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="CheckBox">
@@ -696,6 +724,19 @@
                 </UniformGrid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="Dias" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <ComboBox x:Name="CalculationDaysComboBox"
+                                  Width="76"
+                                  SelectedIndex="1"
+                                  SelectionChanged="CalculationDaysComboBox_SelectionChanged"
+                                  ToolTip="Janela historica para os calculos">
+                            <ComboBoxItem Content="21" />
+                            <ComboBoxItem Content="45" />
+                            <ComboBoxItem Content="63" />
+                            <ComboBoxItem Content="90" />
+                        </ComboBox>
+                    </StackPanel>
                     <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" />
                     <Button x:Name="ManualButton" Content="Modo manual" Click="ManualButton_Click" />
                     <Button x:Name="LoadCsvButton" Content="Carregar CSV" Click="LoadCsvButton_Click" PreviewMouseLeftButtonDown="LoadCsvButton_PreviewMouseLeftButtonDown" />
