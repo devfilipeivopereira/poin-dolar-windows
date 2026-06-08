@@ -592,6 +592,13 @@
             <Setter Property="FontSize" Value="11" />
         </Style>
 
+        <Style x:Key="TopNavComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
         <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
             <Setter Property="Margin" Value="0,0,4,0" />
@@ -951,6 +958,23 @@
                                          ToolTip="Linhas de preco a cada 100 ticks"
                                          Style="{StaticResource TopNavRadioButtonStyle}" />
                         </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Espaco" Style="{StaticResource TopNavGroupStyle}" />
+                        <ComboBox x:Name="ChartCandleSpacingComboBox"
+                                  Width="78"
+                                  SelectedIndex="1"
+                                  SelectionChanged="ChartCandleSpacingComboBox_SelectionChanged"
+                                  ToolTip="Espacamento horizontal entre candles"
+                                  Style="{StaticResource TopNavComboBoxStyle}">
+                            <ComboBoxItem Content="75%" Tag="75" />
+                            <ComboBoxItem Content="100%" Tag="100" />
+                            <ComboBoxItem Content="125%" Tag="125" />
+                            <ComboBoxItem Content="150%" Tag="150" />
+                        </ComboBox>
                     </StackPanel>
                 </Border>
 

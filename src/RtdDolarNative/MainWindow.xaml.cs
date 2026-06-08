@@ -94,6 +94,7 @@ namespace RtdDolarNative
         private bool _syncCalculationDaysSelection = true;
         private bool _syncChartTimeframeSelection = true;
         private bool _syncChartPriceGridSelection = true;
+        private bool _syncChartCandleSpacingSelection = true;
 
         public MainWindow()
         {
@@ -128,6 +129,7 @@ namespace RtdDolarNative
             InitializeCalculationDaysSelection();
             InitializeChartTimeframeSelection();
             InitializeChartPriceGridSelection();
+            InitializeChartCandleSpacingSelection();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -967,6 +969,29 @@ namespace RtdDolarNative
                 _config.Ui.Normalize();
                 SaveRuntimeConfig();
                 AddHistory("App", "Ticks do grafico", "Linhas de preco a cada " + selectedTicks.ToString(_ptBr) + " ticks.");
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
+        private void ChartCandleSpacingComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncChartCandleSpacingSelection)
+            {
+                return;
+            }
+
+            ComboBox combo = sender as ComboBox;
+            ComboBoxItem selectedItem = combo == null ? null : combo.SelectedItem as ComboBoxItem;
+            int selectedPercent = combo == null ? _config.Ui.CandleSpacingPercent : ParseChartCandleSpacingPercent(selectedItem == null ? null : selectedItem.Tag);
+            selectedPercent = UiConfig.NormalizeCandleSpacingPercent(selectedPercent);
+
+            if (_config.Ui.CandleSpacingPercent != selectedPercent)
+            {
+                _config.Ui.CandleSpacingPercent = selectedPercent;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Espaco do grafico", "Espacamento horizontal a " + selectedPercent.ToString(_ptBr) + "%.");
             }
 
             ApplyChartDisplaySelection();
@@ -5472,6 +5497,28 @@ namespace RtdDolarNative
             ApplyChartDisplaySelection();
         }
 
+        private void InitializeChartCandleSpacingSelection()
+        {
+            if (ChartCandleSpacingComboBox == null)
+            {
+                return;
+            }
+
+            _syncChartCandleSpacingSelection = true;
+
+            try
+            {
+                int selectedPercent = UiConfig.NormalizeCandleSpacingPercent(_config.Ui == null ? UiConfig.DefaultCandleSpacingPercent : _config.Ui.CandleSpacingPercent);
+                ChartCandleSpacingComboBox.SelectedIndex = ChartCandleSpacingIndex(selectedPercent);
+            }
+            finally
+            {
+                _syncChartCandleSpacingSelection = false;
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
         private int SelectedCalculationDays()
         {
             if (CalculationDaysComboBox == null)
@@ -5533,12 +5580,14 @@ namespace RtdDolarNative
         {
             decimal tickSize = _config != null && _config.Rtd != null && _config.Rtd.TickSize > 0m ? _config.Rtd.TickSize : 0.5m;
             int selectedPriceGridTicks = SelectedChartPriceGridTicks();
+            int selectedCandleSpacingPercent = SelectedChartCandleSpacingPercent();
             ChartTimeframe timeframe = SelectedChartTimeframe();
 
             if (DashboardChartControl != null)
             {
                 DashboardChartControl.TickSize = tickSize;
                 DashboardChartControl.PriceGridTickInterval = selectedPriceGridTicks;
+                DashboardChartControl.CandleSpacingPercent = selectedCandleSpacingPercent;
                 DashboardChartControl.Timeframe = timeframe;
                 DashboardChartControl.InvalidateVisual();
             }
@@ -5547,6 +5596,7 @@ namespace RtdDolarNative
             {
                 ChartControl.TickSize = tickSize;
                 ChartControl.PriceGridTickInterval = selectedPriceGridTicks;
+                ChartControl.CandleSpacingPercent = selectedCandleSpacingPercent;
                 ChartControl.Timeframe = timeframe;
                 ChartControl.InvalidateVisual();
             }
@@ -5578,6 +5628,19 @@ namespace RtdDolarNative
                 : UiConfig.DefaultPriceGridTickInterval;
         }
 
+        private static int ParseChartCandleSpacingPercent(object tag)
+        {
+            if (tag == null)
+            {
+                return UiConfig.DefaultCandleSpacingPercent;
+            }
+
+            int parsed;
+            return int.TryParse(Convert.ToString(tag, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : UiConfig.DefaultCandleSpacingPercent;
+        }
+
         private ChartTimeframe ChartTimeframeFromIndex(int index)
         {
             switch (index)
@@ -5594,6 +5657,30 @@ namespace RtdDolarNative
         private int SelectedChartPriceGridTicks()
         {
             return UiConfig.NormalizePriceGridTickInterval(_config.Ui == null ? UiConfig.DefaultPriceGridTickInterval : _config.Ui.PriceGridTickInterval);
+        }
+
+        private int ChartCandleSpacingIndex(int percent)
+        {
+            int normalized = UiConfig.NormalizeCandleSpacingPercent(percent);
+
+            switch (normalized)
+            {
+                case 75:
+                    return 0;
+                case 100:
+                    return 1;
+                case 125:
+                    return 2;
+                case 150:
+                    return 3;
+                default:
+                    return 1;
+            }
+        }
+
+        private int SelectedChartCandleSpacingPercent()
+        {
+            return UiConfig.NormalizeCandleSpacingPercent(_config.Ui == null ? UiConfig.DefaultCandleSpacingPercent : _config.Ui.CandleSpacingPercent);
         }
 
         private string ChartTimeframeText(ChartTimeframe timeframe)

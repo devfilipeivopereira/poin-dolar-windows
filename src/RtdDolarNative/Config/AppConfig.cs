@@ -719,6 +719,8 @@ namespace RtdDolarNative.Config
         public static readonly int[] AllowedChartTimeframeIndexes = new[] { 0, 1, 2 };
         public static readonly int DefaultPriceGridTickInterval = 10;
         public static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
+        public static readonly int DefaultCandleSpacingPercent = 100;
+        public static readonly int[] AllowedCandleSpacingPercents = new[] { 75, 100, 125, 150 };
 
         public UiConfig()
         {
@@ -730,6 +732,7 @@ namespace RtdDolarNative.Config
             CalculationDays = DefaultCalculationDays;
             ChartTimeframeIndex = DefaultChartTimeframeIndex;
             PriceGridTickInterval = DefaultPriceGridTickInterval;
+            CandleSpacingPercent = DefaultCandleSpacingPercent;
         }
 
         public int FastIntervalMs { get; set; }
@@ -740,12 +743,14 @@ namespace RtdDolarNative.Config
         public int CalculationDays { get; set; }
         public int ChartTimeframeIndex { get; set; }
         public int PriceGridTickInterval { get; set; }
+        public int CandleSpacingPercent { get; set; }
 
         public void Normalize()
         {
             CalculationDays = NormalizeCalculationDays(CalculationDays);
             ChartTimeframeIndex = NormalizeChartTimeframeIndex(ChartTimeframeIndex);
             PriceGridTickInterval = NormalizePriceGridTickInterval(PriceGridTickInterval);
+            CandleSpacingPercent = NormalizeCandleSpacingPercent(CandleSpacingPercent);
         }
 
         public static int NormalizeCalculationDays(int days)
@@ -761,6 +766,11 @@ namespace RtdDolarNative.Config
         public static int NormalizePriceGridTickInterval(int tickInterval)
         {
             return AllowedPriceGridTickIntervals.Contains(tickInterval) ? tickInterval : DefaultPriceGridTickInterval;
+        }
+
+        public static int NormalizeCandleSpacingPercent(int spacingPercent)
+        {
+            return AllowedCandleSpacingPercents.Contains(spacingPercent) ? spacingPercent : DefaultCandleSpacingPercent;
         }
     }
 

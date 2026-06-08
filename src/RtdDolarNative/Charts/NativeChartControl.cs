@@ -18,6 +18,8 @@ namespace RtdDolarNative.Charts
         private const int FuturePanLimit = 40;
         private const int DefaultPriceGridTickInterval = 10;
         private static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
+        private const int DefaultCandleSpacingPercent = 100;
+        private static readonly int[] AllowedCandleSpacingPercents = new[] { 75, 100, 125, 150 };
 
         private List<DailyBar> _bars = new List<DailyBar>();
         private MarketSnapshot _snapshot;
@@ -36,6 +38,7 @@ namespace RtdDolarNative.Charts
         private ChartTimeframe _timeframe = ChartTimeframe.Daily;
         private decimal _tickSize = 0.5m;
         private int _priceGridTickInterval = DefaultPriceGridTickInterval;
+        private int _candleSpacingPercent = DefaultCandleSpacingPercent;
 
         public NativeChartControl()
         {
@@ -103,6 +106,23 @@ namespace RtdDolarNative.Charts
                 }
 
                 _priceGridTickInterval = normalized;
+                InvalidateVisual();
+            }
+        }
+
+        public int CandleSpacingPercent
+        {
+            get { return _candleSpacingPercent; }
+            set
+            {
+                int normalized = NormalizeCandleSpacingPercent(value);
+
+                if (_candleSpacingPercent == normalized)
+                {
+                    return;
+                }
+
+                _candleSpacingPercent = normalized;
                 InvalidateVisual();
             }
         }
@@ -179,30 +199,40 @@ namespace RtdDolarNative.Charts
 
             DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
 
-            double candleSlot = plot.Width / Math.Max(1, viewport.SlotCount);
-            double candleWidth = Math.Max(3d, Math.Min(12d, candleSlot * 0.58d));
+            double baseCandleSlot = plot.Width / Math.Max(1, viewport.SlotCount);
+            double candleSlot = baseCandleSlot * EffectiveCandleSpacingFactor();
+            double candleWidth = Math.Max(3d, Math.Min(12d, baseCandleSlot * 0.58d));
 
-            for (int slot = 0; slot < viewport.SlotCount; slot++)
+            dc.PushClip(new RectangleGeometry(plot));
+
+            try
             {
-                int index = viewport.StartIndex + slot;
-
-                if (index < 0 || index >= series.Count)
+                for (int slot = 0; slot < viewport.SlotCount; slot++)
                 {
-                    continue;
-                }
+                    int index = viewport.StartIndex + slot;
 
-                DailyBar bar = series[index];
-                double x = plot.Left + candleSlot * slot + candleSlot / 2d;
-                double yHigh = Y(bar.High, min, max, plot);
-                double yLow = Y(bar.Low, min, max, plot);
-                double yOpen = Y(bar.Open, min, max, plot);
-                double yClose = Y(bar.Close, min, max, plot);
-                bool up = bar.Close >= bar.Open;
-                Brush fill = new SolidColorBrush(up ? Color.FromRgb(18, 184, 134) : Color.FromRgb(250, 82, 82));
-                Pen wick = new Pen(fill, 1);
-                dc.DrawLine(wick, new Point(x, yHigh), new Point(x, yLow));
-                Rect body = new Rect(x - candleWidth / 2d, Math.Min(yOpen, yClose), candleWidth, Math.Max(1d, Math.Abs(yClose - yOpen)));
-                dc.DrawRectangle(fill, null, body);
+                    if (index < 0 || index >= series.Count)
+                    {
+                        continue;
+                    }
+
+                    DailyBar bar = series[index];
+                    double x = plot.Left + candleSlot * slot + candleSlot / 2d;
+                    double yHigh = Y(bar.High, min, max, plot);
+                    double yLow = Y(bar.Low, min, max, plot);
+                    double yOpen = Y(bar.Open, min, max, plot);
+                    double yClose = Y(bar.Close, min, max, plot);
+                    bool up = bar.Close >= bar.Open;
+                    Brush fill = new SolidColorBrush(up ? Color.FromRgb(18, 184, 134) : Color.FromRgb(250, 82, 82));
+                    Pen wick = new Pen(fill, 1);
+                    dc.DrawLine(wick, new Point(x, yHigh), new Point(x, yLow));
+                    Rect body = new Rect(x - candleWidth / 2d, Math.Min(yOpen, yClose), candleWidth, Math.Max(1d, Math.Abs(yClose - yOpen)));
+                    dc.DrawRectangle(fill, null, body);
+                }
+            }
+            finally
+            {
+                dc.Pop();
             }
 
             DrawText(dc, TimeframeText(_timeframe), plot.Left + 6, plot.Top + 6, textBrush, 11);
@@ -243,7 +273,7 @@ namespace RtdDolarNative.Charts
             }
 
             Point current = e.GetPosition(this);
-            double slot = _lastPlot.Width <= 0d ? 8d : _lastPlot.Width / Math.Max(1, _visibleCandles);
+            double slot = EffectiveCandleSlot(_lastPlot, _visibleCandles);
             int deltaCandles = (int)Math.Round((current.X - _dragStart.X) / Math.Max(1d, slot));
             _viewOffsetFromEnd = _dragStartOffset + deltaCandles;
 
@@ -293,6 +323,7 @@ namespace RtdDolarNative.Charts
             _viewOffsetFromEnd = 0;
             _visibleCandles = 90;
             _priceGridTickInterval = DefaultPriceGridTickInterval;
+            _candleSpacingPercent = DefaultCandleSpacingPercent;
             _priceScale = 1d;
             _pricePanOffset = 0m;
             InvalidateVisual();
@@ -501,7 +532,7 @@ namespace RtdDolarNative.Charts
             }
 
             int currentStart = CurrentStartIndex(seriesCount, currentVisible, _viewOffsetFromEnd);
-            double slotWidth = _lastPlot.Width <= 0d ? 8d : _lastPlot.Width / Math.Max(1, currentVisible);
+            double slotWidth = EffectiveCandleSlot(_lastPlot, currentVisible);
             int anchorSlot = Clamp((int)Math.Round((point.X - _lastPlot.Left) / Math.Max(1d, slotWidth)), 0, Math.Max(0, currentVisible - 1));
             int anchorSeriesIndex = currentStart + anchorSlot;
 
@@ -583,6 +614,18 @@ namespace RtdDolarNative.Charts
             return tickSize * roundedTicks;
         }
 
+        private double EffectiveCandleSpacingFactor()
+        {
+            int normalized = NormalizeCandleSpacingPercent(_candleSpacingPercent);
+            return Math.Max(0.75d, normalized / 100d);
+        }
+
+        private double EffectiveCandleSlot(Rect plot, int slotCount)
+        {
+            double baseSlot = plot.Width / Math.Max(1, slotCount);
+            return baseSlot * EffectiveCandleSpacingFactor();
+        }
+
         private static decimal RoundUpToStep(decimal value, decimal step)
         {
             if (step <= 0m)
@@ -615,6 +658,16 @@ namespace RtdDolarNative.Charts
             }
 
             return DefaultPriceGridTickInterval;
+        }
+
+        private static int NormalizeCandleSpacingPercent(int spacingPercent)
+        {
+            if (AllowedCandleSpacingPercents.Contains(spacingPercent))
+            {
+                return spacingPercent;
+            }
+
+            return DefaultCandleSpacingPercent;
         }
 
         private static int Clamp(int value, int min, int max)
