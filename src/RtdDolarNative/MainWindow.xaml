@@ -741,44 +741,86 @@
                     </Border>
                 </StackPanel>
 
-                <UniformGrid Grid.Column="1" Columns="8" Margin="22,0" VerticalAlignment="Center">
-                    <StackPanel>
-                        <TextBlock Text="Ativo" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="AssetText" Text="-" FontWeight="Bold" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="ULT" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="PriceText" Text="-" Foreground="{StaticResource Accent}" FontSize="18" FontWeight="Bold" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Bid / Ask" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="BidAskText" Text="-" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Volume" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="VolumeText" Text="-" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Hora Profit" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="ProfitTimeText" Text="-" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Snapshot" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="SnapshotAgeText" Text="-" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Updates" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="UpdatesText" Text="0" />
-                    </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="Area / Tela" Foreground="{StaticResource Muted}" />
-                        <TextBlock x:Name="WorkspaceText"
-                                   Text="Operacao / Mesa"
-                                   FontSize="11"
-                                   FontWeight="Bold"
-                                   TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </UniformGrid>
+                <Grid Grid.Column="1" Margin="22,0" VerticalAlignment="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <UniformGrid Columns="8" HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBlock Text="Ativo" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="AssetText" Text="-" FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="ULT" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="PriceText" Text="-" Foreground="{StaticResource Accent}" FontSize="18" FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Bid / Ask" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="BidAskText" Text="-" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Volume" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="VolumeText" Text="-" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Hora Profit" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="ProfitTimeText" Text="-" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Snapshot" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="SnapshotAgeText" Text="-" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Updates" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="UpdatesText" Text="0" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Area / Tela" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="WorkspaceText"
+                                       Text="Operacao / Mesa"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </UniformGrid>
+
+                    <UniformGrid Grid.Row="1" Columns="4" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBlock Text="Var dia" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="DayVariationText"
+                                       Text="-"
+                                       Foreground="{StaticResource Accent}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Max dia" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="DayHighText"
+                                       Text="-"
+                                       Foreground="{StaticResource Warn}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Min dia" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="DayLowText"
+                                       Text="-"
+                                       Foreground="{StaticResource Accent}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Amplitude" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="DayAmplitudeText"
+                                       Text="-"
+                                       Foreground="{StaticResource Text}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                    </UniformGrid>
+                </Grid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">

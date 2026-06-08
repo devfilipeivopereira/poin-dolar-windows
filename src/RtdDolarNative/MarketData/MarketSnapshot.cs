@@ -54,9 +54,32 @@ namespace RtdDolarNative.MarketData
             get { return GetDecimal("FEC"); }
         }
 
+        public decimal? Variacao
+        {
+            get { return GetDecimal("VAR"); }
+        }
+
+        public decimal? VariacaoPontos
+        {
+            get { return GetDecimal("VARPTS"); }
+        }
+
         public decimal? Media
         {
             get { return GetDecimal("MED") ?? GetDecimal("67"); }
+        }
+
+        public decimal? AmplitudeDia
+        {
+            get
+            {
+                if (!Maxima.HasValue || !Minima.HasValue)
+                {
+                    return null;
+                }
+
+                return Maxima.Value - Minima.Value;
+            }
         }
 
         public decimal? Volume

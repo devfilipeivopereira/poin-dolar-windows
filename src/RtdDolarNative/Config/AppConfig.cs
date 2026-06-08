@@ -108,7 +108,7 @@ namespace RtdDolarNative.Config
     {
         public static readonly string[] DefaultQuoteFields = new[]
         {
-            "DAT", "HOR", "ULT", "ABE", "MAX", "MIN", "FEC", "NEG", "QTT", "VOL",
+            "DAT", "HOR", "ULT", "ABE", "MAX", "MIN", "FEC", "VAR", "VARPTS", "NEG", "QTT", "VOL",
             "OCP", "OVD", "AJU", "AJA", "103", "98", "100", "99", "67"
         };
 

@@ -6237,6 +6237,15 @@ namespace RtdDolarNative
             PriceText.Text = FormatDecimal(snapshot.Ultimo, "N2");
             VolumeText.Text = FormatDecimal(snapshot.Volume, "N0");
             BidAskText.Text = FormatDecimal(snapshot.OfertaCompra, "N2") + " / " + FormatDecimal(snapshot.OfertaVenda, "N2");
+            decimal? dayVariation = DayVariationPoints(snapshot);
+            DayVariationText.Text = FormatSignedDecimal(dayVariation, "N2");
+            DayHighText.Text = FormatDecimal(snapshot.Maxima, "N2");
+            DayLowText.Text = FormatDecimal(snapshot.Minima, "N2");
+            DayAmplitudeText.Text = FormatDecimal(snapshot.AmplitudeDia, "N2");
+            DayVariationText.Foreground = VariationBrush(dayVariation);
+            DayHighText.Foreground = FindResource("Warn") as Brush ?? DayHighText.Foreground;
+            DayLowText.Foreground = FindResource("Accent") as Brush ?? DayLowText.Foreground;
+            DayAmplitudeText.Foreground = FindResource("Text") as Brush ?? DayAmplitudeText.Foreground;
             StatusText.Text = EmptyToDash(snapshot.Status);
             StatusBadgeBorder.Background = StatusBrush(snapshot.Status);
 
@@ -7716,6 +7725,17 @@ namespace RtdDolarNative
             return value.HasValue ? value.Value.ToString(format, _ptBr) + "%" : "-";
         }
 
+        private string FormatSignedDecimal(decimal? value, string format)
+        {
+            if (!value.HasValue)
+            {
+                return "-";
+            }
+
+            string formatted = value.Value.ToString(format, _ptBr);
+            return value.Value > 0m ? "+" + formatted : formatted;
+        }
+
         private string EmptyToDash(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
@@ -7776,6 +7796,54 @@ namespace RtdDolarNative
             }
 
             return new SolidColorBrush(Color.FromRgb(255, 59, 48));
+        }
+
+        private decimal? DayVariationPoints(MarketSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return null;
+            }
+
+            if (snapshot.VariacaoPontos.HasValue)
+            {
+                return snapshot.VariacaoPontos;
+            }
+
+            if (snapshot.Ultimo.HasValue)
+            {
+                if (snapshot.Abertura.HasValue)
+                {
+                    return snapshot.Ultimo.Value - snapshot.Abertura.Value;
+                }
+
+                if (snapshot.FechamentoAnterior.HasValue)
+                {
+                    return snapshot.Ultimo.Value - snapshot.FechamentoAnterior.Value;
+                }
+            }
+
+            return null;
+        }
+
+        private Brush VariationBrush(decimal? value)
+        {
+            if (!value.HasValue)
+            {
+                return FindResource("Muted") as Brush ?? Brushes.Gray;
+            }
+
+            if (value.Value > 0m)
+            {
+                return FindResource("Accent") as Brush ?? Brushes.LimeGreen;
+            }
+
+            if (value.Value < 0m)
+            {
+                return FindResource("Danger") as Brush ?? Brushes.OrangeRed;
+            }
+
+            return FindResource("Muted") as Brush ?? Brushes.Gray;
         }
 
         private string ResolvePath(string path)
