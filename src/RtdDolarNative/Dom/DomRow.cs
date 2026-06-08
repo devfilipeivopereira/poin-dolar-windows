@@ -8,6 +8,7 @@ namespace RtdDolarNative.Dom
         public string BidVol { get; set; }
         public string Markings { get; set; }
         public string Flags { get; set; }
+        public string Band { get; set; }
         public bool IsCurrent { get; set; }
         public bool IsBid { get; set; }
         public bool IsAsk { get; set; }

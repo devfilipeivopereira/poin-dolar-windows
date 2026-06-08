@@ -62,6 +62,11 @@ namespace RtdDolarNative.Dom
                 row.IsCurrent = price == current;
                 row.IsBid = price == bid;
                 row.IsAsk = price == ask;
+                row.Band = row.IsCurrent
+                    ? "Current"
+                    : price > current
+                        ? (row.IsAsk ? "AskBest" : "AskSide")
+                        : (row.IsBid ? "BidBest" : "BidSide");
                 row.BidVol = row.IsBid && snapshot.VolumeOfertaCompra.HasValue ? snapshot.VolumeOfertaCompra.Value.ToString("N0", ptBr) : string.Empty;
                 row.AskVol = row.IsAsk && snapshot.VolumeOfertaVenda.HasValue ? snapshot.VolumeOfertaVenda.Value.ToString("N0", ptBr) : string.Empty;
                 row.Markings = tags == null ? string.Empty : string.Join(" | ", tags.Select(x => x.Label).ToArray());

@@ -68,6 +68,7 @@ namespace RtdDolarNative
         private bool _manualMode;
         private string _focusedAsset;
         private bool _renderActiveTabQueued;
+        private bool _domCenterQueued;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastDashboardChartRefresh = DateTimeOffset.MinValue;
@@ -6919,6 +6920,110 @@ namespace RtdDolarNative
             levels.AddRange(FlowProfileKeyLevels(snapshot));
             levels.AddRange(FlowSignalKeyLevels(snapshot));
             DomGrid.ItemsSource = DomLadderModel.Build(snapshot, levels, _config.Rtd.TickSize, _config.Ui.DomTicksEachSide);
+            ScheduleDomCenter();
+        }
+
+        private void ScheduleDomCenter()
+        {
+            if (_domCenterQueued || DomGrid == null)
+            {
+                return;
+            }
+
+            _domCenterQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(delegate
+            {
+                _domCenterQueued = false;
+                CenterDomGridOnCurrentPrice();
+            }));
+        }
+
+        private void CenterDomGridOnCurrentPrice()
+        {
+            if (DomGrid == null || DomGrid.Items == null || DomGrid.Items.Count == 0)
+            {
+                return;
+            }
+
+            int currentIndex = -1;
+
+            for (int index = 0; index < DomGrid.Items.Count; index++)
+            {
+                DomRow row = DomGrid.Items[index] as DomRow;
+
+                if (row != null && row.IsCurrent)
+                {
+                    currentIndex = index;
+                    break;
+                }
+            }
+
+            if (currentIndex < 0)
+            {
+                currentIndex = DomGrid.Items.Count / 2;
+            }
+
+            DomGrid.ScrollIntoView(DomGrid.Items[currentIndex]);
+            DomGrid.UpdateLayout();
+
+            ScrollViewer scrollViewer = FindVisualChild<ScrollViewer>(DomGrid);
+
+            if (scrollViewer == null)
+            {
+                return;
+            }
+
+            double viewport = scrollViewer.ViewportHeight;
+
+            if (viewport <= 0d)
+            {
+                return;
+            }
+
+            double targetOffset = currentIndex - Math.Max(0d, (viewport / 2d) - 0.5d);
+            double maxOffset = Math.Max(0d, scrollViewer.ExtentHeight - viewport);
+
+            if (targetOffset < 0d)
+            {
+                targetOffset = 0d;
+            }
+
+            if (targetOffset > maxOffset)
+            {
+                targetOffset = maxOffset;
+            }
+
+            scrollViewer.ScrollToVerticalOffset(targetOffset);
+        }
+
+        private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+
+            for (int index = 0; index < count; index++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+                T childOfType = child as T;
+
+                if (childOfType != null)
+                {
+                    return childOfType;
+                }
+
+                T nestedChild = FindVisualChild<T>(child);
+
+                if (nestedChild != null)
+                {
+                    return nestedChild;
+                }
+            }
+
+            return null;
         }
 
         private IEnumerable<KeyLevel> BasicLevels(MarketSnapshot snapshot)

@@ -22,6 +22,15 @@
         <SolidColorBrush x:Key="Accent" Color="#00E676" />
         <SolidColorBrush x:Key="Warn" Color="#FFB800" />
         <SolidColorBrush x:Key="Danger" Color="#FF3B30" />
+        <SolidColorBrush x:Key="DomCurrentBg" Color="#5D636B" />
+        <SolidColorBrush x:Key="DomBidBg" Color="#10233A" />
+        <SolidColorBrush x:Key="DomBidStrongBg" Color="#1A3F6A" />
+        <SolidColorBrush x:Key="DomAskBg" Color="#301010" />
+        <SolidColorBrush x:Key="DomAskStrongBg" Color="#641818" />
+        <SolidColorBrush x:Key="DomBookBuySoftBg" Color="#0C1E31" />
+        <SolidColorBrush x:Key="DomBookBuyStrongBg" Color="#153D69" />
+        <SolidColorBrush x:Key="DomBookSellSoftBg" Color="#301010" />
+        <SolidColorBrush x:Key="DomBookSellStrongBg" Color="#6A1818" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#003B24" />
@@ -355,6 +364,86 @@
                     <Setter Property="FontWeight" Value="Bold" />
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DomLadderRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Band}" Value="Current">
+                    <Setter Property="Background" Value="{StaticResource DomCurrentBg}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Band}" Value="AskBest">
+                    <Setter Property="Background" Value="{StaticResource DomAskStrongBg}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Band}" Value="AskSide">
+                    <Setter Property="Background" Value="{StaticResource DomAskBg}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Band}" Value="BidBest">
+                    <Setter Property="Background" Value="{StaticResource DomBidStrongBg}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Band}" Value="BidSide">
+                    <Setter Property="Background" Value="{StaticResource DomBidBg}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DomLadderCenterCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="DomLadderLeftCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="DomLadderRightCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+        </Style>
+
+        <Style x:Key="BookIndexCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="BookBuySoftCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="Background" Value="{StaticResource DomBookBuySoftBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="BookBuyStrongCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="Background" Value="{StaticResource DomBookBuyStrongBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="BookSellSoftCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="Background" Value="{StaticResource DomBookSellSoftBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="BookSellStrongCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="Background" Value="{StaticResource DomBookSellStrongBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="FontWeight" Value="Bold" />
         </Style>
 
         <Style TargetType="TabControl">
@@ -1312,16 +1401,41 @@
                             <ColumnDefinition Width="1.5*" />
                             <ColumnDefinition Width="0.9*" />
                         </Grid.ColumnDefinitions>
-                        <DataGrid x:Name="DomGrid" Grid.Column="0" AutoGenerateColumns="False" Margin="0,0,10,0">
+                        <DataGrid x:Name="DomGrid"
+                                  Grid.Column="0"
+                                  AutoGenerateColumns="False"
+                                  Margin="0,0,10,0"
+                                  RowStyle="{StaticResource DomLadderRowStyle}"
+                                  CanUserSortColumns="False"
+                                  RowHeight="22"
+                                  FontSize="11">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="AskVol" Binding="{Binding AskVol}" Width="90" />
-                                <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="90" />
-                                <DataGridTextColumn Header="BidVol" Binding="{Binding BidVol}" Width="90" />
-                                <DataGridTextColumn Header="Flags" Binding="{Binding Flags}" Width="90" />
-                                <DataGridTextColumn Header="Marcacoes" Binding="{Binding Markings}" Width="*" />
+                                <DataGridTextColumn Header="Venda" Binding="{Binding AskVol}" Width="90" CellStyle="{StaticResource DomLadderRightCellStyle}" />
+                                <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                <DataGridTextColumn Header="Compra" Binding="{Binding BidVol}" Width="90" CellStyle="{StaticResource DomLadderRightCellStyle}" />
+                                <DataGridTextColumn Header="Flags" Binding="{Binding Flags}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                <DataGridTextColumn Header="Marcacoes" Binding="{Binding Markings}" Width="*" CellStyle="{StaticResource DomLadderLeftCellStyle}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <DataGrid x:Name="BookGrid" Grid.Column="1" AutoGenerateColumns="True" Margin="0,0,10,0" />
+                        <DataGrid x:Name="BookGrid"
+                                  Grid.Column="1"
+                                  AutoGenerateColumns="False"
+                                  Margin="0,0,10,0"
+                                  CanUserSortColumns="False"
+                                  RowHeight="22"
+                                  FontSize="11">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Nivel" Binding="{Binding Nivel}" Width="52" CellStyle="{StaticResource BookIndexCellStyle}" />
+                                <DataGridTextColumn Header="Hora C" Binding="{Binding HoraCompra}" Width="70" CellStyle="{StaticResource BookBuySoftCellStyle}" />
+                                <DataGridTextColumn Header="Comprador" Binding="{Binding Comprador}" Width="1.15*" CellStyle="{StaticResource BookBuySoftCellStyle}" />
+                                <DataGridTextColumn Header="Qtd C" Binding="{Binding QtdeCompra}" Width="72" CellStyle="{StaticResource BookBuyStrongCellStyle}" />
+                                <DataGridTextColumn Header="Compra" Binding="{Binding Compra}" Width="84" CellStyle="{StaticResource BookBuyStrongCellStyle}" />
+                                <DataGridTextColumn Header="Venda" Binding="{Binding Venda}" Width="84" CellStyle="{StaticResource BookSellStrongCellStyle}" />
+                                <DataGridTextColumn Header="Qtd V" Binding="{Binding QtdeVenda}" Width="72" CellStyle="{StaticResource BookSellStrongCellStyle}" />
+                                <DataGridTextColumn Header="Vendedor" Binding="{Binding Vendedor}" Width="1.15*" CellStyle="{StaticResource BookSellSoftCellStyle}" />
+                                <DataGridTextColumn Header="Hora V" Binding="{Binding HoraVenda}" Width="70" CellStyle="{StaticResource BookSellSoftCellStyle}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
                         <Grid Grid.Column="2">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
