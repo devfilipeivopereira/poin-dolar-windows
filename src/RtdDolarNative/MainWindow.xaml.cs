@@ -6922,8 +6922,12 @@ namespace RtdDolarNative
                 LevelsCurrentPriceText.Text = "-";
                 LevelsOpenPriceText.Text = "-";
                 LevelsOpenDistanceText.Text = "-";
-                LevelsNearestSellText.Text = "-";
-                LevelsNearestBuyText.Text = "-";
+                LevelsGkSellText.Text = "-";
+                LevelsGkBuyText.Text = "-";
+                LevelsGaussSellText.Text = "-";
+                LevelsGaussBuyText.Text = "-";
+                LevelsStdDevSellText.Text = "-";
+                LevelsStdDevBuyText.Text = "-";
                 return;
             }
 
@@ -7054,8 +7058,6 @@ namespace RtdDolarNative
         {
             decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
             decimal openPrice = _result == null || _result.Intraday == null ? 0m : _result.Intraday.Open;
-            LevelsMapRow nearestSell = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Sell", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
-            LevelsMapRow nearestBuy = openingRows == null ? null : openingRows.Where(x => string.Equals(x.Zone, "Buy", StringComparison.OrdinalIgnoreCase)).OrderBy(x => Math.Abs(x.SortPrice - currentPrice)).FirstOrDefault();
 
             string header = EmptyToDash(FocusedAsset()) +
                             " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)) +
@@ -7072,8 +7074,9 @@ namespace RtdDolarNative
             LevelsCurrentPriceText.Text = currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr);
             LevelsOpenPriceText.Text = openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr);
             LevelsOpenDistanceText.Text = openPrice <= 0m ? "-" : FormatPoints(currentPrice - openPrice);
-            LevelsNearestSellText.Text = nearestSell == null ? "-" : nearestSell.Price + " | " + nearestSell.DistanceCurrent;
-            LevelsNearestBuyText.Text = nearestBuy == null ? "-" : nearestBuy.Price + " | " + nearestBuy.DistanceCurrent;
+            UpdateNearestMetricRow(LevelsGkSellText, LevelsGkBuyText, _result == null ? null : _result.OpeningLevels, currentPrice);
+            UpdateNearestMetricRow(LevelsGaussSellText, LevelsGaussBuyText, _result == null ? null : _result.GaussLevels, currentPrice);
+            UpdateNearestMetricRow(LevelsStdDevSellText, LevelsStdDevBuyText, _result == null ? null : _result.StandardDeviationLevels, currentPrice);
             LevelsOpenDistanceText.Foreground = VariationBrush(currentPrice - openPrice);
         }
 
@@ -7092,8 +7095,8 @@ namespace RtdDolarNative
             DeviationLevel nearestSell = NearestDeviationLevel(levels, "Venda", currentPrice);
             DeviationLevel nearestBuy = NearestDeviationLevel(levels, "Compra", currentPrice);
 
-            AddRow(rows, label + " venda", nearestSell == null ? "-" : nearestSell.Price.ToString("N2", _ptBr), nearestSell == null ? "-" : nearestSell.DistanceCurrent + " | " + EmptyToDash(nearestSell.Label));
-            AddRow(rows, label + " compra", nearestBuy == null ? "-" : nearestBuy.Price.ToString("N2", _ptBr), nearestBuy == null ? "-" : nearestBuy.DistanceCurrent + " | " + EmptyToDash(nearestBuy.Label));
+            AddRow(rows, label + " venda", nearestSell == null ? "-" : nearestSell.Price.ToString("N2", _ptBr), nearestSell == null ? "-" : FormatPoints(nearestSell.DistanceCurrent) + " | " + EmptyToDash(nearestSell.Label));
+            AddRow(rows, label + " compra", nearestBuy == null ? "-" : nearestBuy.Price.ToString("N2", _ptBr), nearestBuy == null ? "-" : FormatPoints(nearestBuy.DistanceCurrent) + " | " + EmptyToDash(nearestBuy.Label));
         }
 
         private string NormalizeMetricLabel(string metricName)
@@ -7114,10 +7117,52 @@ namespace RtdDolarNative
 
         private DeviationLevel NearestDeviationLevel(IEnumerable<DeviationLevel> levels, string side, decimal currentPrice)
         {
-            return (levels ?? new List<DeviationLevel>())
-                .Where(x => string.Equals(x.Side, side, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(x => Math.Abs(x.Price - currentPrice))
-                .FirstOrDefault();
+            List<DeviationLevel> filtered = (levels ?? new List<DeviationLevel>())
+                .Where(x => string.Equals(x.Side, side, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(x.Direction, side, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (filtered.Count == 0)
+            {
+                return null;
+            }
+
+            if (currentPrice > 0m)
+            {
+                List<DeviationLevel> directional = string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase)
+                    ? filtered.Where(x => x.Price >= currentPrice).OrderBy(x => x.Price).ToList()
+                    : filtered.Where(x => x.Price <= currentPrice).OrderByDescending(x => x.Price).ToList();
+
+                if (directional.Count > 0)
+                {
+                    return directional.First();
+                }
+            }
+
+            return filtered.OrderBy(x => Math.Abs(x.Price - currentPrice)).FirstOrDefault();
+        }
+
+        private void UpdateNearestMetricRow(TextBlock sellText, TextBlock buyText, IEnumerable<DeviationLevel> levels, decimal currentPrice)
+        {
+            if (sellText != null)
+            {
+                sellText.Text = FormatNearestMetricLevel(NearestDeviationLevel(levels, "Venda", currentPrice));
+            }
+
+            if (buyText != null)
+            {
+                buyText.Text = FormatNearestMetricLevel(NearestDeviationLevel(levels, "Compra", currentPrice));
+            }
+        }
+
+        private string FormatNearestMetricLevel(DeviationLevel level)
+        {
+            if (level == null)
+            {
+                return "-";
+            }
+
+            return level.Price.ToString("N2", _ptBr) + " | " + FormatPoints(level.DistanceCurrent);
         }
 
         private List<OpportunityLevelRow> BuildLevelRows(IEnumerable<KeyLevel> levels, MarketSnapshot snapshot)

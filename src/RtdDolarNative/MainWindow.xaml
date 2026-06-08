@@ -1961,14 +1961,76 @@
                                     <TextBlock Text="Atual x abertura" Foreground="{StaticResource Muted}" />
                                     <TextBlock x:Name="LevelsOpenDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
                                 </StackPanel>
-                                <StackPanel Width="208" Margin="0,0,12,0">
-                                    <TextBlock Text="Venda mais proxima" Foreground="{StaticResource Muted}" />
-                                    <TextBlock x:Name="LevelsNearestSellText" Text="-" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Danger}" />
-                                </StackPanel>
-                                <StackPanel Width="208">
-                                    <TextBlock Text="Compra mais proxima" Foreground="{StaticResource Muted}" />
-                                    <TextBlock x:Name="LevelsNearestBuyText" Text="-" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Accent}" />
-                                </StackPanel>
+                                <Border Width="520"
+                                        Padding="10,8"
+                                        BorderBrush="{StaticResource Border}"
+                                        BorderThickness="1"
+                                        Background="{StaticResource InputBg}">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Garman-Klass"
+                                                       Foreground="{StaticResource Text}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0" />
+                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsGkSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsGkBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Gauss"
+                                                       Foreground="{StaticResource Text}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0" />
+                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsGaussSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsGaussBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Desvio padrão"
+                                                       Foreground="{StaticResource Text}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0" />
+                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsStdDevSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
+                                                <TextBlock x:Name="LevelsStdDevBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
                             </WrapPanel>
                         </Grid>
                     </Border>
