@@ -29,6 +29,9 @@ namespace RtdDolarNative.Charts
         private int _viewOffsetFromEnd;
         private int _visibleCandles = 90;
         private double _priceScale = 1d;
+        private decimal _pricePanOffset;
+        private decimal _dragStartPriceOffset;
+        private decimal _lastVisiblePriceRange = 1m;
         private bool _isDragging;
         private ChartTimeframe _timeframe = ChartTimeframe.Daily;
         private decimal _tickSize = 0.5m;
@@ -172,6 +175,7 @@ namespace RtdDolarNative.Charts
             min -= pad;
             max += pad;
             ApplyPriceScale(ref min, ref max);
+            _lastVisiblePriceRange = Math.Max(1m, max - min);
 
             DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
 
@@ -224,6 +228,7 @@ namespace RtdDolarNative.Charts
             _isDragging = true;
             _dragStart = e.GetPosition(this);
             _dragStartOffset = _viewOffsetFromEnd;
+            _dragStartPriceOffset = _pricePanOffset;
             CaptureMouse();
             e.Handled = true;
         }
@@ -241,6 +246,13 @@ namespace RtdDolarNative.Charts
             double slot = _lastPlot.Width <= 0d ? 8d : _lastPlot.Width / Math.Max(1, _visibleCandles);
             int deltaCandles = (int)Math.Round((current.X - _dragStart.X) / Math.Max(1d, slot));
             _viewOffsetFromEnd = _dragStartOffset + deltaCandles;
+
+            if (_lastPlot.Height > 0d)
+            {
+                decimal deltaPrice = Convert.ToDecimal((current.Y - _dragStart.Y) / _lastPlot.Height) * _lastVisiblePriceRange;
+                _pricePanOffset = _dragStartPriceOffset + deltaPrice;
+            }
+
             ClampViewportOffset();
             InvalidateVisual();
             e.Handled = true;
@@ -282,6 +294,7 @@ namespace RtdDolarNative.Charts
             _visibleCandles = 90;
             _priceGridTickInterval = DefaultPriceGridTickInterval;
             _priceScale = 1d;
+            _pricePanOffset = 0m;
             InvalidateVisual();
             e.Handled = true;
         }
@@ -429,7 +442,7 @@ namespace RtdDolarNative.Charts
                 range = 1m;
             }
 
-            decimal center = (min + max) / 2m;
+            decimal center = (min + max) / 2m + _pricePanOffset;
             decimal half = range / 2m * Convert.ToDecimal(Clamp(_priceScale, 0.35d, 3.0d));
             min = center - half;
             max = center + half;
