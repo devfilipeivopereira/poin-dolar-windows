@@ -4687,13 +4687,45 @@ namespace RtdDolarNative
                 row.Agressor = RawText(snapshot, TimesField("AGR", index));
                 row.Qualidade = "FullTimesAndTrades";
 
-                if (row.HasData())
+                if (row.HasData() && TimesRowHasValidTradeData(row))
                 {
                     rows.Add(row);
                 }
             }
 
             return rows;
+        }
+
+        private bool TimesRowHasValidTradeData(TimesTradeRow row)
+        {
+            if (row == null)
+            {
+                return false;
+            }
+
+            decimal? price = ValueParser.ToDecimal(row.Preco);
+            decimal? quantity = ValueParser.ToDecimal(row.Quantidade);
+
+            if (!price.HasValue && !quantity.HasValue)
+            {
+                return false;
+            }
+
+            return !TimesRowLooksLikePlaceholder(row.Data) &&
+                   !TimesRowLooksLikePlaceholder(row.Compradora) &&
+                   !TimesRowLooksLikePlaceholder(row.Vendedora) &&
+                   !TimesRowLooksLikePlaceholder(row.Agressor);
+        }
+
+        private bool TimesRowLooksLikePlaceholder(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            return value.IndexOf("Ferramenta", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Comando Inv", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void PostRealTimes(MarketSnapshot snapshot, List<TimesTradeRow> rows)
@@ -4792,6 +4824,35 @@ namespace RtdDolarNative
 
             string value;
             return snapshot.Raw.TryGetValue(field, out value) ? value : string.Empty;
+        }
+
+        private void CenteredTimesGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        {
+            DataGridTextColumn textColumn = e.Column as DataGridTextColumn;
+
+            if (textColumn == null)
+            {
+                return;
+            }
+
+            Style textElementStyle = TryFindResource("CenteredDataGridTextElementStyle") as Style;
+            Style editingElementStyle = TryFindResource("CenteredDataGridEditingElementStyle") as Style;
+            Style cellStyle = TryFindResource("CenteredDataGridCellStyle") as Style;
+
+            if (textElementStyle != null)
+            {
+                textColumn.ElementStyle = textElementStyle;
+            }
+
+            if (editingElementStyle != null)
+            {
+                textColumn.EditingElementStyle = editingElementStyle;
+            }
+
+            if (cellStyle != null)
+            {
+                textColumn.CellStyle = cellStyle;
+            }
         }
 
         private bool SnapshotHasPrefixChanged(MarketSnapshot previousSnapshot, MarketSnapshot currentSnapshot, string prefix)
