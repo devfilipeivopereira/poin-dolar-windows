@@ -6437,6 +6437,7 @@ namespace RtdDolarNative
             DomLevelsGrid.ItemsSource = _result.Confluence.OrderBy(x => Math.Abs(x.Distance)).Take(80).ToList();
             OpeningGrid.ItemsSource = _result.OpeningLevels.OrderBy(x => x.Price).ToList();
             PocGrid.ItemsSource = _result.PocDeviationLevels.OrderBy(x => x.Price).ToList();
+            StdDevGrid.ItemsSource = _result.StandardDeviationLevels.OrderBy(x => x.Price).ToList();
             PercentGrid.ItemsSource = _result.PercentTable.OrderBy(x => x.Source).ThenBy(x => x.Price).ToList();
             RenderVolumeProfile(snapshot, _flowProcessor.GetMetrics(FocusedAsset()));
             ConfluenceGrid.ItemsSource = _result.Confluence.ToList();

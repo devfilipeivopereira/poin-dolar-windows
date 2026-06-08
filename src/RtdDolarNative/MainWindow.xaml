@@ -1770,6 +1770,9 @@
                     <TabItem Header="POC">
                         <DataGrid x:Name="PocGrid" Margin="0,10,0,0" AutoGenerateColumns="True" CellStyle="{StaticResource DirectionalDataGridCellStyle}" />
                     </TabItem>
+                    <TabItem Header="Desvio">
+                        <DataGrid x:Name="StdDevGrid" Margin="0,10,0,0" AutoGenerateColumns="True" CellStyle="{StaticResource DirectionalDataGridCellStyle}" />
+                    </TabItem>
                     <TabItem Header="Variacao %">
                         <DataGrid x:Name="PercentGrid" Margin="0,10,0,0" AutoGenerateColumns="True" />
                     </TabItem>

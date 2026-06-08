@@ -222,6 +222,7 @@ namespace RtdDolarNative.Quant
             WindowMetrics = new List<VolatilityMetric>();
             OpeningLevels = new List<DeviationLevel>();
             PocDeviationLevels = new List<DeviationLevel>();
+            StandardDeviationLevels = new List<DeviationLevel>();
             PercentMaps = new List<PercentMap>();
             PercentTable = new List<KeyLevel>();
             KeyLevels = new List<KeyLevel>();
@@ -243,12 +244,14 @@ namespace RtdDolarNative.Quant
         public VolatilityMetric RogersSatchell { get; set; }
         public VolatilityMetric YangZhang { get; set; }
         public VolatilityMetric CloseToClose { get; set; }
+        public VolatilityMetric StandardDeviation { get; set; }
         public VolatilityMetric Atr { get; set; }
         public VolumeProfileResult Profile { get; set; }
         public List<VolatilityMetric> Metrics { get; set; }
         public List<VolatilityMetric> WindowMetrics { get; set; }
         public List<DeviationLevel> OpeningLevels { get; set; }
         public List<DeviationLevel> PocDeviationLevels { get; set; }
+        public List<DeviationLevel> StandardDeviationLevels { get; set; }
         public List<PercentMap> PercentMaps { get; set; }
         public List<KeyLevel> PercentTable { get; set; }
         public List<KeyLevel> KeyLevels { get; set; }

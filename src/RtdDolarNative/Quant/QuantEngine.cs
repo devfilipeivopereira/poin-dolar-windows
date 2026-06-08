@@ -57,12 +57,14 @@ namespace RtdDolarNative.Quant
             result.RogersSatchell = CalcRogersSatchell(selectedWindow, windowDays);
             result.YangZhang = CalcYangZhang(selectedWindow, windowDays);
             result.CloseToClose = CalcCloseToClose(selectedWindow, windowDays);
+            result.StandardDeviation = CalcStandardDeviation(selectedWindow, windowDays);
             result.Atr = CalcAtr(selectedWindow, windowDays, result.Bars);
             result.Metrics.Add(result.GarmanKlass);
             result.Metrics.Add(result.Parkinson);
             result.Metrics.Add(result.RogersSatchell);
             result.Metrics.Add(result.YangZhang);
             result.Metrics.Add(result.CloseToClose);
+            result.Metrics.Add(result.StandardDeviation);
             result.Metrics.Add(result.Atr);
 
             if (selectedWindow.Count >= 2)
@@ -75,8 +77,9 @@ namespace RtdDolarNative.Quant
             result.Profile = VolumeProfileProxy(selectedWindow);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
-            result.OpeningLevels = ReferenceDeviationLevels(result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
-            result.PocDeviationLevels = ReferenceDeviationLevels(result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
+            result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
+            result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
+            result.StandardDeviationLevels = StandardDeviationLevels(selectedWindow, result.Intraday.Price);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, windowDays);
@@ -216,6 +219,26 @@ namespace RtdDolarNative.Quant
             }
 
             return VolMetric("Close-to-close", window, bars, Stdev(returns, true));
+        }
+
+        private static VolatilityMetric CalcStandardDeviation(List<DailyBar> bars, int window)
+        {
+            if (bars == null || bars.Count == 0)
+            {
+                return VolMetric("Desvio padrao", window, new List<DailyBar>(), 0d);
+            }
+
+            List<decimal> closes = bars.Select(x => x.Close).Where(x => x > 0m).ToList();
+
+            if (closes.Count < 2)
+            {
+                return VolMetric("Desvio padrao", window, bars, 0d);
+            }
+
+            decimal mean = closes.Average();
+            decimal stdev = StdevDecimal(closes);
+            double ratio = mean <= 0m ? 0d : D(stdev) / D(mean);
+            return VolMetric("Desvio padrao", window, bars, ratio);
         }
 
         private static VolatilityMetric CalcAtr(List<DailyBar> bars, int window, List<DailyBar> allBars)
@@ -460,18 +483,51 @@ namespace RtdDolarNative.Quant
 
         private static List<DeviationLevel> ReferenceDeviationLevels(decimal referencePrice, decimal sigma, decimal currentPrice)
         {
+            return ReferenceDeviationLevels(string.Empty, referencePrice, sigma, currentPrice);
+        }
+
+        private static List<DeviationLevel> ReferenceDeviationLevels(string referenceName, decimal referencePrice, decimal sigma, decimal currentPrice)
+        {
             List<DeviationLevel> levels = new List<DeviationLevel>();
             int[] multipliers = new[] { 1, 2, 3, 4 };
+            string prefix = string.IsNullOrWhiteSpace(referenceName) ? string.Empty : referenceName.Trim() + " ";
 
             foreach (int m in multipliers)
             {
                 decimal sell = referencePrice + m * sigma;
                 decimal buy = referencePrice - m * sigma;
-                levels.Add(Deviation("Venda", "sell", m, sell, referencePrice, currentPrice, "Venda +" + m + " desvio"));
-                levels.Add(Deviation("Compra", "buy", -m, buy, referencePrice, currentPrice, "Compra -" + m + " desvio"));
+                levels.Add(Deviation("Venda", "sell", m, sell, referencePrice, currentPrice, prefix + "+" + m + " desvio"));
+                levels.Add(Deviation("Compra", "buy", -m, buy, referencePrice, currentPrice, prefix + "-" + m + " desvio"));
             }
 
             return levels;
+        }
+
+        private static List<DeviationLevel> StandardDeviationLevels(List<DailyBar> bars, decimal currentPrice)
+        {
+            List<DeviationLevel> levels = new List<DeviationLevel>();
+
+            if (bars == null || bars.Count < 2)
+            {
+                return levels;
+            }
+
+            List<decimal> closes = bars.Select(x => x.Close).Where(x => x > 0m).ToList();
+
+            if (closes.Count < 2)
+            {
+                return levels;
+            }
+
+            decimal mean = closes.Average();
+            decimal sigma = StdevDecimal(closes);
+
+            if (mean <= 0m || sigma <= 0m)
+            {
+                return levels;
+            }
+
+            return ReferenceDeviationLevels("Media", mean, sigma, currentPrice);
         }
 
         private static DeviationLevel Deviation(string side, string dir, int sigma, decimal price, decimal reference, decimal current, string label)
