@@ -564,7 +564,10 @@ namespace RtdDolarNative.Charts
         {
             decimal tickSize = _tickSize > 0m ? _tickSize : 0.5m;
             int tickInterval = NormalizePriceGridTickInterval(_priceGridTickInterval);
-            return tickSize * tickInterval;
+            decimal zoomInfluence = Convert.ToDecimal(Math.Sqrt(Clamp(_priceScale, 0.35d, 3.0d)));
+            decimal adjustedTicks = Math.Max(1m, Convert.ToDecimal(tickInterval) * zoomInfluence);
+            decimal roundedTicks = Math.Max(1m, Math.Round(adjustedTicks, 0, MidpointRounding.AwayFromZero));
+            return tickSize * roundedTicks;
         }
 
         private static decimal RoundUpToStep(decimal value, decimal step)
