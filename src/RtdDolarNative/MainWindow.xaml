@@ -583,6 +583,15 @@
             <Setter Property="FontSize" Value="11" />
         </Style>
 
+        <Style x:Key="TopNavRadioButtonStyle" TargetType="RadioButton" BasedOn="{StaticResource {x:Type RadioButton}}">
+            <Setter Property="MinWidth" Value="38" />
+            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
         <Style x:Key="TopNavGroupStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
             <Setter Property="Margin" Value="0,0,4,0" />
@@ -904,6 +913,43 @@
                             <Button Content="Risco" ToolTip="Risco operacional" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Alertas" ToolTip="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Hist" ToolTip="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Ticks" Style="{StaticResource TopNavGroupStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ChartPriceGrid5Button"
+                                         Content="5"
+                                         GroupName="ChartPriceGrid"
+                                         Tag="5"
+                                         Checked="ChartPriceGridButton_Checked"
+                                         ToolTip="Linhas de preco a cada 5 ticks"
+                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                            <RadioButton x:Name="ChartPriceGrid10Button"
+                                         Content="10"
+                                         GroupName="ChartPriceGrid"
+                                         Tag="10"
+                                         IsChecked="True"
+                                         Checked="ChartPriceGridButton_Checked"
+                                         ToolTip="Linhas de preco a cada 10 ticks"
+                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                            <RadioButton x:Name="ChartPriceGrid50Button"
+                                         Content="50"
+                                         GroupName="ChartPriceGrid"
+                                         Tag="50"
+                                         Checked="ChartPriceGridButton_Checked"
+                                         ToolTip="Linhas de preco a cada 50 ticks"
+                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                            <RadioButton x:Name="ChartPriceGrid100Button"
+                                         Content="100"
+                                         GroupName="ChartPriceGrid"
+                                         Tag="100"
+                                         Checked="ChartPriceGridButton_Checked"
+                                         ToolTip="Linhas de preco a cada 100 ticks"
+                                         Style="{StaticResource TopNavRadioButtonStyle}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

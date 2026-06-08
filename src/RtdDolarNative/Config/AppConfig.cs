@@ -717,6 +717,8 @@ namespace RtdDolarNative.Config
         public static readonly int[] AllowedCalculationDays = new[] { 21, 45, 63, 90 };
         public static readonly int DefaultChartTimeframeIndex = 0;
         public static readonly int[] AllowedChartTimeframeIndexes = new[] { 0, 1, 2 };
+        public static readonly int DefaultPriceGridTickInterval = 10;
+        public static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
 
         public UiConfig()
         {
@@ -727,6 +729,7 @@ namespace RtdDolarNative.Config
             TapeCapacity = 500;
             CalculationDays = DefaultCalculationDays;
             ChartTimeframeIndex = DefaultChartTimeframeIndex;
+            PriceGridTickInterval = DefaultPriceGridTickInterval;
         }
 
         public int FastIntervalMs { get; set; }
@@ -736,11 +739,13 @@ namespace RtdDolarNative.Config
         public int TapeCapacity { get; set; }
         public int CalculationDays { get; set; }
         public int ChartTimeframeIndex { get; set; }
+        public int PriceGridTickInterval { get; set; }
 
         public void Normalize()
         {
             CalculationDays = NormalizeCalculationDays(CalculationDays);
             ChartTimeframeIndex = NormalizeChartTimeframeIndex(ChartTimeframeIndex);
+            PriceGridTickInterval = NormalizePriceGridTickInterval(PriceGridTickInterval);
         }
 
         public static int NormalizeCalculationDays(int days)
@@ -751,6 +756,11 @@ namespace RtdDolarNative.Config
         public static int NormalizeChartTimeframeIndex(int timeframeIndex)
         {
             return AllowedChartTimeframeIndexes.Contains(timeframeIndex) ? timeframeIndex : DefaultChartTimeframeIndex;
+        }
+
+        public static int NormalizePriceGridTickInterval(int tickInterval)
+        {
+            return AllowedPriceGridTickIntervals.Contains(tickInterval) ? tickInterval : DefaultPriceGridTickInterval;
         }
     }
 

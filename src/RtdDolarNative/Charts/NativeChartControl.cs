@@ -15,9 +15,9 @@ namespace RtdDolarNative.Charts
     {
         private const int MinVisibleCandles = 20;
         private const int MaxVisibleCandles = 240;
-        private const int MinPriceGridLines = 4;
-        private const int MaxPriceGridLines = 14;
         private const int FuturePanLimit = 40;
+        private const int DefaultPriceGridTickInterval = 10;
+        private static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
 
         private List<DailyBar> _bars = new List<DailyBar>();
         private MarketSnapshot _snapshot;
@@ -28,10 +28,11 @@ namespace RtdDolarNative.Charts
         private int _dragStartOffset;
         private int _viewOffsetFromEnd;
         private int _visibleCandles = 90;
-        private int _priceGridLines = 6;
         private double _priceScale = 1d;
         private bool _isDragging;
         private ChartTimeframe _timeframe = ChartTimeframe.Daily;
+        private decimal _tickSize = 0.5m;
+        private int _priceGridTickInterval = DefaultPriceGridTickInterval;
 
         public NativeChartControl()
         {
@@ -65,6 +66,40 @@ namespace RtdDolarNative.Charts
                 }
 
                 _timeframe = normalized;
+                InvalidateVisual();
+            }
+        }
+
+        public decimal TickSize
+        {
+            get { return _tickSize; }
+            set
+            {
+                decimal normalized = value > 0m ? value : 0.5m;
+
+                if (_tickSize == normalized)
+                {
+                    return;
+                }
+
+                _tickSize = normalized;
+                InvalidateVisual();
+            }
+        }
+
+        public int PriceGridTickInterval
+        {
+            get { return _priceGridTickInterval; }
+            set
+            {
+                int normalized = NormalizePriceGridTickInterval(value);
+
+                if (_priceGridTickInterval == normalized)
+                {
+                    return;
+                }
+
+                _priceGridTickInterval = normalized;
                 InvalidateVisual();
             }
         }
@@ -138,15 +173,7 @@ namespace RtdDolarNative.Charts
             max += pad;
             ApplyPriceScale(ref min, ref max);
 
-            int priceLines = EffectivePriceGridLines();
-            for (int i = 0; i < priceLines; i++)
-            {
-                double ratio = priceLines == 1 ? 0d : i / (double)(priceLines - 1);
-                double y = plot.Top + plot.Height * ratio;
-                dc.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-                decimal price = max - (max - min) * i / Math.Max(1m, priceLines - 1m);
-                DrawText(dc, price.ToString("N1", new CultureInfo("pt-BR")), plot.Right + 6, y - 8, textBrush, 11);
-            }
+            DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
 
             double candleSlot = plot.Width / Math.Max(1, viewport.SlotCount);
             double candleWidth = Math.Max(3d, Math.Min(12d, candleSlot * 0.58d));
@@ -239,10 +266,6 @@ namespace RtdDolarNative.Charts
             {
                 ZoomCandles(direction, point);
             }
-            else if (IsInPriceAxis(point) || (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
-            {
-                _priceGridLines = Clamp(_priceGridLines + direction, MinPriceGridLines, MaxPriceGridLines);
-            }
             else
             {
                 _priceScale = Clamp(_priceScale * (direction > 0 ? 0.9d : 1.1d), 0.35d, 3.0d);
@@ -257,7 +280,7 @@ namespace RtdDolarNative.Charts
             base.OnMouseRightButtonDown(e);
             _viewOffsetFromEnd = 0;
             _visibleCandles = 90;
-            _priceGridLines = 6;
+            _priceGridTickInterval = DefaultPriceGridTickInterval;
             _priceScale = 1d;
             InvalidateVisual();
             e.Handled = true;
@@ -412,12 +435,44 @@ namespace RtdDolarNative.Charts
             max = center + half;
         }
 
-        private int EffectivePriceGridLines()
+        private void DrawPriceGrid(DrawingContext dc, Rect plot, decimal min, decimal max, Pen gridPen, Brush textBrush)
         {
-            int baseLines = Clamp(_priceGridLines, MinPriceGridLines, MaxPriceGridLines);
-            double zoom = Clamp(_priceScale, 0.35d, 3.0d);
-            int scaledLines = (int)Math.Round(baseLines * Math.Sqrt(1d / zoom));
-            return Clamp(scaledLines, MinPriceGridLines, MaxPriceGridLines);
+            decimal step = EffectivePriceGridStep();
+
+            if (step <= 0m)
+            {
+                return;
+            }
+
+            decimal top = RoundUpToStep(max, step);
+            decimal bottom = RoundDownToStep(min, step);
+            decimal range = max - min;
+            double stepPixels = range <= 0m
+                ? plot.Height
+                : plot.Height * Convert.ToDouble(step / range);
+            int labelStride = stepPixels >= 18d
+                ? 1
+                : Math.Max(1, (int)Math.Ceiling(18d / Math.Max(1d, stepPixels)));
+            CultureInfo culture = new CultureInfo("pt-BR");
+            int index = 0;
+
+            for (decimal price = top; price >= bottom; price -= step)
+            {
+                double y = Y(price, min, max, plot);
+                dc.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+
+                if (index % labelStride == 0 || price == top || price == bottom)
+                {
+                    DrawText(dc, price.ToString("N1", culture), plot.Right + 6, y - 8, textBrush, 11);
+                }
+
+                index++;
+
+                if (index > 250)
+                {
+                    break;
+                }
+            }
         }
 
         private void ZoomCandles(int direction, Point point)
@@ -505,9 +560,45 @@ namespace RtdDolarNative.Charts
             public List<DailyBar> VisibleBars { get; private set; }
         }
 
-        private bool IsInPriceAxis(Point point)
+        private decimal EffectivePriceGridStep()
         {
-            return !_lastPlot.IsEmpty && point.X >= _lastPlot.Right && point.Y >= _lastPlot.Top && point.Y <= _lastPlot.Bottom;
+            decimal tickSize = _tickSize > 0m ? _tickSize : 0.5m;
+            int tickInterval = NormalizePriceGridTickInterval(_priceGridTickInterval);
+            return tickSize * tickInterval;
+        }
+
+        private static decimal RoundUpToStep(decimal value, decimal step)
+        {
+            if (step <= 0m)
+            {
+                return value;
+            }
+
+            decimal quotient = value / step;
+            decimal rounded = Convert.ToDecimal(Math.Ceiling(Convert.ToDouble(quotient)));
+            return rounded * step;
+        }
+
+        private static decimal RoundDownToStep(decimal value, decimal step)
+        {
+            if (step <= 0m)
+            {
+                return value;
+            }
+
+            decimal quotient = value / step;
+            decimal rounded = Convert.ToDecimal(Math.Floor(Convert.ToDouble(quotient)));
+            return rounded * step;
+        }
+
+        private static int NormalizePriceGridTickInterval(int tickInterval)
+        {
+            if (AllowedPriceGridTickIntervals.Contains(tickInterval))
+            {
+                return tickInterval;
+            }
+
+            return DefaultPriceGridTickInterval;
         }
 
         private static int Clamp(int value, int min, int max)
@@ -527,7 +618,7 @@ namespace RtdDolarNative.Charts
                 return plot.Top + plot.Height / 2d;
             }
 
-            return plot.Bottom - (decimal.ToDouble(price - min) / decimal.ToDouble(max - min)) * plot.Height;
+            return plot.Bottom - (Convert.ToDouble(price - min) / Convert.ToDouble(max - min)) * plot.Height;
         }
 
         private Brush LevelBrush(KeyLevel level)

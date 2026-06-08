@@ -93,6 +93,7 @@ namespace RtdDolarNative
         private readonly object _postedTimesLock = new object();
         private bool _syncCalculationDaysSelection = true;
         private bool _syncChartTimeframeSelection = true;
+        private bool _syncChartPriceGridSelection = true;
 
         public MainWindow()
         {
@@ -126,6 +127,7 @@ namespace RtdDolarNative
             InitializeStaticText();
             InitializeCalculationDaysSelection();
             InitializeChartTimeframeSelection();
+            InitializeChartPriceGridSelection();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -945,7 +947,29 @@ namespace RtdDolarNative
                 AddHistory("App", "Timeframe de grafico", ChartTimeframeText(SelectedChartTimeframe()) + " selecionado.");
             }
 
-            ApplyChartTimeframeSelection();
+            ApplyChartDisplaySelection();
+        }
+
+        private void ChartPriceGridButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_syncChartPriceGridSelection)
+            {
+                return;
+            }
+
+            RadioButton button = sender as RadioButton;
+            int selectedTicks = button == null ? _config.Ui.PriceGridTickInterval : ParseChartPriceGridTicks(button.Tag);
+            selectedTicks = UiConfig.NormalizePriceGridTickInterval(selectedTicks);
+
+            if (_config.Ui.PriceGridTickInterval != selectedTicks)
+            {
+                _config.Ui.PriceGridTickInterval = selectedTicks;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Ticks do grafico", "Linhas de preco a cada " + selectedTicks.ToString(_ptBr) + " ticks.");
+            }
+
+            ApplyChartDisplaySelection();
         }
 
         private void AddAssetButton_Click(object sender, RoutedEventArgs e)
@@ -5404,7 +5428,48 @@ namespace RtdDolarNative
                 _syncChartTimeframeSelection = false;
             }
 
-            ApplyChartTimeframeSelection();
+            ApplyChartDisplaySelection();
+        }
+
+        private void InitializeChartPriceGridSelection()
+        {
+            if (ChartPriceGrid10Button == null)
+            {
+                return;
+            }
+
+            _syncChartPriceGridSelection = true;
+
+            try
+            {
+                int selectedTicks = UiConfig.NormalizePriceGridTickInterval(_config.Ui == null ? UiConfig.DefaultPriceGridTickInterval : _config.Ui.PriceGridTickInterval);
+
+                if (ChartPriceGrid5Button != null)
+                {
+                    ChartPriceGrid5Button.IsChecked = selectedTicks == 5;
+                }
+
+                if (ChartPriceGrid10Button != null)
+                {
+                    ChartPriceGrid10Button.IsChecked = selectedTicks == 10;
+                }
+
+                if (ChartPriceGrid50Button != null)
+                {
+                    ChartPriceGrid50Button.IsChecked = selectedTicks == 50;
+                }
+
+                if (ChartPriceGrid100Button != null)
+                {
+                    ChartPriceGrid100Button.IsChecked = selectedTicks == 100;
+                }
+            }
+            finally
+            {
+                _syncChartPriceGridSelection = false;
+            }
+
+            ApplyChartDisplaySelection();
         }
 
         private int SelectedCalculationDays()
@@ -5461,16 +5526,27 @@ namespace RtdDolarNative
 
         private void ApplyChartTimeframeSelection()
         {
+            ApplyChartDisplaySelection();
+        }
+
+        private void ApplyChartDisplaySelection()
+        {
+            decimal tickSize = _config != null && _config.Rtd != null && _config.Rtd.TickSize > 0m ? _config.Rtd.TickSize : 0.5m;
+            int selectedPriceGridTicks = SelectedChartPriceGridTicks();
             ChartTimeframe timeframe = SelectedChartTimeframe();
 
             if (DashboardChartControl != null)
             {
+                DashboardChartControl.TickSize = tickSize;
+                DashboardChartControl.PriceGridTickInterval = selectedPriceGridTicks;
                 DashboardChartControl.Timeframe = timeframe;
                 DashboardChartControl.InvalidateVisual();
             }
 
             if (ChartControl != null)
             {
+                ChartControl.TickSize = tickSize;
+                ChartControl.PriceGridTickInterval = selectedPriceGridTicks;
                 ChartControl.Timeframe = timeframe;
                 ChartControl.InvalidateVisual();
             }
@@ -5489,6 +5565,19 @@ namespace RtdDolarNative
                 : UiConfig.DefaultChartTimeframeIndex;
         }
 
+        private static int ParseChartPriceGridTicks(object tag)
+        {
+            if (tag == null)
+            {
+                return UiConfig.DefaultPriceGridTickInterval;
+            }
+
+            int parsed;
+            return int.TryParse(Convert.ToString(tag, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : UiConfig.DefaultPriceGridTickInterval;
+        }
+
         private ChartTimeframe ChartTimeframeFromIndex(int index)
         {
             switch (index)
@@ -5500,6 +5589,11 @@ namespace RtdDolarNative
                 default:
                     return ChartTimeframe.Daily;
             }
+        }
+
+        private int SelectedChartPriceGridTicks()
+        {
+            return UiConfig.NormalizePriceGridTickInterval(_config.Ui == null ? UiConfig.DefaultPriceGridTickInterval : _config.Ui.PriceGridTickInterval);
         }
 
         private string ChartTimeframeText(ChartTimeframe timeframe)
