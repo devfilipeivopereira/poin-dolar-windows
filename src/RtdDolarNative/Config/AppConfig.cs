@@ -645,8 +645,8 @@ namespace RtdDolarNative.Config
             CsvPath = string.Empty;
             Enabled = true;
             QuoteEnabled = true;
-            BookEnabled = false;
-            TimesEnabled = false;
+            BookEnabled = true;
+            TimesEnabled = true;
         }
 
         public RtdAssetConfig(string asset, bool enabled)
@@ -659,8 +659,8 @@ namespace RtdDolarNative.Config
             CsvPath = string.Empty;
             Enabled = enabled;
             QuoteEnabled = true;
-            BookEnabled = false;
-            TimesEnabled = false;
+            BookEnabled = true;
+            TimesEnabled = true;
         }
 
         public string Name { get; set; }

@@ -257,8 +257,8 @@ namespace PoinDolarWindowsInstaller
 
             foreach (Dictionary<string, object> asset in GetDictionaries(rtd, "Assets"))
             {
-                asset["BookEnabled"] = false;
-                asset["TimesEnabled"] = false;
+                asset["BookEnabled"] = true;
+                asset["TimesEnabled"] = true;
             }
 
             foreach (Dictionary<string, object> source in GetDictionaries(rtd, "Sources"))
@@ -268,7 +268,7 @@ namespace PoinDolarWindowsInstaller
                 if (string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase))
                 {
-                    source["Enabled"] = false;
+                    source["Enabled"] = true;
                 }
             }
         }

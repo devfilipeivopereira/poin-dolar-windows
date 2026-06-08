@@ -1837,14 +1837,32 @@ namespace RtdDolarNative
                 return;
             }
 
+            MarketSnapshot previousSnapshot = null;
+
             lock (_snapshotsLock)
             {
+                _snapshotsByAsset.TryGetValue(snapshot.Asset, out previousSnapshot);
                 _snapshotsByAsset[snapshot.Asset] = snapshot;
             }
 
-            _heatmapProcessor.PostSnapshot(snapshot);
-            PostRealTimes(snapshot, BuildTimesRows(snapshot));
-            _flowProcessor.Post(snapshot);
+            bool bookChanged = SnapshotHasPrefixChanged(previousSnapshot, snapshot, "BOOK_");
+            bool timesChanged = SnapshotHasPrefixChanged(previousSnapshot, snapshot, "TIMES_");
+            bool quoteChanged = SnapshotHasAnyNonPrefixedChange(previousSnapshot, snapshot, new[] { "BOOK_", "TIMES_" });
+
+            if (previousSnapshot == null || bookChanged || quoteChanged)
+            {
+                _heatmapProcessor.PostSnapshot(snapshot);
+            }
+
+            if (previousSnapshot == null || timesChanged)
+            {
+                PostRealTimes(snapshot, BuildTimesRows(snapshot));
+            }
+
+            if (previousSnapshot == null || quoteChanged)
+            {
+                _flowProcessor.Post(snapshot);
+            }
         }
 
         private void FastTimer_Tick(object sender, EventArgs e)
@@ -4776,6 +4794,85 @@ namespace RtdDolarNative
             return snapshot.Raw.TryGetValue(field, out value) ? value : string.Empty;
         }
 
+        private bool SnapshotHasPrefixChanged(MarketSnapshot previousSnapshot, MarketSnapshot currentSnapshot, string prefix)
+        {
+            return SnapshotHasChanges(previousSnapshot, currentSnapshot, key => !string.IsNullOrWhiteSpace(key) && key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private bool SnapshotHasAnyNonPrefixedChange(MarketSnapshot previousSnapshot, MarketSnapshot currentSnapshot, string[] excludedPrefixes)
+        {
+            return SnapshotHasChanges(previousSnapshot, currentSnapshot, key => !string.IsNullOrWhiteSpace(key) && !HasAnyPrefix(key, excludedPrefixes));
+        }
+
+        private bool SnapshotHasChanges(MarketSnapshot previousSnapshot, MarketSnapshot currentSnapshot, Func<string, bool> predicate)
+        {
+            if (currentSnapshot == null || currentSnapshot.Raw == null)
+            {
+                return false;
+            }
+
+            Dictionary<string, string> previousRaw = previousSnapshot == null ? null : previousSnapshot.Raw;
+            Dictionary<string, string> currentRaw = currentSnapshot.Raw;
+            HashSet<string> keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (KeyValuePair<string, string> item in currentRaw)
+            {
+                if (predicate(item.Key))
+                {
+                    keys.Add(item.Key);
+                }
+            }
+
+            if (previousRaw != null)
+            {
+                foreach (KeyValuePair<string, string> item in previousRaw)
+                {
+                    if (predicate(item.Key))
+                    {
+                        keys.Add(item.Key);
+                    }
+                }
+            }
+
+            foreach (string key in keys)
+            {
+                string previousValue = string.Empty;
+                string currentValue = string.Empty;
+
+                if (previousRaw != null)
+                {
+                    previousRaw.TryGetValue(key, out previousValue);
+                }
+
+                currentRaw.TryGetValue(key, out currentValue);
+
+                if (!string.Equals(previousValue ?? string.Empty, currentValue ?? string.Empty, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasAnyPrefix(string key, string[] prefixes)
+        {
+            if (string.IsNullOrWhiteSpace(key) || prefixes == null || prefixes.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (string prefix in prefixes)
+            {
+                if (!string.IsNullOrWhiteSpace(prefix) && key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private string RtdText(MarketSnapshot snapshot, string field)
         {
             if (snapshot == null || snapshot.Rtd == null || string.IsNullOrWhiteSpace(field))
@@ -5122,12 +5219,12 @@ namespace RtdDolarNative
 
             if (BookEnabledInput != null)
             {
-                BookEnabledInput.IsChecked = false;
+                BookEnabledInput.IsChecked = true;
             }
 
             if (TimesEnabledInput != null)
             {
-                TimesEnabledInput.IsChecked = false;
+                TimesEnabledInput.IsChecked = true;
             }
         }
 
