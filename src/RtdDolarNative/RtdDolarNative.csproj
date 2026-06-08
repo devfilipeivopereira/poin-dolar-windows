@@ -131,6 +131,7 @@
     <Compile Include="Quant\QuantModels.cs" />
     <Compile Include="Rtd\IRTDUpdateEvent.cs" />
     <Compile Include="Rtd\IRtdServer.cs" />
+    <Compile Include="Rtd\RtdCompleteFieldCatalog.cs" />
     <Compile Include="Rtd\RtdFieldCatalog.cs" />
     <Compile Include="Rtd\RtdProbeService.cs" />
     <Compile Include="Rtd\RtdTopic.cs" />

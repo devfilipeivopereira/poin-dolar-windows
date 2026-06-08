@@ -106,6 +106,8 @@ namespace RtdDolarNative.Config
 
     public sealed class RtdConfig
     {
+        public const string RtdCompleteRole = "RtdComplete";
+
         public static readonly string[] DefaultQuoteFields = new[]
         {
             "DAT", "HOR", "ULT", "ABE", "MAX", "MIN", "FEC", "VAR", "VARPTS", "NEG", "QTT", "VOL",
@@ -430,9 +432,95 @@ namespace RtdDolarNative.Config
             return Assets.FirstOrDefault(x => string.Equals(x.Asset, normalized, StringComparison.OrdinalIgnoreCase));
         }
 
+        public List<string> GetRtdCompleteFields(string asset)
+        {
+            RtdSourceConfig source = FindRtdCompleteSource(asset);
+
+            if (source == null || !source.Enabled)
+            {
+                return new List<string>();
+            }
+
+            return NormalizeFieldList(source.Fields, new string[0]);
+        }
+
+        public void SetRtdCompleteSource(string asset, IEnumerable<string> fields)
+        {
+            string normalizedAsset = NormalizeAsset(string.IsNullOrWhiteSpace(asset) ? Asset : asset);
+            List<string> normalizedFields = NormalizeFieldList(fields, new string[0]);
+
+            if (string.IsNullOrWhiteSpace(normalizedAsset) || normalizedFields.Count == 0)
+            {
+                ClearRtdCompleteSource(asset);
+                return;
+            }
+
+            if (Sources == null)
+            {
+                Sources = new List<RtdSourceConfig>();
+            }
+
+            EnsureDefaultSourcesForAsset(normalizedAsset);
+
+            string name = RtdCompleteSourceName(normalizedAsset);
+            RtdSourceConfig source = Sources.FirstOrDefault(x => x != null && string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (source == null)
+            {
+                source = new RtdSourceConfig();
+                Sources.Add(source);
+            }
+
+            source.Name = name;
+            source.Role = RtdCompleteRole;
+            source.Enabled = true;
+            source.ProgId = ProgId;
+            source.Asset = normalizedAsset;
+            source.Topic = normalizedAsset;
+            source.PollIntervalMs = PollIntervalMs;
+            source.Fields = normalizedFields;
+            source.IndexFrom = null;
+            source.IndexTo = null;
+            source.InfoFields = new List<string>();
+        }
+
+        public void ClearRtdCompleteSource(string asset)
+        {
+            if (Sources == null)
+            {
+                return;
+            }
+
+            string normalizedAsset = NormalizeAsset(string.IsNullOrWhiteSpace(asset) ? Asset : asset);
+            Sources.RemoveAll(x => x != null &&
+                string.Equals(x.Role, RtdCompleteRole, StringComparison.OrdinalIgnoreCase) &&
+                (string.IsNullOrWhiteSpace(normalizedAsset) || string.Equals(NormalizeAsset(x.Asset), normalizedAsset, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        public static string RtdCompleteSourceName(string asset)
+        {
+            string normalizedAsset = NormalizeAsset(asset);
+            return RtdCompleteRole + "-" + normalizedAsset;
+        }
+
         public static string NormalizeAsset(string asset)
         {
             return string.IsNullOrWhiteSpace(asset) ? string.Empty : asset.Trim().ToUpperInvariant();
+        }
+
+        private RtdSourceConfig FindRtdCompleteSource(string asset)
+        {
+            if (Sources == null)
+            {
+                return null;
+            }
+
+            string normalizedAsset = NormalizeAsset(string.IsNullOrWhiteSpace(asset) ? Asset : asset);
+            string name = RtdCompleteSourceName(normalizedAsset);
+
+            return Sources.FirstOrDefault(x => x != null &&
+                string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.Role, RtdCompleteRole, StringComparison.OrdinalIgnoreCase));
         }
 
         private void RemoveLegacyGeneratedSources(string asset)

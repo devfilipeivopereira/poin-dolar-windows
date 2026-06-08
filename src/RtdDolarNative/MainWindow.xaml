@@ -344,6 +344,33 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="RtdCompleteDataGridRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="Ao vivo">
+                    <Setter Property="Background" Value="#061A10" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Sem valor">
+                    <Setter Property="Background" Value="#15130B" />
+                    <Setter Property="Foreground" Value="{StaticResource Warn}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Nao assinado">
+                    <Setter Property="Background" Value="#080A0D" />
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Desatualizado">
+                    <Setter Property="Background" Value="#2A0606" />
+                    <Setter Property="Foreground" Value="#FFD4D0" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="FlowMapDataGridRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Zone}" Value="ASK">
@@ -432,6 +459,28 @@
                     <Setter Property="Foreground" Value="{StaticResource Danger}" />
                     <Setter Property="FontWeight" Value="Bold" />
                 </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RtdCompleteValueCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Direction}" Value="Compra">
+                    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Direction}" Value="Venda">
+                    <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Direction}" Value="Neutro">
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                    <Setter Property="FontWeight" Value="Normal" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#003B24" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
 
@@ -650,6 +699,7 @@
             </MenuItem>
             <MenuItem Header="Mercado">
                 <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="RTD Completo" InputGestureText="Ctrl+Shift+R" Tag="22" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
@@ -687,6 +737,7 @@
                 <MenuItem Header="Diagnostico" InputGestureText="Ctrl+0" Tag="13" Click="NavigateMenuItem_Click" />
                 <Separator />
                 <MenuItem Header="Cotacao" Tag="2" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="RTD Completo" InputGestureText="Ctrl+Shift+R" Tag="22" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="DOM / Book" InputGestureText="Ctrl+3" Tag="3" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Tape" InputGestureText="Ctrl+4" Tag="4" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Grafico" InputGestureText="Ctrl+9" Tag="9" Click="NavigateMenuItem_Click" />
@@ -958,6 +1009,7 @@
                         <TextBlock x:Name="TopNavMarketLabel" Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Cotacao" ToolTip="Campos RTD de preco e volume" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                            <Button Content="RTD+" ToolTip="RTD Completo sob demanda" Tag="22" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
                             <Button Content="DOM" ToolTip="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Tape" ToolTip="Times and trades" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                             <Button Content="Grafico" ToolTip="Grafico nativo com niveis" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
@@ -2627,6 +2679,167 @@
                                     <DataGridTextColumn Header="Trades" Binding="{Binding Trades}" Width="135" />
                                     <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="70" />
                                     <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="RTD Completo">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="12"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.3*" />
+                                <ColumnDefinition Width="2.1*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="RTD Completo" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="RtdCompleteStatusText"
+                                           Text="-"
+                                           Foreground="{StaticResource Muted}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <UniformGrid Grid.Column="1" Columns="4" Margin="16,0,12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Campos" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="RtdCompleteLoadedText" Text="0/145" FontWeight="Bold" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Grupos ativos" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="RtdCompleteGroupsText" Text="-" FontWeight="Bold" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Snapshot" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="RtdCompleteAgeText" Text="-" FontWeight="Bold" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Fonte extra" Foreground="{StaticResource Muted}" />
+                                    <TextBlock x:Name="RtdCompleteSourceText" Text="Nao assinada" FontWeight="Bold" />
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Atualizar" Click="RefreshRtdCompleteButton_Click" />
+                                <Button Content="Carregar grupo" Click="LoadSelectedRtdCompleteGroupButton_Click" />
+                                <Button Content="Carregar todos" Click="LoadAllRtdCompleteButton_Click" />
+                                <Button Content="Limpar extras" Click="ClearRtdCompleteExtrasButton_Click" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="235" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="0,0,10,0">
+                            <DockPanel LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                                    <TextBlock Text="Grupos" FontSize="14" FontWeight="Bold" />
+                                    <TextBlock Text="Catalogo operacional por grupo."
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <ListBox x:Name="RtdCompleteGroupList"
+                                         BorderBrush="{StaticResource Border}"
+                                         Background="{StaticResource InputBg}"
+                                         SelectionChanged="RtdCompleteGroupList_SelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Group}" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Muted}" FontSize="11" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding CountText}"
+                                                           Foreground="{StaticResource Accent}"
+                                                           FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0,0,0" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Background="{StaticResource Panel}"
+                                    BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1"
+                                    Padding="10"
+                                    Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="320" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Busca" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBox x:Name="RtdCompleteSearchBox"
+                                             Grid.Column="1"
+                                             TextChanged="RtdCompleteSearchBox_TextChanged"
+                                             ToolTip="Filtrar por codigo, campo, grupo ou subgrupo" />
+                                    <TextBlock x:Name="RtdCompleteFilterText"
+                                               Grid.Column="2"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0,0,0" />
+                                </Grid>
+                            </Border>
+
+                            <DataGrid x:Name="RtdCompleteGrid"
+                                      Grid.Row="1"
+                                      AutoGenerateColumns="False"
+                                      CanUserSortColumns="True"
+                                      EnableRowVirtualization="True"
+                                      EnableColumnVirtualization="True"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      RowHeight="24"
+                                      RowStyle="{StaticResource RtdCompleteDataGridRowStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Campo" Binding="{Binding Field}" Width="230" />
+                                    <DataGridTextColumn Header="Codigo" Binding="{Binding Code}" Width="82" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                    <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="145" CellStyle="{StaticResource RtdCompleteValueCellStyle}" />
+                                    <DataGridTextColumn Header="Grupo" Binding="{Binding Group}" Width="130" />
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                                    <DataGridTextColumn Header="Atualizado" Binding="{Binding Updated}" Width="115" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                    <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="125" />
+                                    <DataGridTextColumn Header="Subgrupo" Binding="{Binding Subgroup}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>

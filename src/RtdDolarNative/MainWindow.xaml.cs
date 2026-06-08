@@ -46,6 +46,7 @@ namespace RtdDolarNative
         private const int TabFlowMap = 19;
         private const int TabIndicators = 20;
         private const int TabHeatmap = 21;
+        private const int TabRtdComplete = 22;
         private const int DashboardChartRefreshMs = 1500;
         private const int DashboardHeavyRefreshMs = 1000;
 
@@ -97,6 +98,10 @@ namespace RtdDolarNative
         private bool _syncChartTimeframeSelection = true;
         private bool _syncChartPriceGridSelection = true;
         private bool _syncChartCandleSpacingSelection = true;
+        private readonly HashSet<string> _activeRtdCompleteGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private string _selectedRtdCompleteGroup = RtdCompleteFieldCatalog.GroupMarket;
+        private string _rtdCompleteSearch = string.Empty;
+        private bool _syncRtdCompleteGroupSelection;
 
         public MainWindow()
         {
@@ -416,6 +421,8 @@ namespace RtdDolarNative
                     return "Indicadores";
                 case TabHeatmap:
                     return "Heatmap";
+                case TabRtdComplete:
+                    return "RTD Completo";
                 default:
                     return "Mesa";
             }
@@ -469,6 +476,8 @@ namespace RtdDolarNative
                     return "Indicadores tecnicos, estatistica e sinais quant";
                 case TabHeatmap:
                     return "Mapa de calor de book e negocios";
+                case TabRtdComplete:
+                    return "Catalogo RTD completo sob demanda";
                 default:
                     return "Mesa operacional de analise";
             }
@@ -487,6 +496,7 @@ namespace RtdDolarNative
                 case TabDomBook:
                 case TabTape:
                 case TabChart:
+                case TabRtdComplete:
                     return "Mercado";
                 case TabOrderFlow:
                 case TabFlowMap:
@@ -530,6 +540,8 @@ namespace RtdDolarNative
                     return "Merc / Tape";
                 case TabChart:
                     return "Merc / Grafico";
+                case TabRtdComplete:
+                    return "Merc / RTD+";
                 case TabOrderFlow:
                     return "Fluxo / Order";
                 case TabFlowMap:
@@ -617,6 +629,9 @@ namespace RtdDolarNative
                     break;
                 case TabQuote:
                     RenderQuoteFields(snapshot);
+                    break;
+                case TabRtdComplete:
+                    RenderRtdComplete(snapshot);
                     break;
                 case TabDomBook:
                     RenderDomBook(snapshot);
@@ -757,6 +772,13 @@ namespace RtdDolarNative
             {
                 e.Handled = true;
                 NavigateToTab(TabHeatmap);
+                return;
+            }
+
+            if (control && shift && e.Key == Key.R)
+            {
+                e.Handled = true;
+                NavigateToTab(TabRtdComplete);
                 return;
             }
 
@@ -1037,6 +1059,50 @@ namespace RtdDolarNative
         private void RefreshFlowMapButton_Click(object sender, RoutedEventArgs e)
         {
             RenderFlowMap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RefreshRtdCompleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderRtdComplete(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void LoadSelectedRtdCompleteGroupButton_Click(object sender, RoutedEventArgs e)
+        {
+            ActivateRtdCompleteGroup(_selectedRtdCompleteGroup);
+        }
+
+        private void LoadAllRtdCompleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            ActivateAllRtdCompleteGroups();
+        }
+
+        private void ClearRtdCompleteExtrasButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearRtdCompleteExtras();
+        }
+
+        private void RtdCompleteGroupList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncRtdCompleteGroupSelection)
+            {
+                return;
+            }
+
+            RtdCompleteGroupRow row = RtdCompleteGroupList == null ? null : RtdCompleteGroupList.SelectedItem as RtdCompleteGroupRow;
+
+            if (row == null || string.IsNullOrWhiteSpace(row.Group))
+            {
+                return;
+            }
+
+            _selectedRtdCompleteGroup = row.Group;
+            RenderRtdComplete(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RtdCompleteSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _rtdCompleteSearch = RtdCompleteSearchBox == null ? string.Empty : RtdCompleteSearchBox.Text;
+            RenderRtdComplete(FocusedSnapshot() ?? _lastSnapshot);
         }
 
         private void StartAssetButton_Click(object sender, RoutedEventArgs e)
@@ -2104,6 +2170,7 @@ namespace RtdDolarNative
             bool showHistory = selectedTab == TabHistory;
             bool showScanner = selectedTab == TabScanner;
             bool showIndicators = selectedTab == TabIndicators;
+            bool showRtdComplete = selectedTab == TabRtdComplete;
             bool renderedDashboard = false;
             bool renderedMonitor = false;
             bool renderedRisk = false;
@@ -2113,6 +2180,7 @@ namespace RtdDolarNative
             bool renderedFlowMap = false;
             bool renderedHeatmap = false;
             bool renderedIndicators = false;
+            bool renderedRtdComplete = false;
 
             if (snapshot != null)
             {
@@ -2126,6 +2194,12 @@ namespace RtdDolarNative
                     if (showQuote)
                     {
                         RenderQuoteFields(snapshot);
+                    }
+
+                    if (showRtdComplete)
+                    {
+                        RenderRtdComplete(snapshot);
+                        renderedRtdComplete = true;
                     }
                 }
 
@@ -2207,6 +2281,12 @@ namespace RtdDolarNative
                     renderedIndicators = true;
                 }
 
+                if (showRtdComplete && !renderedRtdComplete)
+                {
+                    RenderRtdComplete(snapshot);
+                    renderedRtdComplete = true;
+                }
+
                 _lastGridRefresh = now;
                 _lastFlowProcessed = flowVersion;
             }
@@ -2270,6 +2350,11 @@ namespace RtdDolarNative
                 if (showIndicators && !renderedIndicators)
                 {
                     RenderIndicators(snapshot);
+                }
+
+                if (showRtdComplete && !renderedRtdComplete)
+                {
+                    RenderRtdComplete(snapshot);
                 }
 
                 if (showHistory)
@@ -2814,6 +2899,7 @@ namespace RtdDolarNative
             AddShortcut(rows, "Ctrl+Shift+F", "Mapa de Fluxo", "Abrir Mapa de Fluxo", "Ver liquidez, delta, profile e setups na mesma tela.");
             AddShortcut(rows, "Ctrl+Shift+H", "Heatmap", "Abrir Heatmap", "Ver mapa de calor do book, prints, delta e niveis de interesse.");
             AddShortcut(rows, "Ctrl+Shift+I", "Indicadores", "Abrir Indicadores", "Auditar RSI, EMAs, MACD, Bollinger, z-score, ATR/VWAP e sinais quant.");
+            AddShortcut(rows, "Ctrl+Shift+R", "RTD Completo", "Abrir RTD Completo", "Auditar todos os campos RTD e carregar grupos extras sob demanda.");
             AddShortcut(rows, "Ctrl+6", "Volume Profile", "Abrir Volume Profile", "Ver POC, VAH, VAL, HVN, LVN e bins.");
             AddShortcut(rows, "Ctrl+7", "Setups", "Abrir Setups", "Ver sinais e motivos do motor de fluxo.");
             AddShortcut(rows, "Ctrl+8", "Niveis", "Abrir Niveis", "Ver niveis calculados e confluencias.");
@@ -4842,6 +4928,349 @@ namespace RtdDolarNative
             }
 
             QuoteFieldsGrid.ItemsSource = rows;
+        }
+
+        private void RenderRtdComplete(MarketSnapshot snapshot)
+        {
+            if (RtdCompleteGrid == null || RtdCompleteGroupList == null)
+            {
+                return;
+            }
+
+            string asset = FocusedAsset();
+            DateTimeOffset now = DateTimeOffset.Now;
+            HashSet<string> baselineFields = BuildRtdCompleteBaselineFields(asset);
+            HashSet<string> extraFields = new HashSet<string>(_config.Rtd.GetRtdCompleteFields(asset), StringComparer.OrdinalIgnoreCase);
+            HashSet<string> subscribedFields = new HashSet<string>(baselineFields, StringComparer.OrdinalIgnoreCase);
+            subscribedFields.UnionWith(extraFields);
+
+            List<RtdCompleteGroupRow> groups = BuildRtdCompleteGroupRows(subscribedFields, extraFields);
+            _syncRtdCompleteGroupSelection = true;
+            try
+            {
+                RtdCompleteGroupList.ItemsSource = groups;
+                SelectRtdCompleteGroup(groups);
+            }
+            finally
+            {
+                _syncRtdCompleteGroupSelection = false;
+            }
+
+            string search = string.IsNullOrWhiteSpace(_rtdCompleteSearch) ? string.Empty : _rtdCompleteSearch.Trim();
+            List<RtdCompleteFieldRow> rows = new List<RtdCompleteFieldRow>();
+
+            foreach (RtdCompleteFieldInfo field in RtdCompleteFieldCatalog.Fields.OrderBy(x => RtdCompleteGroupRank(x.Group)).ThenBy(x => x.Priority))
+            {
+                if (!RtdCompleteMatchesSearch(field, search))
+                {
+                    continue;
+                }
+
+                bool subscribed = subscribedFields.Contains(field.Code);
+                bool fromBaseline = baselineFields.Contains(field.Code);
+                bool fromExtra = extraFields.Contains(field.Code);
+                string value = RtdCompleteValue(snapshot, field.Code);
+                DateTimeOffset updatedAt;
+                bool hasUpdatedAt = TryGetRtdFieldUpdatedAt(snapshot, field.Code, out updatedAt);
+                bool hasValue = !string.IsNullOrWhiteSpace(value);
+
+                RtdCompleteFieldRow row = new RtdCompleteFieldRow();
+                row.Field = field.Label;
+                row.Code = field.Code;
+                row.Value = EmptyToDash(value);
+                row.Group = field.Group;
+                row.Subgroup = field.Subgroup;
+                row.Status = RtdCompleteStatus(subscribed, hasValue, hasUpdatedAt, updatedAt, now);
+                row.Updated = hasUpdatedAt ? AgeText(updatedAt) : "-";
+                row.Source = fromBaseline ? "Cotacao" : (fromExtra ? "RtdComplete" : "Nao assinado");
+                row.Direction = RtdCompleteDirection(value);
+                row.SortPriority = field.Priority;
+                rows.Add(row);
+            }
+
+            RtdCompleteGrid.ItemsSource = rows;
+
+            int loadedCount = RtdCompleteFieldCatalog.Fields.Count(x => subscribedFields.Contains(x.Code));
+            string activeGroups = _activeRtdCompleteGroups.Count == 0
+                ? "-"
+                : string.Join(", ", RtdCompleteFieldCatalog.Groups.Where(x => _activeRtdCompleteGroups.Contains(x)).ToArray());
+
+            if (RtdCompleteStatusText != null)
+            {
+                RtdCompleteStatusText.Text = "Ativo " + EmptyToDash(asset) + " | RTD " + EmptyToDash(_probeService.Status) + " | selecionado " + EmptyToDash(_selectedRtdCompleteGroup);
+            }
+
+            if (RtdCompleteLoadedText != null)
+            {
+                RtdCompleteLoadedText.Text = loadedCount.ToString(_ptBr) + "/" + RtdCompleteFieldCatalog.Fields.Count.ToString(_ptBr);
+            }
+
+            if (RtdCompleteGroupsText != null)
+            {
+                RtdCompleteGroupsText.Text = activeGroups;
+            }
+
+            if (RtdCompleteAgeText != null)
+            {
+                RtdCompleteAgeText.Text = snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp);
+            }
+
+            if (RtdCompleteSourceText != null)
+            {
+                RtdCompleteSourceText.Text = extraFields.Count == 0 ? "Nao assinada" : extraFields.Count.ToString(_ptBr) + " extras";
+            }
+
+            if (RtdCompleteFilterText != null)
+            {
+                string filterText = string.IsNullOrWhiteSpace(search)
+                    ? "Mostrando todos os campos do catalogo."
+                    : "Filtro: " + search + " | " + rows.Count.ToString(_ptBr) + " campo(s).";
+                RtdCompleteFilterText.Text = filterText;
+            }
+        }
+
+        private List<RtdCompleteGroupRow> BuildRtdCompleteGroupRows(HashSet<string> subscribedFields, HashSet<string> extraFields)
+        {
+            List<RtdCompleteGroupRow> rows = new List<RtdCompleteGroupRow>();
+
+            foreach (string group in RtdCompleteFieldCatalog.Groups)
+            {
+                List<RtdCompleteFieldInfo> fields = RtdCompleteFieldCatalog.Fields.Where(x => string.Equals(x.Group, group, StringComparison.OrdinalIgnoreCase)).ToList();
+                int loaded = fields.Count(x => subscribedFields.Contains(x.Code));
+                int extras = fields.Count(x => extraFields.Contains(x.Code));
+
+                RtdCompleteGroupRow row = new RtdCompleteGroupRow();
+                row.Group = group;
+                row.Detail = _activeRtdCompleteGroups.Contains(group)
+                    ? "ativo | extras " + extras.ToString(_ptBr)
+                    : "sob demanda";
+                row.CountText = loaded.ToString(_ptBr) + "/" + fields.Count.ToString(_ptBr);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private void SelectRtdCompleteGroup(List<RtdCompleteGroupRow> groups)
+        {
+            if (RtdCompleteGroupList == null || groups == null || groups.Count == 0)
+            {
+                return;
+            }
+
+            RtdCompleteGroupRow selected = groups.FirstOrDefault(x => string.Equals(x.Group, _selectedRtdCompleteGroup, StringComparison.OrdinalIgnoreCase)) ?? groups[0];
+            RtdCompleteGroupList.SelectedItem = selected;
+        }
+
+        private bool RtdCompleteMatchesSearch(RtdCompleteFieldInfo field, string search)
+        {
+            if (field == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return true;
+            }
+
+            return ContainsIgnoreCase(field.Code, search) ||
+                   ContainsIgnoreCase(field.Label, search) ||
+                   ContainsIgnoreCase(field.Group, search) ||
+                   ContainsIgnoreCase(field.Subgroup, search) ||
+                   ContainsIgnoreCase(field.DisplayKind, search);
+        }
+
+        private static bool ContainsIgnoreCase(string text, string search)
+        {
+            return !string.IsNullOrWhiteSpace(text) &&
+                   !string.IsNullOrWhiteSpace(search) &&
+                   text.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private string RtdCompleteValue(MarketSnapshot snapshot, string code)
+        {
+            string raw = RawText(snapshot, code);
+
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                return raw;
+            }
+
+            return RtdText(snapshot, code);
+        }
+
+        private bool TryGetRtdFieldUpdatedAt(MarketSnapshot snapshot, string code, out DateTimeOffset updatedAt)
+        {
+            updatedAt = DateTimeOffset.MinValue;
+
+            if (snapshot == null || snapshot.FieldUpdatedAt == null || string.IsNullOrWhiteSpace(code))
+            {
+                return false;
+            }
+
+            return snapshot.FieldUpdatedAt.TryGetValue(code, out updatedAt);
+        }
+
+        private string RtdCompleteStatus(bool subscribed, bool hasValue, bool hasUpdatedAt, DateTimeOffset updatedAt, DateTimeOffset now)
+        {
+            if (!subscribed)
+            {
+                return "Nao assinado";
+            }
+
+            if (!hasValue)
+            {
+                return "Sem valor";
+            }
+
+            if (hasUpdatedAt && (now - updatedAt).TotalSeconds > 60)
+            {
+                return "Desatualizado";
+            }
+
+            return "Ao vivo";
+        }
+
+        private string RtdCompleteDirection(string value)
+        {
+            decimal numeric;
+
+            if (!ValueParser.ToDecimal(value).HasValue)
+            {
+                return "Neutro";
+            }
+
+            numeric = ValueParser.ToDecimal(value).Value;
+            return numeric > 0m ? "Compra" : (numeric < 0m ? "Venda" : "Neutro");
+        }
+
+        private HashSet<string> BuildRtdCompleteBaselineFields(string asset)
+        {
+            HashSet<string> fields = new HashSet<string>(RtdConfig.DefaultQuoteFields, StringComparer.OrdinalIgnoreCase);
+
+            foreach (string field in _config.Rtd.Fields ?? new List<string>())
+            {
+                if (!string.IsNullOrWhiteSpace(field))
+                {
+                    fields.Add(field.Trim().ToUpperInvariant());
+                }
+            }
+
+            foreach (RtdSourceConfig source in _config.Rtd.GetEnabledSources())
+            {
+                if (source == null ||
+                    !string.Equals(RtdConfig.NormalizeAsset(source.Asset), RtdConfig.NormalizeAsset(asset), StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(source.Role, RtdConfig.RtdCompleteRole, StringComparison.OrdinalIgnoreCase) ||
+                    source.IndexFrom.HasValue ||
+                    source.IndexTo.HasValue)
+                {
+                    continue;
+                }
+
+                foreach (string field in source.Fields ?? new List<string>())
+                {
+                    if (!string.IsNullOrWhiteSpace(field))
+                    {
+                        fields.Add(field.Trim().ToUpperInvariant());
+                    }
+                }
+            }
+
+            return fields;
+        }
+
+        private void ActivateRtdCompleteGroup(string group)
+        {
+            if (string.IsNullOrWhiteSpace(group))
+            {
+                group = RtdCompleteFieldCatalog.GroupMarket;
+            }
+
+            if (!RtdCompleteFieldCatalog.Groups.Contains(group, StringComparer.OrdinalIgnoreCase))
+            {
+                SetWarnings(new[] { "Grupo RTD invalido: " + group });
+                return;
+            }
+
+            _selectedRtdCompleteGroup = group;
+            _activeRtdCompleteGroups.Add(group);
+            ApplyRtdCompleteSubscriptions("Grupo " + group + " carregado");
+        }
+
+        private void ActivateAllRtdCompleteGroups()
+        {
+            foreach (string group in RtdCompleteFieldCatalog.Groups)
+            {
+                _activeRtdCompleteGroups.Add(group);
+            }
+
+            ApplyRtdCompleteSubscriptions("Todos os grupos carregados");
+        }
+
+        private void ClearRtdCompleteExtras()
+        {
+            string asset = FocusedAsset();
+            _activeRtdCompleteGroups.Clear();
+            _config.Rtd.ClearRtdCompleteSource(asset);
+            RestartRtdAfterRtdCompleteChange("Extras RTD Completo limpos", 0);
+            RenderRtdSources();
+            RenderRtdComplete(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void ApplyRtdCompleteSubscriptions(string reason)
+        {
+            string asset = FocusedAsset();
+            HashSet<string> baselineFields = BuildRtdCompleteBaselineFields(asset);
+            List<string> requested = RtdCompleteFieldCatalog.ForGroups(_activeRtdCompleteGroups)
+                .Select(x => x.Code)
+                .Where(x => !baselineFields.Contains(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (requested.Count == 0)
+            {
+                _config.Rtd.ClearRtdCompleteSource(asset);
+            }
+            else
+            {
+                _config.Rtd.SetRtdCompleteSource(asset, requested);
+            }
+
+            RestartRtdAfterRtdCompleteChange(reason, requested.Count);
+            RenderRtdSources();
+            RenderRtdComplete(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void RestartRtdAfterRtdCompleteChange(string reason, int extraCount)
+        {
+            string detail = reason + " | " + extraCount.ToString(_ptBr) + " campo(s) extra(s).";
+            AddHistory("RTD", "RTD Completo", detail);
+            SetWarnings(new[] { detail });
+            _log.Info("RTD Completo: " + detail);
+
+            if (!_probeService.IsRunning)
+            {
+                return;
+            }
+
+            StatusText.Text = "restarting";
+            StatusBadgeBorder.Background = StatusBrush("connecting");
+            _probeService.Restart();
+            ConnectButton.Content = "Desconectar";
+        }
+
+        private int RtdCompleteGroupRank(string group)
+        {
+            for (int i = 0; i < RtdCompleteFieldCatalog.Groups.Count; i++)
+            {
+                if (string.Equals(RtdCompleteFieldCatalog.Groups[i], group, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return 999;
         }
 
         private void RenderBook(MarketSnapshot snapshot)
@@ -8270,6 +8699,27 @@ namespace RtdDolarNative
             public string Value { get; set; }
             public string Limit { get; set; }
             public string Action { get; set; }
+        }
+
+        private sealed class RtdCompleteGroupRow
+        {
+            public string Group { get; set; }
+            public string Detail { get; set; }
+            public string CountText { get; set; }
+        }
+
+        private sealed class RtdCompleteFieldRow
+        {
+            public string Field { get; set; }
+            public string Code { get; set; }
+            public string Value { get; set; }
+            public string Group { get; set; }
+            public string Subgroup { get; set; }
+            public string Status { get; set; }
+            public string Updated { get; set; }
+            public string Source { get; set; }
+            public string Direction { get; set; }
+            public int SortPriority { get; set; }
         }
 
         private sealed class QuoteFieldRow

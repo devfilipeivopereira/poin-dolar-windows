@@ -12,11 +12,13 @@ namespace RtdDolarNative.MarketData
             lock (_lock)
             {
                 string normalizedField = field == null ? string.Empty : field.Trim().ToUpperInvariant();
-                _snapshot.LocalTimestamp = DateTimeOffset.Now;
+                DateTimeOffset now = DateTimeOffset.Now;
+                _snapshot.LocalTimestamp = now;
                 _snapshot.Asset = asset;
                 _snapshot.Status = status;
                 _snapshot.Rtd[normalizedField] = ValueParser.ToJsonValue(value);
                 _snapshot.Raw[normalizedField] = ValueParser.ToText(value);
+                _snapshot.FieldUpdatedAt[normalizedField] = now;
 
                 return _snapshot.Clone();
             }

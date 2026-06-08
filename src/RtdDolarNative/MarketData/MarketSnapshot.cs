@@ -11,6 +11,7 @@ namespace RtdDolarNative.MarketData
             Status = "starting";
             Rtd = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             Raw = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            FieldUpdatedAt = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         }
 
         public DateTimeOffset LocalTimestamp { get; set; }
@@ -18,6 +19,7 @@ namespace RtdDolarNative.MarketData
         public string Status { get; set; }
         public Dictionary<string, object> Rtd { get; set; }
         public Dictionary<string, string> Raw { get; set; }
+        public Dictionary<string, DateTimeOffset> FieldUpdatedAt { get; set; }
 
         public string DataProfit
         {
@@ -165,6 +167,7 @@ namespace RtdDolarNative.MarketData
             clone.Status = Status;
             clone.Rtd = new Dictionary<string, object>(Rtd, StringComparer.OrdinalIgnoreCase);
             clone.Raw = new Dictionary<string, string>(Raw, StringComparer.OrdinalIgnoreCase);
+            clone.FieldUpdatedAt = new Dictionary<string, DateTimeOffset>(FieldUpdatedAt, StringComparer.OrdinalIgnoreCase);
             return clone;
         }
 
