@@ -90,6 +90,47 @@
             </Setter>
         </Style>
 
+        <Style TargetType="RadioButton">
+            <Setter Property="Background" Value="{StaticResource Panel2}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#101711" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#003B24" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Background" Value="#050605" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#20252B" />
+                                <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="Menu">
             <Setter Property="Background" Value="{StaticResource Panel}" />
             <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -736,6 +777,34 @@
                             <ComboBoxItem Content="63" />
                             <ComboBoxItem Content="90" />
                         </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="TF" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <RadioButton x:Name="ChartTimeframeDailyButton"
+                                     Content="1D"
+                                     GroupName="ChartTimeframe"
+                                     Tag="0"
+                                     IsChecked="True"
+                                     Checked="ChartTimeframeButton_Checked"
+                                     ToolTip="Grafico diario"
+                                     Width="44"
+                                     Margin="0,0,4,0" />
+                        <RadioButton x:Name="ChartTimeframeWeeklyButton"
+                                     Content="1W"
+                                     GroupName="ChartTimeframe"
+                                     Tag="1"
+                                     Checked="ChartTimeframeButton_Checked"
+                                     ToolTip="Grafico semanal"
+                                     Width="44"
+                                     Margin="0,0,4,0" />
+                        <RadioButton x:Name="ChartTimeframeMonthlyButton"
+                                     Content="1M"
+                                     GroupName="ChartTimeframe"
+                                     Tag="2"
+                                     Checked="ChartTimeframeButton_Checked"
+                                     ToolTip="Grafico mensal"
+                                     Width="44"
+                                     Margin="0" />
                     </StackPanel>
                     <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" />
                     <Button x:Name="ManualButton" Content="Modo manual" Click="ManualButton_Click" />

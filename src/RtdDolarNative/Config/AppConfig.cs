@@ -715,6 +715,8 @@ namespace RtdDolarNative.Config
     {
         public static readonly int DefaultCalculationDays = 45;
         public static readonly int[] AllowedCalculationDays = new[] { 21, 45, 63, 90 };
+        public static readonly int DefaultChartTimeframeIndex = 0;
+        public static readonly int[] AllowedChartTimeframeIndexes = new[] { 0, 1, 2 };
 
         public UiConfig()
         {
@@ -724,6 +726,7 @@ namespace RtdDolarNative.Config
             DomTicksEachSide = 100;
             TapeCapacity = 500;
             CalculationDays = DefaultCalculationDays;
+            ChartTimeframeIndex = DefaultChartTimeframeIndex;
         }
 
         public int FastIntervalMs { get; set; }
@@ -732,15 +735,22 @@ namespace RtdDolarNative.Config
         public int DomTicksEachSide { get; set; }
         public int TapeCapacity { get; set; }
         public int CalculationDays { get; set; }
+        public int ChartTimeframeIndex { get; set; }
 
         public void Normalize()
         {
             CalculationDays = NormalizeCalculationDays(CalculationDays);
+            ChartTimeframeIndex = NormalizeChartTimeframeIndex(ChartTimeframeIndex);
         }
 
         public static int NormalizeCalculationDays(int days)
         {
             return AllowedCalculationDays.Contains(days) ? days : DefaultCalculationDays;
+        }
+
+        public static int NormalizeChartTimeframeIndex(int timeframeIndex)
+        {
+            return AllowedChartTimeframeIndexes.Contains(timeframeIndex) ? timeframeIndex : DefaultChartTimeframeIndex;
         }
     }
 

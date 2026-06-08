@@ -38,7 +38,7 @@ Use o menu superior como navegacao principal; ele seleciona cada tela diretament
 - `Setups`: sinais de fluxo, direcao, score, nivel associado e qualidade do dado.
 - `Indicadores`: auditoria de tecnicos, estatistica, score quant, fonte RTD/CSV e confirmacao de fluxo.
 - `Niveis`: niveis principais, abertura, POC, variacao percentual e confluencia em subtabs.
-- `Grafico`: candles diarios, candle atual e linhas horizontais de niveis.
+- `Grafico`: candles diarios, semanais ou mensais quando possivel, com pan horizontal, zoom de candles, eixo de preco mais denso no zoom e linhas horizontais de niveis.
 - `Backtest`: toque/reversao de desvios historicos.
 - `Diagnostico`: fontes RTD, topicos, indices, erros e metricas.
 

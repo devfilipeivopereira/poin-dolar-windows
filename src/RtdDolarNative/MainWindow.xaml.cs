@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Input;
 using System.Windows.Threading;
 using RtdDolarNative.Config;
+using RtdDolarNative.Charts;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
 using RtdDolarNative.Flow;
@@ -91,6 +92,7 @@ namespace RtdDolarNative
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object _postedTimesLock = new object();
         private bool _syncCalculationDaysSelection = true;
+        private bool _syncChartTimeframeSelection = true;
 
         public MainWindow()
         {
@@ -123,6 +125,7 @@ namespace RtdDolarNative
 
             InitializeStaticText();
             InitializeCalculationDaysSelection();
+            InitializeChartTimeframeSelection();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -920,6 +923,29 @@ namespace RtdDolarNative
             }
 
             Recalculate();
+        }
+
+        private void ChartTimeframeButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_syncChartTimeframeSelection)
+            {
+                return;
+            }
+
+            RadioButton button = sender as RadioButton;
+            int selectedIndex = button == null ? _config.Ui.ChartTimeframeIndex : ParseChartTimeframeIndex(button.Tag);
+
+            selectedIndex = UiConfig.NormalizeChartTimeframeIndex(selectedIndex);
+
+            if (_config.Ui.ChartTimeframeIndex != selectedIndex)
+            {
+                _config.Ui.ChartTimeframeIndex = selectedIndex;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Timeframe de grafico", ChartTimeframeText(SelectedChartTimeframe()) + " selecionado.");
+            }
+
+            ApplyChartTimeframeSelection();
         }
 
         private void AddAssetButton_Click(object sender, RoutedEventArgs e)
@@ -5345,6 +5371,42 @@ namespace RtdDolarNative
             }
         }
 
+        private void InitializeChartTimeframeSelection()
+        {
+            if (ChartTimeframeDailyButton == null)
+            {
+                return;
+            }
+
+            _syncChartTimeframeSelection = true;
+
+            try
+            {
+                int selectedIndex = UiConfig.NormalizeChartTimeframeIndex(_config.Ui == null ? UiConfig.DefaultChartTimeframeIndex : _config.Ui.ChartTimeframeIndex);
+
+                if (ChartTimeframeDailyButton != null)
+                {
+                    ChartTimeframeDailyButton.IsChecked = selectedIndex == 0;
+                }
+
+                if (ChartTimeframeWeeklyButton != null)
+                {
+                    ChartTimeframeWeeklyButton.IsChecked = selectedIndex == 1;
+                }
+
+                if (ChartTimeframeMonthlyButton != null)
+                {
+                    ChartTimeframeMonthlyButton.IsChecked = selectedIndex == 2;
+                }
+            }
+            finally
+            {
+                _syncChartTimeframeSelection = false;
+            }
+
+            ApplyChartTimeframeSelection();
+        }
+
         private int SelectedCalculationDays()
         {
             if (CalculationDaysComboBox == null)
@@ -5388,6 +5450,68 @@ namespace RtdDolarNative
                     return 90;
                 default:
                     return UiConfig.DefaultCalculationDays;
+            }
+        }
+
+        private ChartTimeframe SelectedChartTimeframe()
+        {
+            int selectedIndex = UiConfig.NormalizeChartTimeframeIndex(_config.Ui == null ? UiConfig.DefaultChartTimeframeIndex : _config.Ui.ChartTimeframeIndex);
+            return ChartTimeframeFromIndex(selectedIndex);
+        }
+
+        private void ApplyChartTimeframeSelection()
+        {
+            ChartTimeframe timeframe = SelectedChartTimeframe();
+
+            if (DashboardChartControl != null)
+            {
+                DashboardChartControl.Timeframe = timeframe;
+                DashboardChartControl.InvalidateVisual();
+            }
+
+            if (ChartControl != null)
+            {
+                ChartControl.Timeframe = timeframe;
+                ChartControl.InvalidateVisual();
+            }
+        }
+
+        private static int ParseChartTimeframeIndex(object tag)
+        {
+            if (tag == null)
+            {
+                return UiConfig.DefaultChartTimeframeIndex;
+            }
+
+            int parsed;
+            return int.TryParse(Convert.ToString(tag, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : UiConfig.DefaultChartTimeframeIndex;
+        }
+
+        private ChartTimeframe ChartTimeframeFromIndex(int index)
+        {
+            switch (index)
+            {
+                case 1:
+                    return ChartTimeframe.Weekly;
+                case 2:
+                    return ChartTimeframe.Monthly;
+                default:
+                    return ChartTimeframe.Daily;
+            }
+        }
+
+        private string ChartTimeframeText(ChartTimeframe timeframe)
+        {
+            switch (timeframe)
+            {
+                case ChartTimeframe.Weekly:
+                    return "1W";
+                case ChartTimeframe.Monthly:
+                    return "1M";
+                default:
+                    return "1D";
             }
         }
 

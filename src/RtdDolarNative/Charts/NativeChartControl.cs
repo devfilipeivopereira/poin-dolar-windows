@@ -17,6 +17,7 @@ namespace RtdDolarNative.Charts
         private const int MaxVisibleCandles = 240;
         private const int MinPriceGridLines = 4;
         private const int MaxPriceGridLines = 14;
+        private const int FuturePanLimit = 40;
 
         private List<DailyBar> _bars = new List<DailyBar>();
         private MarketSnapshot _snapshot;
@@ -30,12 +31,42 @@ namespace RtdDolarNative.Charts
         private int _priceGridLines = 6;
         private double _priceScale = 1d;
         private bool _isDragging;
+        private ChartTimeframe _timeframe = ChartTimeframe.Daily;
 
         public NativeChartControl()
         {
             Focusable = true;
             ClipToBounds = true;
             Cursor = Cursors.SizeAll;
+        }
+
+        protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)
+        {
+            Point point = hitTestParameters.HitPoint;
+
+            if (point.X < 0d || point.Y < 0d || point.X > ActualWidth || point.Y > ActualHeight)
+            {
+                return null;
+            }
+
+            return new PointHitTestResult(this, point);
+        }
+
+        public ChartTimeframe Timeframe
+        {
+            get { return _timeframe; }
+            set
+            {
+                ChartTimeframe normalized = NormalizeTimeframe(value);
+
+                if (_timeframe == normalized)
+                {
+                    return;
+                }
+
+                _timeframe = normalized;
+                InvalidateVisual();
+            }
         }
 
         public void SetData(List<DailyBar> bars, MarketSnapshot snapshot, QuantResult result)
@@ -74,16 +105,17 @@ namespace RtdDolarNative.Charts
             Brush textBrush = new SolidColorBrush(Color.FromRgb(169, 179, 191));
             dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(11, 12, 10)), axisPen, plot);
 
-            List<DailyBar> visible = VisibleBars(SeriesWithCurrentSnapshot());
+            List<DailyBar> series = SeriesForChart();
+            ChartViewport viewport = BuildViewport(series);
 
-            if (visible.Count == 0)
+            if (viewport.VisibleBars.Count == 0)
             {
                 DrawText(dc, "Carregue CSV para visualizar candles e niveis.", 16, 16, textBrush, 13);
                 return;
             }
 
-            decimal min = visible.Min(x => x.Low);
-            decimal max = visible.Max(x => x.High);
+            decimal min = viewport.VisibleBars.Min(x => x.Low);
+            decimal max = viewport.VisibleBars.Max(x => x.High);
             List<KeyLevel> levels = new List<KeyLevel>();
 
             if (_result != null)
@@ -106,7 +138,7 @@ namespace RtdDolarNative.Charts
             max += pad;
             ApplyPriceScale(ref min, ref max);
 
-            int priceLines = Clamp(_priceGridLines, MinPriceGridLines, MaxPriceGridLines);
+            int priceLines = EffectivePriceGridLines();
             for (int i = 0; i < priceLines; i++)
             {
                 double ratio = priceLines == 1 ? 0d : i / (double)(priceLines - 1);
@@ -116,13 +148,20 @@ namespace RtdDolarNative.Charts
                 DrawText(dc, price.ToString("N1", new CultureInfo("pt-BR")), plot.Right + 6, y - 8, textBrush, 11);
             }
 
-            double candleSlot = plot.Width / Math.Max(1, visible.Count);
+            double candleSlot = plot.Width / Math.Max(1, viewport.SlotCount);
             double candleWidth = Math.Max(3d, Math.Min(12d, candleSlot * 0.58d));
 
-            for (int i = 0; i < visible.Count; i++)
+            for (int slot = 0; slot < viewport.SlotCount; slot++)
             {
-                DailyBar bar = visible[i];
-                double x = plot.Left + candleSlot * i + candleSlot / 2d;
+                int index = viewport.StartIndex + slot;
+
+                if (index < 0 || index >= series.Count)
+                {
+                    continue;
+                }
+
+                DailyBar bar = series[index];
+                double x = plot.Left + candleSlot * slot + candleSlot / 2d;
                 double yHigh = Y(bar.High, min, max, plot);
                 double yLow = Y(bar.Low, min, max, plot);
                 double yOpen = Y(bar.Open, min, max, plot);
@@ -134,6 +173,8 @@ namespace RtdDolarNative.Charts
                 Rect body = new Rect(x - candleWidth / 2d, Math.Min(yOpen, yClose), candleWidth, Math.Max(1d, Math.Abs(yClose - yOpen)));
                 dc.DrawRectangle(fill, null, body);
             }
+
+            DrawText(dc, TimeframeText(_timeframe), plot.Left + 6, plot.Top + 6, textBrush, 11);
 
             foreach (KeyLevel level in levels.OrderByDescending(x => x.Score).Take(40))
             {
@@ -196,8 +237,7 @@ namespace RtdDolarNative.Charts
 
             if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
-                _visibleCandles = Clamp(_visibleCandles - direction * 10, MinVisibleCandles, MaxVisibleCandles);
-                ClampViewportOffset();
+                ZoomCandles(direction, point);
             }
             else if (IsInPriceAxis(point) || (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
             {
@@ -223,37 +263,138 @@ namespace RtdDolarNative.Charts
             e.Handled = true;
         }
 
-        private List<DailyBar> SeriesWithCurrentSnapshot()
+        private List<DailyBar> SeriesForChart()
         {
-            List<DailyBar> series = _bars.ToList();
+            List<DailyBar> series = _bars == null
+                ? new List<DailyBar>()
+                : _bars.OrderBy(x => x.Date).ToList();
 
             if (_snapshot != null && _snapshot.Ultimo.HasValue)
             {
-                DailyBar current = new DailyBar();
-                current.Date = DateTime.Today;
-                current.Open = _snapshot.Abertura ?? _snapshot.Ultimo.Value;
-                current.High = _snapshot.Maxima ?? _snapshot.Ultimo.Value;
-                current.Low = _snapshot.Minima ?? _snapshot.Ultimo.Value;
-                current.Close = _snapshot.Ultimo.Value;
-                current.Volume = _snapshot.Volume;
-                series.Add(current);
+                DailyBar current = new DailyBar
+                {
+                    Date = DateTime.Today,
+                    Open = _snapshot.Abertura ?? _snapshot.Ultimo.Value,
+                    High = _snapshot.Maxima ?? _snapshot.Ultimo.Value,
+                    Low = _snapshot.Minima ?? _snapshot.Ultimo.Value,
+                    Close = _snapshot.Ultimo.Value,
+                    Volume = _snapshot.Volume
+                };
+
+                if (series.Count > 0 && series[series.Count - 1].Date.Date == current.Date.Date)
+                {
+                    series[series.Count - 1] = current;
+                }
+                else
+                {
+                    series.Add(current);
+                }
             }
 
-            return series;
+            switch (NormalizeTimeframe(_timeframe))
+            {
+                case ChartTimeframe.Weekly:
+                    return AggregateSeries(series, true);
+                case ChartTimeframe.Monthly:
+                    return AggregateSeries(series, false);
+                default:
+                    return series;
+            }
         }
 
-        private List<DailyBar> VisibleBars(List<DailyBar> series)
+        private ChartViewport BuildViewport(List<DailyBar> series)
         {
+            int slotCount = Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles);
+
             if (series == null || series.Count == 0)
+            {
+                _viewOffsetFromEnd = 0;
+                return new ChartViewport(0, slotCount, new List<DailyBar>());
+            }
+
+            int maxHistoricalOffset = Math.Max(0, series.Count - slotCount);
+            _viewOffsetFromEnd = Clamp(_viewOffsetFromEnd, -FuturePanLimit, maxHistoricalOffset);
+            int startIndex = series.Count - slotCount - _viewOffsetFromEnd;
+            int endIndex = startIndex + slotCount - 1;
+            int firstActual = Math.Max(0, startIndex);
+            int lastActual = Math.Min(series.Count - 1, endIndex);
+            List<DailyBar> visible = new List<DailyBar>();
+
+            for (int index = firstActual; index <= lastActual; index++)
+            {
+                visible.Add(series[index]);
+            }
+
+            return new ChartViewport(startIndex, slotCount, visible);
+        }
+
+        private List<DailyBar> AggregateSeries(List<DailyBar> source, bool weekly)
+        {
+            if (source == null || source.Count == 0)
             {
                 return new List<DailyBar>();
             }
 
-            int visibleCount = Math.Min(series.Count, Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles));
-            int maxOffset = Math.Max(0, series.Count - visibleCount);
-            _viewOffsetFromEnd = Clamp(_viewOffsetFromEnd, 0, maxOffset);
-            int start = Math.Max(0, series.Count - visibleCount - _viewOffsetFromEnd);
-            return series.Skip(start).Take(visibleCount).ToList();
+            List<DailyBar> ordered = source.OrderBy(x => x.Date).ToList();
+            List<DailyBar> aggregated = new List<DailyBar>();
+            DailyBar current = null;
+            DateTime currentKey = DateTime.MinValue;
+
+            foreach (DailyBar bar in ordered)
+            {
+                DateTime key = weekly ? StartOfWeek(bar.Date) : new DateTime(bar.Date.Year, bar.Date.Month, 1);
+
+                if (current == null || key != currentKey)
+                {
+                    if (current != null)
+                    {
+                        aggregated.Add(current);
+                    }
+
+                    current = CloneForAggregate(bar, key);
+                    currentKey = key;
+                    continue;
+                }
+
+                current.High = Math.Max(current.High, bar.High);
+                current.Low = Math.Min(current.Low, bar.Low);
+                current.Close = bar.Close;
+                current.Volume = SumNullable(current.Volume, bar.Volume);
+                current.Quantity = SumNullable(current.Quantity, bar.Quantity);
+                current.Date = bar.Date;
+            }
+
+            if (current != null)
+            {
+                aggregated.Add(current);
+            }
+
+            return aggregated;
+        }
+
+        private DailyBar CloneForAggregate(DailyBar bar, DateTime periodStart)
+        {
+            return new DailyBar
+            {
+                Asset = bar.Asset,
+                Date = periodStart,
+                Open = bar.Open,
+                High = bar.High,
+                Low = bar.Low,
+                Close = bar.Close,
+                Volume = bar.Volume,
+                Quantity = bar.Quantity
+            };
+        }
+
+        private static decimal? SumNullable(decimal? left, decimal? right)
+        {
+            if (!left.HasValue && !right.HasValue)
+            {
+                return null;
+            }
+
+            return (left ?? 0m) + (right ?? 0m);
         }
 
         private void ApplyPriceScale(ref decimal min, ref decimal max)
@@ -271,12 +412,97 @@ namespace RtdDolarNative.Charts
             max = center + half;
         }
 
+        private int EffectivePriceGridLines()
+        {
+            int baseLines = Clamp(_priceGridLines, MinPriceGridLines, MaxPriceGridLines);
+            double zoom = Clamp(_priceScale, 0.35d, 3.0d);
+            int scaledLines = (int)Math.Round(baseLines * Math.Sqrt(1d / zoom));
+            return Clamp(scaledLines, MinPriceGridLines, MaxPriceGridLines);
+        }
+
+        private void ZoomCandles(int direction, Point point)
+        {
+            List<DailyBar> series = SeriesForChart();
+            int seriesCount = series.Count;
+            int currentVisible = Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles);
+
+            if (seriesCount == 0)
+            {
+                _visibleCandles = Clamp(_visibleCandles - direction * 10, MinVisibleCandles, MaxVisibleCandles);
+                return;
+            }
+
+            int currentStart = CurrentStartIndex(seriesCount, currentVisible, _viewOffsetFromEnd);
+            double slotWidth = _lastPlot.Width <= 0d ? 8d : _lastPlot.Width / Math.Max(1, currentVisible);
+            int anchorSlot = Clamp((int)Math.Round((point.X - _lastPlot.Left) / Math.Max(1d, slotWidth)), 0, Math.Max(0, currentVisible - 1));
+            int anchorSeriesIndex = currentStart + anchorSlot;
+
+            _visibleCandles = Clamp(_visibleCandles - direction * 10, MinVisibleCandles, MaxVisibleCandles);
+            int newVisible = Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles);
+            int newMaxHistoricalOffset = Math.Max(0, seriesCount - newVisible);
+            int desiredStart = anchorSeriesIndex - anchorSlot;
+            int desiredOffset = seriesCount - newVisible - desiredStart;
+            _viewOffsetFromEnd = Clamp(desiredOffset, -FuturePanLimit, newMaxHistoricalOffset);
+        }
+
+        private int CurrentStartIndex(int seriesCount, int visibleCount, int offset)
+        {
+            int maxHistoricalOffset = Math.Max(0, seriesCount - visibleCount);
+            int clampedOffset = Clamp(offset, -FuturePanLimit, maxHistoricalOffset);
+            return seriesCount - visibleCount - clampedOffset;
+        }
+
         private void ClampViewportOffset()
         {
             int seriesCount = _bars.Count + (_snapshot != null && _snapshot.Ultimo.HasValue ? 1 : 0);
-            int visibleCount = Math.Min(seriesCount, Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles));
+            int visibleCount = Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles);
             int maxOffset = Math.Max(0, seriesCount - visibleCount);
-            _viewOffsetFromEnd = Clamp(_viewOffsetFromEnd, 0, maxOffset);
+            _viewOffsetFromEnd = Clamp(_viewOffsetFromEnd, -FuturePanLimit, maxOffset);
+        }
+
+        private static ChartTimeframe NormalizeTimeframe(ChartTimeframe timeframe)
+        {
+            switch (timeframe)
+            {
+                case ChartTimeframe.Weekly:
+                case ChartTimeframe.Monthly:
+                    return timeframe;
+                default:
+                    return ChartTimeframe.Daily;
+            }
+        }
+
+        private static DateTime StartOfWeek(DateTime date)
+        {
+            int delta = (7 + ((int)date.DayOfWeek - (int)DayOfWeek.Monday)) % 7;
+            return date.Date.AddDays(-delta);
+        }
+
+        private string TimeframeText(ChartTimeframe timeframe)
+        {
+            switch (NormalizeTimeframe(timeframe))
+            {
+                case ChartTimeframe.Weekly:
+                    return "1W";
+                case ChartTimeframe.Monthly:
+                    return "1M";
+                default:
+                    return "1D";
+            }
+        }
+
+        private sealed class ChartViewport
+        {
+            public ChartViewport(int startIndex, int slotCount, List<DailyBar> visibleBars)
+            {
+                StartIndex = startIndex;
+                SlotCount = slotCount;
+                VisibleBars = visibleBars ?? new List<DailyBar>();
+            }
+
+            public int StartIndex { get; private set; }
+            public int SlotCount { get; private set; }
+            public List<DailyBar> VisibleBars { get; private set; }
         }
 
         private bool IsInPriceAxis(Point point)
