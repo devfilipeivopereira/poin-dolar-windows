@@ -20,6 +20,7 @@ namespace RtdDolarNative.Charts
         private static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
         private const int DefaultCandleSpacingPercent = 100;
         private static readonly int[] AllowedCandleSpacingPercents = new[] { 75, 100, 125, 150 };
+        private static readonly CultureInfo PtBrCulture = CultureInfo.GetCultureInfo("pt-BR");
 
         private List<DailyBar> _bars = new List<DailyBar>();
         private MarketSnapshot _snapshot;
@@ -249,6 +250,8 @@ namespace RtdDolarNative.Charts
                 dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
                 DrawText(dc, level.Label, plot.Left + 6, y - 14, LevelBrush(level), 10);
             }
+
+            DrawCurrentPriceMarker(dc, plot, min, max);
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -497,7 +500,6 @@ namespace RtdDolarNative.Charts
             int labelStride = stepPixels >= 18d
                 ? 1
                 : Math.Max(1, (int)Math.Ceiling(18d / Math.Max(1d, stepPixels)));
-            CultureInfo culture = new CultureInfo("pt-BR");
             int index = 0;
 
             for (decimal price = top; price >= bottom; price -= step)
@@ -507,7 +509,7 @@ namespace RtdDolarNative.Charts
 
                 if (index % labelStride == 0 || price == top || price == bottom)
                 {
-                    DrawText(dc, price.ToString("N1", culture), plot.Right + 6, y - 8, textBrush, 11);
+                    DrawText(dc, FormatPrice(price), plot.Right + 6, y - 8, textBrush, 11);
                 }
 
                 index++;
@@ -517,6 +519,51 @@ namespace RtdDolarNative.Charts
                     break;
                 }
             }
+        }
+
+        private void DrawCurrentPriceMarker(DrawingContext dc, Rect plot, decimal min, decimal max)
+        {
+            if (_snapshot == null || !_snapshot.Ultimo.HasValue)
+            {
+                return;
+            }
+
+            decimal currentPrice = _snapshot.Ultimo.Value;
+            double y = Y(currentPrice, min, max, plot);
+
+            if (double.IsNaN(y) || double.IsInfinity(y))
+            {
+                return;
+            }
+
+            y = Clamp(y, plot.Top + 2d, plot.Bottom - 2d);
+
+            Color accent = CurrentPriceColor(_snapshot);
+            Brush lineBrush = new SolidColorBrush(Color.FromArgb(210, accent.R, accent.G, accent.B));
+            Pen linePen = new Pen(lineBrush, 2d);
+            dc.DrawLine(linePen, new Point(plot.Left, y), new Point(plot.Right, y));
+
+            string label = FormatPrice(currentPrice);
+            FormattedText formatted = new FormattedText(
+                label,
+                PtBrCulture,
+                FlowDirection.LeftToRight,
+                _mono,
+                10,
+                Brushes.White);
+
+            double paddingX = 6d;
+            double paddingY = 2d;
+            double labelWidth = Math.Ceiling(formatted.WidthIncludingTrailingWhitespace + (paddingX * 2d));
+            double labelHeight = Math.Ceiling(Math.Max(18d, formatted.Height + (paddingY * 2d)));
+            double labelLeft = Math.Max(plot.Right + 2d, ActualWidth - labelWidth - 6d);
+            double labelTop = Clamp(y - (labelHeight / 2d), plot.Top + 2d, plot.Bottom - labelHeight - 2d);
+            Rect labelRect = new Rect(labelLeft, labelTop, labelWidth, labelHeight);
+
+            Brush labelFill = new SolidColorBrush(Color.FromArgb(238, accent.R, accent.G, accent.B));
+            Brush labelBorder = new SolidColorBrush(Color.FromArgb(255, (byte)Math.Max(0, accent.R - 35), (byte)Math.Max(0, accent.G - 35), (byte)Math.Max(0, accent.B - 35)));
+            dc.DrawRoundedRectangle(labelFill, new Pen(labelBorder, 1d), labelRect, 3d, 3d);
+            DrawText(dc, label, labelRect.Left + paddingX, labelRect.Top + paddingY, Brushes.White, 10);
         }
 
         private void ZoomCandles(int direction, Point point)
@@ -725,6 +772,34 @@ namespace RtdDolarNative.Charts
                 size,
                 brush);
             dc.DrawText(ft, new Point(x, y));
+        }
+
+        private string FormatPrice(decimal price)
+        {
+            return price.ToString("N2", PtBrCulture);
+        }
+
+        private static Color CurrentPriceColor(MarketSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.Ultimo.HasValue)
+            {
+                return Color.FromRgb(34, 139, 230);
+            }
+
+            decimal current = snapshot.Ultimo.Value;
+            decimal reference = snapshot.FechamentoAnterior ?? snapshot.Abertura ?? current;
+
+            if (current > reference)
+            {
+                return Color.FromRgb(18, 184, 134);
+            }
+
+            if (current < reference)
+            {
+                return Color.FromRgb(250, 82, 82);
+            }
+
+            return Color.FromRgb(34, 139, 230);
         }
     }
 }
