@@ -97,6 +97,21 @@ namespace RtdDolarNative.MarketData
             }
         }
 
+        public decimal? DistanciaAbertura
+        {
+            get { return DistanciaPara(Abertura); }
+        }
+
+        public decimal? DistanciaMinima
+        {
+            get { return DistanciaPara(Minima); }
+        }
+
+        public decimal? DistanciaMaxima
+        {
+            get { return DistanciaPara(Maxima); }
+        }
+
         public decimal? Volume
         {
             get { return GetDecimal("VOL"); }
@@ -175,6 +190,16 @@ namespace RtdDolarNative.MarketData
             }
 
             return ValueParser.ToText(value);
+        }
+
+        private decimal? DistanciaPara(decimal? referencia)
+        {
+            if (!Ultimo.HasValue || !referencia.HasValue)
+            {
+                return null;
+            }
+
+            return Ultimo.Value - referencia.Value;
         }
     }
 }

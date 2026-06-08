@@ -6242,10 +6242,18 @@ namespace RtdDolarNative
             DayHighText.Text = FormatDecimal(snapshot.Maxima, "N2");
             DayLowText.Text = FormatDecimal(snapshot.Minima, "N2");
             DayAmplitudeText.Text = FormatDecimal(snapshot.AmplitudeDia, "N2");
+            OpenDayText.Text = FormatDecimal(snapshot.Abertura, "N2");
+            OpenDistanceText.Text = snapshot.DistanciaAbertura.HasValue ? FormatSignedDecimal(snapshot.DistanciaAbertura, "N2") : "-";
+            LowDistanceText.Text = snapshot.DistanciaMinima.HasValue ? FormatSignedDecimal(snapshot.DistanciaMinima, "N2") : "-";
+            HighDistanceText.Text = snapshot.DistanciaMaxima.HasValue ? FormatSignedDecimal(snapshot.DistanciaMaxima, "N2") : "-";
             DayVariationText.Foreground = VariationBrush(dayVariation);
             DayHighText.Foreground = FindResource("Warn") as Brush ?? DayHighText.Foreground;
             DayLowText.Foreground = FindResource("Accent") as Brush ?? DayLowText.Foreground;
             DayAmplitudeText.Foreground = FindResource("Text") as Brush ?? DayAmplitudeText.Foreground;
+            OpenDayText.Foreground = FindResource("Text") as Brush ?? OpenDayText.Foreground;
+            OpenDistanceText.Foreground = VariationBrush(snapshot.DistanciaAbertura);
+            LowDistanceText.Foreground = VariationBrush(snapshot.DistanciaMinima);
+            HighDistanceText.Foreground = VariationBrush(snapshot.DistanciaMaxima);
             StatusText.Text = EmptyToDash(snapshot.Status);
             StatusBadgeBorder.Background = StatusBrush(snapshot.Status);
 

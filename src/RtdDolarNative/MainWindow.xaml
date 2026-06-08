@@ -745,6 +745,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <UniformGrid Columns="8" HorizontalAlignment="Stretch">
@@ -816,6 +817,41 @@
                             <TextBlock x:Name="DayAmplitudeText"
                                        Text="-"
                                        Foreground="{StaticResource Text}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                    </UniformGrid>
+
+                    <UniformGrid Grid.Row="2" Columns="4" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBlock Text="Abertura" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="OpenDayText"
+                                       Text="-"
+                                       Foreground="{StaticResource Text}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Dist Abertura" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="OpenDistanceText"
+                                       Text="-"
+                                       Foreground="{StaticResource Accent}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Dist Min" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="LowDistanceText"
+                                       Text="-"
+                                       Foreground="{StaticResource Accent}"
+                                       FontSize="13"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Dist Max" Foreground="{StaticResource Muted}" FontSize="11" />
+                            <TextBlock x:Name="HighDistanceText"
+                                       Text="-"
+                                       Foreground="{StaticResource Warn}"
                                        FontSize="13"
                                        FontWeight="Bold" />
                         </StackPanel>
