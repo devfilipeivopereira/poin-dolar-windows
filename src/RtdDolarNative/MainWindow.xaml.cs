@@ -70,6 +70,7 @@ namespace RtdDolarNative
         private string _focusedAsset;
         private bool _renderActiveTabQueued;
         private bool _domCenterQueued;
+        private bool _dashboardDomCenterQueued;
         private DateTimeOffset _lastGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastDashboardChartRefresh = DateTimeOffset.MinValue;
@@ -2506,6 +2507,7 @@ namespace RtdDolarNative
             if (DashboardDomGrid != null)
             {
                 DashboardDomGrid.ItemsSource = BuildDashboardDomRows(snapshot);
+                ScheduleDashboardDomCenter();
             }
 
             if (DashboardTapeGrid != null)
@@ -7516,22 +7518,37 @@ namespace RtdDolarNative
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(delegate
             {
                 _domCenterQueued = false;
-                CenterDomGridOnCurrentPrice();
+                CenterDomGridOnCurrentPrice(DomGrid);
             }));
         }
 
-        private void CenterDomGridOnCurrentPrice()
+        private void ScheduleDashboardDomCenter()
         {
-            if (DomGrid == null || DomGrid.Items == null || DomGrid.Items.Count == 0)
+            if (_dashboardDomCenterQueued || DashboardDomGrid == null)
+            {
+                return;
+            }
+
+            _dashboardDomCenterQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(delegate
+            {
+                _dashboardDomCenterQueued = false;
+                CenterDomGridOnCurrentPrice(DashboardDomGrid);
+            }));
+        }
+
+        private void CenterDomGridOnCurrentPrice(System.Windows.Controls.DataGrid grid)
+        {
+            if (grid == null || grid.Items == null || grid.Items.Count == 0)
             {
                 return;
             }
 
             int currentIndex = -1;
 
-            for (int index = 0; index < DomGrid.Items.Count; index++)
+            for (int index = 0; index < grid.Items.Count; index++)
             {
-                DomRow row = DomGrid.Items[index] as DomRow;
+                DomRow row = grid.Items[index] as DomRow;
 
                 if (row != null && row.IsCurrent)
                 {
@@ -7542,13 +7559,13 @@ namespace RtdDolarNative
 
             if (currentIndex < 0)
             {
-                currentIndex = DomGrid.Items.Count / 2;
+                currentIndex = grid.Items.Count / 2;
             }
 
-            DomGrid.ScrollIntoView(DomGrid.Items[currentIndex]);
-            DomGrid.UpdateLayout();
+            grid.ScrollIntoView(grid.Items[currentIndex]);
+            grid.UpdateLayout();
 
-            ScrollViewer scrollViewer = FindVisualChild<ScrollViewer>(DomGrid);
+            ScrollViewer scrollViewer = FindDataGridScrollViewer(grid);
 
             if (scrollViewer == null)
             {
@@ -7576,6 +7593,24 @@ namespace RtdDolarNative
             }
 
             scrollViewer.ScrollToVerticalOffset(targetOffset);
+        }
+
+        private ScrollViewer FindDataGridScrollViewer(System.Windows.Controls.DataGrid grid)
+        {
+            if (grid == null)
+            {
+                return null;
+            }
+
+            grid.ApplyTemplate();
+            ScrollViewer templateScrollViewer = grid.Template == null ? null : grid.Template.FindName("DG_ScrollViewer", grid) as ScrollViewer;
+
+            if (templateScrollViewer != null)
+            {
+                return templateScrollViewer;
+            }
+
+            return FindVisualChild<ScrollViewer>(grid);
         }
 
         private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

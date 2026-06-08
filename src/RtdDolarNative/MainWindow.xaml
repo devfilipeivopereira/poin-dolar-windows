@@ -1276,13 +1276,15 @@
                                     <DataGrid x:Name="DashboardDomGrid"
                                               Grid.Row="1"
                                               AutoGenerateColumns="False"
+                                              RowStyle="{StaticResource DomLadderRowStyle}"
                                               RowHeight="21"
-                                              ColumnHeaderHeight="24">
+                                              ColumnHeaderHeight="24"
+                                              CanUserSortColumns="False">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Venda" Binding="{Binding AskVol}" Width="58" />
-                                            <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="82" />
-                                            <DataGridTextColumn Header="Compra" Binding="{Binding BidVol}" Width="64" />
-                                            <DataGridTextColumn Header="Niveis" Binding="{Binding Markings}" Width="*" />
+                                            <DataGridTextColumn Header="Venda" Binding="{Binding AskVol}" Width="58" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                            <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="82" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                            <DataGridTextColumn Header="Compra" Binding="{Binding BidVol}" Width="64" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                            <DataGridTextColumn Header="Niveis" Binding="{Binding Markings}" Width="*" CellStyle="{StaticResource DomLadderLeftCellStyle}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>
