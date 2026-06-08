@@ -56,6 +56,7 @@ namespace RtdDolarNative
         private readonly RtdProbeService _probeService;
         private readonly FlowProcessor _flowProcessor;
         private readonly HeatmapProcessor _heatmapProcessor;
+        private readonly CsvHistorySqliteStore _csvHistoryStore;
         private readonly RingBuffer<TickEvent> _ticks;
         private readonly DispatcherTimer _fastTimer;
         private readonly DispatcherTimer _quantTimer;
@@ -113,6 +114,7 @@ namespace RtdDolarNative
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
             _flowProcessor = new FlowProcessor(_config.Rtd.TickSize, _config.Flow, _log);
             _heatmapProcessor = new HeatmapProcessor(_config.Rtd.TickSize, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "market_heatmap.sqlite"), _log);
+            _csvHistoryStore = new CsvHistorySqliteStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "csv_history.sqlite"));
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
             _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 200));
@@ -1797,16 +1799,59 @@ namespace RtdDolarNative
 
                 _log.Info("Carregando CSV: " + path);
                 DailyCsvParseResult parsed = DailyCsvParser.ParseFile(path);
+                string focusedAsset = FocusedAsset();
+                string historyAsset = DetermineCsvHistoryAsset(parsed.Bars, focusedAsset);
+                string storageAsset = string.IsNullOrWhiteSpace(historyAsset) ? focusedAsset : historyAsset;
+                List<string> warnings = parsed.Warnings == null ? new List<string>() : parsed.Warnings.ToList();
+                List<DailyBar> consolidatedBars = new List<DailyBar>(parsed.Bars);
+                bool loadedFromSql = false;
+
+                try
+                {
+                    if (parsed.Bars.Count > 0)
+                    {
+                        int persisted = _csvHistoryStore.UpsertBars(parsed.Bars, storageAsset, path);
+                        _log.Info("Historico CSV gravado em SQL: " + persisted.ToString(_ptBr) + " linha(s) para " + storageAsset + ".");
+                    }
+
+                    List<DailyBar> storedBars = _csvHistoryStore.LoadBars(storageAsset);
+
+                    if (storedBars.Count > 0)
+                    {
+                        consolidatedBars = storedBars;
+                        loadedFromSql = parsed.Bars.Count == 0;
+                    }
+                }
+                catch (Exception historyEx)
+                {
+                    warnings.Add("Falha ao sincronizar historico SQL: " + historyEx.Message);
+                    _log.Error("Falha ao sincronizar historico CSV em SQL.", historyEx);
+                }
+
+                if (consolidatedBars == null || consolidatedBars.Count == 0)
+                {
+                    throw new InvalidOperationException("CSV nao possui pregões validos.");
+                }
+
+                warnings.RemoveAll(w => !string.IsNullOrWhiteSpace(w) && w.IndexOf("menos de 21 pregoes validos", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (loadedFromSql)
+                {
+                    warnings.RemoveAll(w => string.Equals(w, "Arquivo CSV vazio.", StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(w, "Nenhuma linha valida no CSV.", StringComparison.OrdinalIgnoreCase));
+                }
+
                 _dailyBars.Clear();
-                _dailyBars.AddRange(parsed.Bars);
+                _dailyBars.AddRange(consolidatedBars);
                 CsvPathInput.Text = path;
-                CsvFileText.Text = Path.GetFileName(path) + " (" + parsed.EncodingName + ", delim " + parsed.Delimiter + ")";
+                string encodingText = string.IsNullOrWhiteSpace(parsed.EncodingName) ? "-" : parsed.EncodingName;
+                string delimiterText = parsed.Delimiter == '\0' ? "-" : parsed.Delimiter.ToString();
+                CsvFileText.Text = Path.GetFileName(path) + " (" + encodingText + ", delim " + delimiterText + (loadedFromSql ? ", historico SQL" : string.Empty) + ")";
                 CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118));
                 CsvCountText.Text = _dailyBars.Count.ToString(_ptBr) + " pregoes";
 
                 if (saveToFocusedAsset)
                 {
-                    RtdAssetConfig asset = _config.Rtd.FindAsset(FocusedAsset());
+                    RtdAssetConfig asset = _config.Rtd.FindAsset(focusedAsset);
 
                     if (asset != null)
                     {
@@ -1818,9 +1863,19 @@ namespace RtdDolarNative
                     }
                 }
 
-                SetWarnings(parsed.Warnings);
-                AddHistory("CSV", "Carregado", Path.GetFileName(path) + " | " + _dailyBars.Count.ToString(_ptBr) + " pregoes.");
-                _log.Info("CSV carregado: " + _dailyBars.Count.ToString(_ptBr) + " pregoes, " + parsed.EncodingName + ", delimitador " + parsed.Delimiter + ".");
+                if (_dailyBars.Count < 21)
+                {
+                    warnings.Add("Historico CSV consolidado tem menos de 21 pregoes validos.");
+                }
+
+                if (parsed.Bars.Count == 0 && loadedFromSql)
+                {
+                    warnings.Add("CSV sem novas barras; usando historico SQL.");
+                }
+
+                SetWarnings(warnings.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+                AddHistory("CSV", "Sincronizado", Path.GetFileName(path) + " | " + _dailyBars.Count.ToString(_ptBr) + " pregoes.");
+                _log.Info("CSV sincronizado: " + _dailyBars.Count.ToString(_ptBr) + " pregoes consolidados, " + parsed.EncodingName + ", delimitador " + parsed.Delimiter + ".");
                 Recalculate();
             }
             catch (Exception ex)
@@ -1831,6 +1886,28 @@ namespace RtdDolarNative
                 SetWarnings(new[] { "Falha ao carregar CSV: " + ex.Message });
                 _log.Error("Falha ao carregar CSV.", ex);
             }
+        }
+
+        private string DetermineCsvHistoryAsset(IEnumerable<DailyBar> bars, string fallbackAsset)
+        {
+            List<string> assets = new List<string>();
+
+            if (bars != null)
+            {
+                assets = bars
+                    .Where(x => x != null)
+                    .Select(x => RtdConfig.NormalizeAsset(x.Asset))
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            if (assets.Count == 1)
+            {
+                return assets[0];
+            }
+
+            return RtdConfig.NormalizeAsset(fallbackAsset);
         }
 
         private void TryAutoLoadCsv()
@@ -1883,6 +1960,45 @@ namespace RtdDolarNative
             {
                 LoadCsvFromPath(path, false);
                 return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(FocusedAsset()))
+            {
+                try
+                {
+                    List<DailyBar> stored = _csvHistoryStore.LoadBars(FocusedAsset());
+
+                    if (stored.Count > 0)
+                    {
+                        _dailyBars.Clear();
+                        _dailyBars.AddRange(stored);
+
+                        if (CsvPathInput != null)
+                        {
+                            CsvPathInput.Text = string.Empty;
+                        }
+
+                        if (CsvFileText != null)
+                        {
+                            CsvFileText.Text = "Historico SQL (" + FocusedAsset() + ")";
+                            CsvFileText.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118));
+                        }
+
+                        if (CsvCountText != null)
+                        {
+                            CsvCountText.Text = _dailyBars.Count.ToString(_ptBr) + " pregoes";
+                        }
+
+                        SetWarnings(new[] { "Carregado do historico SQL salvo para " + FocusedAsset() + "." });
+                        AddHistory("CSV", "Restaurado", "Historico SQL de " + FocusedAsset() + " | " + _dailyBars.Count.ToString(_ptBr) + " pregoes.");
+                        Recalculate();
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn("Falha ao carregar historico CSV do SQL: " + ex.Message);
+                }
             }
 
             _dailyBars.Clear();

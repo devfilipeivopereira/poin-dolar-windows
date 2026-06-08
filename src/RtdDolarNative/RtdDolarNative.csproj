@@ -109,6 +109,7 @@
     <Compile Include="Charts\VolumeProfileChartControl.cs" />
     <Compile Include="Csv\DailyBar.cs" />
     <Compile Include="Csv\DailyCsvParser.cs" />
+    <Compile Include="Csv\CsvHistorySqliteStore.cs" />
     <Compile Include="Dom\DomLadderModel.cs" />
     <Compile Include="Dom\DomRow.cs" />
     <Compile Include="Flow\FlowEngine.cs" />
