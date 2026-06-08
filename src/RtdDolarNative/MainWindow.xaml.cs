@@ -3297,7 +3297,7 @@ namespace RtdDolarNative
             {
                 AddMetricAuditRow(
                     rows,
-                    EmptyToDash(metric.Name),
+                    MetricDisplayLabel(metric.Name),
                     metric.Window.ToString(_ptBr),
                     metric.Points.ToString("N2", _ptBr),
                     metric.Percent.ToString("N2", _ptBr) + "%",
@@ -6956,12 +6956,12 @@ namespace RtdDolarNative
             decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
             decimal openPrice = _result.Intraday.Open;
 
-            rows.Add(NewLevelsMapRow("Opening", "Abertura", "Abertura do dia", openPrice, openPrice - currentPrice, 0m, "RTD", true));
+            rows.Add(NewLevelsMapRow("Opening", "Abertura", "Abertura do dia", "Abertura (RTD)", openPrice, openPrice - currentPrice, 0m, "RTD", true));
 
             foreach (DeviationLevel level in (_result.OpeningLevels ?? new List<DeviationLevel>()).OrderByDescending(x => x.Price))
             {
                 string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
-                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), level.Price, level.Price - currentPrice, level.Price - openPrice, "Abertura", false));
+                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), "Garman-Klass (HL/OC)", level.Price, level.Price - currentPrice, level.Price - openPrice, "Abertura", false));
             }
 
             return rows
@@ -6975,23 +6975,26 @@ namespace RtdDolarNative
             List<LevelsMapRow> rows = new List<LevelsMapRow>();
             decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
 
+            string metricLabel = LevelMetricLabel(source);
+
             foreach (DeviationLevel level in (levels ?? new List<DeviationLevel>()).OrderByDescending(x => x.Price))
             {
                 string zone = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase)
                     ? "Sell"
                     : (string.Equals(level.Side, "Compra", StringComparison.OrdinalIgnoreCase) ? "Buy" : "Opening");
-                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), level.Price, level.Price - currentPrice, level.DistanceReference, source, false));
+                rows.Add(NewLevelsMapRow(zone, EmptyToDash(level.Side), EmptyToDash(level.Label), metricLabel, level.Price, level.Price - currentPrice, level.DistanceReference, source, false));
             }
 
             return rows;
         }
 
-        private LevelsMapRow NewLevelsMapRow(string zone, string side, string label, decimal price, decimal distanceCurrent, decimal distanceReference, string source, bool isOpening)
+        private LevelsMapRow NewLevelsMapRow(string zone, string side, string label, string metric, decimal price, decimal distanceCurrent, decimal distanceReference, string source, bool isOpening)
         {
             LevelsMapRow row = new LevelsMapRow();
             row.Zone = zone;
             row.Side = side;
             row.Label = label;
+            row.Metric = EmptyToDash(metric);
             row.Price = price.ToString("N2", _ptBr);
             row.DistanceCurrent = FormatPoints(distanceCurrent);
             row.DistanceReference = FormatPoints(distanceReference);
@@ -7002,6 +7005,31 @@ namespace RtdDolarNative
                 ? "Neutro"
                 : (string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra");
             return row;
+        }
+
+        private string LevelMetricLabel(string source)
+        {
+            if (string.Equals(source, "POC", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Garman-Klass (base POC)";
+            }
+
+            if (string.Equals(source, "Desvio", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Desvio padrao (STDEV.P H-L)";
+            }
+
+            if (string.Equals(source, "Gauss", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Gauss (D-1 / 52 pts)";
+            }
+
+            if (string.Equals(source, "Abertura", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Abertura (RTD)";
+            }
+
+            return EmptyToDash(source);
         }
 
         private List<NameValueRow> BuildLevelsSummaryRows(MarketSnapshot snapshot, List<LevelsMapRow> openingRows)
@@ -7652,7 +7680,7 @@ namespace RtdDolarNative
 
             foreach (VolatilityMetric metric in result.Metrics)
             {
-                lines.Add(metric.Name + " " + metric.Window + ": " + metric.Points.ToString("N1", _ptBr) + " pts (" + metric.Percent.ToString("N2", _ptBr) + "%)");
+                lines.Add(MetricDisplayLabel(metric.Name) + " " + metric.Window + ": " + metric.Points.ToString("N1", _ptBr) + " pts (" + metric.Percent.ToString("N2", _ptBr) + "%)");
             }
 
             if (result.Profile != null && result.Profile.Poc != null)
@@ -8630,6 +8658,56 @@ namespace RtdDolarNative
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
         }
 
+        private string MetricDisplayLabel(string metricName)
+        {
+            if (string.IsNullOrWhiteSpace(metricName))
+            {
+                return "-";
+            }
+
+            if (string.Equals(metricName, "Garman-Klass", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Garman-Klass (HL/OC)";
+            }
+
+            if (string.Equals(metricName, "Parkinson", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Parkinson (HL)";
+            }
+
+            if (string.Equals(metricName, "Rogers-Satchell", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Rogers-Satchell (OHLC)";
+            }
+
+            if (string.Equals(metricName, "Yang-Zhang", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Yang-Zhang (overnight + intraday)";
+            }
+
+            if (string.Equals(metricName, "Close-to-close", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Close-to-close (log returns)";
+            }
+
+            if (string.Equals(metricName, "Desvio padrao", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Desvio padrao (STDEV.P H-L)";
+            }
+
+            if (string.Equals(metricName, "Gauss", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Gauss (D-1 / 52 pts)";
+            }
+
+            if (string.Equals(metricName, "ATR", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ATR (True Range)";
+            }
+
+            return metricName;
+        }
+
         private string FormatError(Exception error)
         {
             if (error == null)
@@ -8810,6 +8888,7 @@ namespace RtdDolarNative
             public string Zone { get; set; }
             public string Side { get; set; }
             public string Label { get; set; }
+            public string Metric { get; set; }
             public string Price { get; set; }
             public string DistanceCurrent { get; set; }
             public string DistanceReference { get; set; }

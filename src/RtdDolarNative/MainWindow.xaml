@@ -1988,6 +1988,7 @@
                                         </DataGridTemplateColumn>
                                         <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="92" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                         <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                        <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="180" />
                                         <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                         <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                         <DataGridTextColumn Header="Dist Abert." Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
@@ -2043,6 +2044,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                    <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="180" />
                                     <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                     <DataGridTextColumn Header="Dist Abert." Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
@@ -2055,6 +2057,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                    <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="180" />
                                     <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                     <DataGridTextColumn Header="Dist POC" Binding="{Binding DistanceReference}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
@@ -2066,6 +2069,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                    <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="180" />
                                     <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                     <DataGridTextColumn Header="Dist Abert." Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
@@ -2078,6 +2082,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="*" />
+                                    <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="180" />
                                     <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                     <DataGridTextColumn Header="Dist Atual" Binding="{Binding DistanceCurrent}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                     <DataGridTextColumn Header="Dist D-1" Binding="{Binding DistanceReference}" Width="102" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
@@ -2262,7 +2267,13 @@
                         </StackPanel>
                         <StackPanel>
                             <TextBlock Text="Metricas" Foreground="{StaticResource Muted}" />
-                            <ItemsControl x:Name="MetricsList" />
+                            <ItemsControl x:Name="MetricsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </UniformGrid>
                     <TextBox x:Name="LastErrorText"
@@ -2863,7 +2874,7 @@
                                   AutoGenerateColumns="False"
                                   Margin="0,0,10,0">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="130" />
+                                <DataGridTextColumn Header="Metrica" Binding="{Binding Metric}" Width="220" />
                                 <DataGridTextColumn Header="Janela" Binding="{Binding Window}" Width="70" />
                                 <DataGridTextColumn Header="Pontos" Binding="{Binding Points}" Width="90" />
                                 <DataGridTextColumn Header="%" Binding="{Binding Percent}" Width="80" />
