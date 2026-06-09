@@ -6922,10 +6922,13 @@ namespace RtdDolarNative
                 LevelsCurrentPriceText.Text = "-";
                 LevelsOpenPriceText.Text = "-";
                 LevelsOpenDistanceText.Text = "-";
+                LevelsGkPointsText.Text = "-";
                 LevelsGkSellText.Text = "-";
                 LevelsGkBuyText.Text = "-";
+                LevelsGaussPointsText.Text = "-";
                 LevelsGaussSellText.Text = "-";
                 LevelsGaussBuyText.Text = "-";
+                LevelsStdDevPointsText.Text = "-";
                 LevelsStdDevSellText.Text = "-";
                 LevelsStdDevBuyText.Text = "-";
                 return;
@@ -7074,8 +7077,11 @@ namespace RtdDolarNative
             LevelsCurrentPriceText.Text = currentPrice <= 0m ? "-" : currentPrice.ToString("N2", _ptBr);
             LevelsOpenPriceText.Text = openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr);
             LevelsOpenDistanceText.Text = openPrice <= 0m ? "-" : FormatPoints(currentPrice - openPrice);
+            LevelsGkPointsText.Text = _result == null || _result.GarmanKlass == null ? "-" : MetricPointsText(_result.GarmanKlass.Points);
             UpdateNearestMetricRow(LevelsGkSellText, LevelsGkBuyText, _result == null ? null : _result.OpeningLevels, currentPrice);
+            LevelsGaussPointsText.Text = _result == null || _result.Gauss == null ? "-" : MetricPointsText(_result.Gauss.Points);
             UpdateNearestMetricRow(LevelsGaussSellText, LevelsGaussBuyText, _result == null ? null : _result.GaussLevels, currentPrice);
+            LevelsStdDevPointsText.Text = _result == null || _result.StandardDeviation == null ? "-" : MetricPointsText(_result.StandardDeviation.Points);
             UpdateNearestMetricRow(LevelsStdDevSellText, LevelsStdDevBuyText, _result == null ? null : _result.StandardDeviationLevels, currentPrice);
             LevelsOpenDistanceText.Foreground = VariationBrush(currentPrice - openPrice);
         }

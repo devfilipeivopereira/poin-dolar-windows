@@ -21,6 +21,7 @@
         <SolidColorBrush x:Key="Muted" Color="#A9B3BF" />
         <SolidColorBrush x:Key="Accent" Color="#00E676" />
         <SolidColorBrush x:Key="Warn" Color="#FFB800" />
+        <SolidColorBrush x:Key="DeepWarn" Color="#B8860B" />
         <SolidColorBrush x:Key="Danger" Color="#FF3B30" />
         <SolidColorBrush x:Key="DomCurrentBg" Color="#5D636B" />
         <SolidColorBrush x:Key="DomBidBg" Color="#10233A" />
@@ -1961,7 +1962,7 @@
                                     <TextBlock Text="Atual x abertura" Foreground="{StaticResource Muted}" />
                                     <TextBlock x:Name="LevelsOpenDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
                                 </StackPanel>
-                                <Border Width="520"
+                                <Border Width="620"
                                         Padding="10,8"
                                         BorderBrush="{StaticResource Border}"
                                         BorderThickness="1"
@@ -1969,7 +1970,8 @@
                                     <StackPanel>
                                         <Grid Margin="0,0,0,6">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="126" />
+                                                <ColumnDefinition Width="86" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
@@ -1978,11 +1980,17 @@
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,8,0" />
-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock x:Name="LevelsGkPointsText"
+                                                       Grid.Column="1"
+                                                       Text="-"
+                                                       Foreground="{StaticResource DeepWarn}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
                                                 <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsGkSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="2">
+                                            <StackPanel Grid.Column="3">
                                                 <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsGkBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
                                             </StackPanel>
@@ -1990,7 +1998,8 @@
 
                                         <Grid Margin="0,0,0,6">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="126" />
+                                                <ColumnDefinition Width="86" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
@@ -1999,11 +2008,17 @@
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,8,0" />
-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock x:Name="LevelsGaussPointsText"
+                                                       Grid.Column="1"
+                                                       Text="-"
+                                                       Foreground="{StaticResource DeepWarn}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
                                                 <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsGaussSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="2">
+                                            <StackPanel Grid.Column="3">
                                                 <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsGaussBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
                                             </StackPanel>
@@ -2011,7 +2026,8 @@
 
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="126" />
+                                                <ColumnDefinition Width="86" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
@@ -2020,11 +2036,17 @@
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,8,0" />
-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock x:Name="LevelsStdDevPointsText"
+                                                       Grid.Column="1"
+                                                       Text="-"
+                                                       Foreground="{StaticResource DeepWarn}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
                                                 <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsStdDevSellText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Danger}" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="2">
+                                            <StackPanel Grid.Column="3">
                                                 <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
                                                 <TextBlock x:Name="LevelsStdDevBuyText" Text="-" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Accent}" />
                                             </StackPanel>
