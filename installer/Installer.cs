@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 using System.Web.Script.Serialization;
 using Microsoft.Win32;
@@ -65,6 +66,7 @@ namespace PoinDolarWindowsInstaller
         private static void Install(string installDir, bool quiet, bool noShortcuts, bool noRegistry, bool launch)
         {
             Directory.CreateDirectory(installDir);
+            PrepareInstallTarget(installDir);
             ExtractPayload(installDir);
             CopySelfForUninstall(installDir);
 
@@ -171,8 +173,42 @@ namespace PoinDolarWindowsInstaller
                             continue;
                         }
 
-                        entry.ExtractToFile(destinationPath, true);
+                        ExtractEntryWithRetry(entry, destinationPath, installDir);
                     }
+                }
+            }
+        }
+
+        private static void PrepareInstallTarget(string installDir)
+        {
+            StopProcessesInsideInstallDir("RtdDolarNative", installDir);
+            StopProcessesInsideInstallDir("PoinDolarWindowsSetup", installDir);
+            WaitForUnlockedPath(Path.Combine(installDir, "app", "x64", "RtdDolarNative.exe"));
+            WaitForUnlockedPath(Path.Combine(installDir, "app", "x86", "RtdDolarNative.exe"));
+            WaitForUnlockedPath(Path.Combine(installDir, "PoinDolarWindowsSetup.exe"));
+        }
+
+        private static void ExtractEntryWithRetry(ZipArchiveEntry entry, string destinationPath, string installDir)
+        {
+            const int attempts = 10;
+
+            for (int index = 0; index < attempts; index++)
+            {
+                try
+                {
+                    entry.ExtractToFile(destinationPath, true);
+                    return;
+                }
+                catch (IOException)
+                {
+                    if (index == attempts - 1)
+                    {
+                        throw;
+                    }
+
+                    StopProcessesInsideInstallDir("RtdDolarNative", installDir);
+                    StopProcessesInsideInstallDir("PoinDolarWindowsSetup", installDir);
+                    Thread.Sleep(300);
                 }
             }
         }
@@ -331,7 +367,58 @@ namespace PoinDolarWindowsInstaller
 
             if (!string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
             {
+                WaitForUnlockedPath(destination);
                 File.Copy(source, destination, true);
+            }
+        }
+
+        private static void StopProcessesInsideInstallDir(string processName, string installDir)
+        {
+            foreach (Process process in Process.GetProcessesByName(processName))
+            {
+                try
+                {
+                    string processPath = process.MainModule == null ? string.Empty : process.MainModule.FileName;
+
+                    if (string.IsNullOrWhiteSpace(processPath) || !IsPathInside(processPath, installDir))
+                    {
+                        continue;
+                    }
+
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static void WaitForUnlockedPath(string path)
+        {
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            for (int index = 0; index < 12; index++)
+            {
+                try
+                {
+                    using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        return;
+                    }
+                }
+                catch (IOException)
+                {
+                    if (index == 11)
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(250);
+                }
             }
         }
 

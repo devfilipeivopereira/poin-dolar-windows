@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$processNamesToKill = @("RtdDolarNative", "PoinDolarWindows")
+$processNamesToKill = @("RtdDolarNative", "PoinDolarWindows", "PoinDolarWindowsSetup")
 
 function Stop-AppProcesses {
     param([int]$GraceSeconds = 5)
@@ -30,7 +30,15 @@ function Stop-AppProcesses {
     catch { }
 
     if ($candidates.Count -gt 0) {
-        $ids = $candidates | Select-Object -ExpandProperty ProcessId -Unique
+        $ids = $candidates | ForEach-Object {
+            if ($_.PSObject.Properties["Id"]) {
+                $_.Id
+            }
+            elseif ($_.PSObject.Properties["ProcessId"]) {
+                $_.ProcessId
+            }
+        } | Where-Object { $_ -is [int] -and $_ -gt 0 } | Sort-Object -Unique
+
         foreach ($id in $ids) {
             try {
                 Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
@@ -101,9 +109,16 @@ if (-not $OpenOnly) {
         throw "Script de build do instalador nao encontrado: $installerScript"
     }
 
+    Stop-AppProcesses
+    Wait-ForUnlockedExecutable -Path $appExe
+    Wait-ForUnlockedExecutable -Path $distSetup
+
     if (-not $NoBuild) {
         Write-Host "Compilando instalador: $Configuration..."
         & powershell -ExecutionPolicy Bypass -File $installerScript -Configuration $Configuration 2>&1 | Tee-Object -FilePath $setupLog
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao compilar o instalador. Consulte $setupLog"
+        }
     }
 
     if (-not (Test-Path $distSetup)) {
