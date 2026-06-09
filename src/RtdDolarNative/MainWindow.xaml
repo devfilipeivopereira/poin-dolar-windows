@@ -1215,11 +1215,13 @@
                 Background="{StaticResource Bg}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
-                Padding="10,5">
+                Padding="10,5"
+                Panel.ZIndex="20"
+                ClipToBounds="False">
             <Grid x:Name="TopNavigationViewport">
             <WrapPanel x:Name="TopNavigation"
                        Orientation="Horizontal"
-                       ItemHeight="28"
+                       VerticalAlignment="Top"
                        Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}">
@@ -1338,7 +1340,10 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                <Border Style="{StaticResource TopNavGroupBorderStyle}"
+                        BorderThickness="0"
+                        Background="{StaticResource Bg}"
+                        Panel.ZIndex="30">
                     <StackPanel Orientation="Vertical">
                         <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
                         <WrapPanel Orientation="Horizontal">
