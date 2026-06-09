@@ -28,9 +28,11 @@ namespace RtdDolarNative.Config
         {
             AppConfig config = null;
 
+            string json = null;
+
             if (File.Exists(path))
             {
-                string json = File.ReadAllText(path);
+                json = File.ReadAllText(path);
                 config = new JavaScriptSerializer().Deserialize<AppConfig>(json);
             }
 
@@ -51,6 +53,31 @@ namespace RtdDolarNative.Config
             config.Ui.Normalize();
             config.Flow.Normalize();
 
+            if (!HasToken(json, "ShowChartCandles"))
+            {
+                config.Ui.ShowChartCandles = true;
+            }
+
+            if (!HasToken(json, "ShowChartPriceGrid"))
+            {
+                config.Ui.ShowChartPriceGrid = true;
+            }
+
+            if (!HasToken(json, "ShowChartCurrentPriceLine"))
+            {
+                config.Ui.ShowChartCurrentPriceLine = true;
+            }
+
+            if (!HasToken(json, "ShowChartConfluenceLevels"))
+            {
+                config.Ui.ShowChartConfluenceLevels = true;
+            }
+
+            if (!HasToken(json, "ShowChartKeyLevels"))
+            {
+                config.Ui.ShowChartKeyLevels = true;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -62,6 +89,16 @@ namespace RtdDolarNative.Config
             }
 
             return config;
+        }
+
+        private static bool HasToken(string json, string token)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return false;
+            }
+
+            return json.IndexOf("\"" + token + "\"", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public void Save(string path)
