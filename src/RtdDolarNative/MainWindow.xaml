@@ -1219,232 +1219,253 @@
                 Panel.ZIndex="20"
                 ClipToBounds="False">
             <Grid x:Name="TopNavigationViewport">
-            <WrapPanel x:Name="TopNavigation"
-                       Orientation="Horizontal"
-                       VerticalAlignment="Top"
-                       Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
+                <StackPanel x:Name="TopNavigation"
+                            Orientation="Vertical"
+                            VerticalAlignment="Top">
+                    <WrapPanel Orientation="Horizontal"
+                               Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
 
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="TopNavOperationLabel" Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Mesa" ToolTip="Mesa operacional" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Ativos" ToolTip="Cadastro de ativos, RTDs e CSV" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Monitor" ToolTip="Monitor de fontes e status" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Diag" ToolTip="Diagnostico RTD" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                        <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TopNavOperationLabel" Text="Operacao" Style="{StaticResource TopNavGroupStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Mesa" ToolTip="Mesa operacional" Tag="0" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Ativos" ToolTip="Cadastro de ativos, RTDs e CSV" Tag="1" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Monitor" ToolTip="Monitor de fontes e status" Tag="14" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Diag" ToolTip="Diagnostico RTD" Tag="13" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TopNavMarketLabel" Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Cotacao" ToolTip="Campos RTD de preco e volume" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="RTD+" ToolTip="RTD Completo sob demanda" Tag="22" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
+                                    <Button Content="DOM" ToolTip="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Tape" ToolTip="Times and trades" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Grafico" ToolTip="Grafico nativo com niveis" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TopNavFlowLabel" Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Order" ToolTip="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
+                                    <Button Content="Mapa" ToolTip="Mapa de fluxo" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Heat" ToolTip="Heatmap book + negocios" Tag="21" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="52" />
+                                    <Button Content="Profile" ToolTip="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="60" />
+                                    <Button Content="Setups" ToolTip="Setups de fluxo" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TopNavGroupBorderStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TopNavAnalysisLabel" Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Scanner" ToolTip="Scanner de ativos" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Oportun." ToolTip="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
+                                    <Button Content="Indic." ToolTip="Indicadores Quant" Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
+                                    <Button Content="Niveis" ToolTip="Niveis e confluencias" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Back" ToolTip="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TopNavControlLabel" Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Risco" ToolTip="Risco operacional" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Alertas" ToolTip="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="Hist" ToolTip="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </WrapPanel>
+
+                    <Border Margin="0,6,0,0"
+                            Padding="0,6,0,0"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="0,1,0,0"
+                            Background="{StaticResource Bg}">
+                        <StackPanel Orientation="Vertical">
+                            <WrapPanel Orientation="Horizontal"
+                                       Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
+                                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Ticks" Style="{StaticResource TopNavGroupStyle}" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton x:Name="ChartPriceGrid5Button"
+                                                         Content="5"
+                                                         GroupName="ChartPriceGrid"
+                                                         Tag="5"
+                                                         Checked="ChartPriceGridButton_Checked"
+                                                         ToolTip="Linhas de preco a cada 5 ticks"
+                                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                                            <RadioButton x:Name="ChartPriceGrid10Button"
+                                                         Content="10"
+                                                         GroupName="ChartPriceGrid"
+                                                         Tag="10"
+                                                         IsChecked="True"
+                                                         Checked="ChartPriceGridButton_Checked"
+                                                         ToolTip="Linhas de preco a cada 10 ticks"
+                                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                                            <RadioButton x:Name="ChartPriceGrid50Button"
+                                                         Content="50"
+                                                         GroupName="ChartPriceGrid"
+                                                         Tag="50"
+                                                         Checked="ChartPriceGridButton_Checked"
+                                                         ToolTip="Linhas de preco a cada 50 ticks"
+                                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                                            <RadioButton x:Name="ChartPriceGrid100Button"
+                                                         Content="100"
+                                                         GroupName="ChartPriceGrid"
+                                                         Tag="100"
+                                                         Checked="ChartPriceGridButton_Checked"
+                                                         ToolTip="Linhas de preco a cada 100 ticks"
+                                                         Style="{StaticResource TopNavRadioButtonStyle}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Espaco" Style="{StaticResource TopNavGroupStyle}" />
+                                        <ComboBox x:Name="ChartCandleSpacingComboBox"
+                                                  Width="78"
+                                                  SelectedIndex="1"
+                                                  SelectionChanged="ChartCandleSpacingComboBox_SelectionChanged"
+                                                  ToolTip="Espacamento horizontal entre candles"
+                                                  Style="{StaticResource TopNavComboBoxStyle}">
+                                            <ComboBoxItem Content="75%" Tag="75" />
+                                            <ComboBoxItem Content="100%" Tag="100" />
+                                            <ComboBoxItem Content="125%" Tag="125" />
+                                            <ComboBoxItem Content="150%" Tag="150" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Grafico" Style="{StaticResource TopNavGroupStyle}" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Z-" ToolTip="Zoom horizontal: menos candles" Click="ChartZoomOutButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
+                                            <Button Content="Z+" ToolTip="Zoom horizontal: mais detalhe" Click="ChartZoomInButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
+                                            <Button Content="&lt;" ToolTip="Mover para candles anteriores" Click="ChartPanLeftButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                                            <Button Content="&gt;" ToolTip="Mover para candles mais recentes" Click="ChartPanRightButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                                            <Button Content="^" ToolTip="Mover grafico para cima" Click="ChartPanUpButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                                            <Button Content="v" ToolTip="Mover grafico para baixo" Click="ChartPanDownButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                                            <Button Content="0" ToolTip="Resetar zoom e posicao do grafico" Click="ChartResetButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
+
+                            <Border Style="{StaticResource TopNavGroupBorderStyle}"
+                                    BorderThickness="0"
+                                    Background="{StaticResource Bg}"
+                                    Margin="0,6,0,0"
+                                    Padding="0,0,0,2">
+                                <Grid Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
+                                    <WrapPanel Grid.Row="1"
+                                               Orientation="Horizontal"
+                                               Width="{Binding ActualWidth, ElementName=TopNavigationViewport}">
+                                        <CheckBox x:Name="ChartShowCandlesCheckBox"
+                                                  Content="Candles"
+                                                  Tag="{StaticResource ChartLineCandlesBrush}"
+                                                  Margin="0,0,8,0"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowPriceGridCheckBox"
+                                                  Content="Grade"
+                                                  Tag="{StaticResource ChartLineGridBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowCurrentPriceLineCheckBox"
+                                                  Content="Atual"
+                                                  Tag="{StaticResource ChartLineCurrentBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowConfluenceCheckBox"
+                                                  Content="Confluencia"
+                                                  Tag="{StaticResource ChartLineConfluenceBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
+                                                  Content="Niveis"
+                                                  Tag="{StaticResource ChartLineKeyLevelsBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowRtdLevelsCheckBox"
+                                                  Content="Rtd"
+                                                  Tag="{StaticResource ChartLineRtdBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowProfileLevelsCheckBox"
+                                                  Content="Perfil"
+                                                  Tag="{StaticResource ChartLineProfileBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowTechnicalLevelsCheckBox"
+                                                  Content="Tecnico"
+                                                  Tag="{StaticResource ChartLineTechnicalBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowMarketLevelsCheckBox"
+                                                  Content="Mercado"
+                                                  Tag="{StaticResource ChartLineMarketBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                        <CheckBox x:Name="ChartShowPercentLevelsCheckBox"
+                                                  Content="%"
+                                                  Tag="{StaticResource ChartLinePercentBrush}"
+                                                  Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                  VerticalContentAlignment="Center"
+                                                  Checked="ChartLineVisibility_Checked"
+                                                  Unchecked="ChartLineVisibility_Checked" />
+                                    </WrapPanel>
+                                </Grid>
+                            </Border>
                         </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="TopNavMarketLabel" Text="Mercado" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Cotacao" ToolTip="Campos RTD de preco e volume" Tag="2" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="RTD+" ToolTip="RTD Completo sob demanda" Tag="22" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
-                            <Button Content="DOM" ToolTip="DOM / Book" Tag="3" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Tape" ToolTip="Times and trades" Tag="4" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Grafico" ToolTip="Grafico nativo com niveis" Tag="9" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="TopNavFlowLabel" Text="Fluxo" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Order" ToolTip="Order Flow" Tag="5" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
-                            <Button Content="Mapa" ToolTip="Mapa de fluxo" Tag="19" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Heat" ToolTip="Heatmap book + negocios" Tag="21" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="52" />
-                            <Button Content="Profile" ToolTip="Volume Profile" Tag="6" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="60" />
-                            <Button Content="Setups" ToolTip="Setups de fluxo" Tag="7" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="TopNavAnalysisLabel" Text="Analise" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Scanner" ToolTip="Scanner de ativos" Tag="18" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Oportun." ToolTip="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
-                            <Button Content="Indic." ToolTip="Indicadores Quant" Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
-                            <Button Content="Niveis" ToolTip="Niveis e confluencias" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Back" ToolTip="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="TopNavControlLabel" Text="Controle" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Risco" ToolTip="Risco operacional" Tag="11" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Alertas" ToolTip="Alertas" Tag="12" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                            <Button Content="Hist" ToolTip="Historico" Tag="17" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Ticks" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="ChartPriceGrid5Button"
-                                         Content="5"
-                                         GroupName="ChartPriceGrid"
-                                         Tag="5"
-                                         Checked="ChartPriceGridButton_Checked"
-                                         ToolTip="Linhas de preco a cada 5 ticks"
-                                         Style="{StaticResource TopNavRadioButtonStyle}" />
-                            <RadioButton x:Name="ChartPriceGrid10Button"
-                                         Content="10"
-                                         GroupName="ChartPriceGrid"
-                                         Tag="10"
-                                         IsChecked="True"
-                                         Checked="ChartPriceGridButton_Checked"
-                                         ToolTip="Linhas de preco a cada 10 ticks"
-                                         Style="{StaticResource TopNavRadioButtonStyle}" />
-                            <RadioButton x:Name="ChartPriceGrid50Button"
-                                         Content="50"
-                                         GroupName="ChartPriceGrid"
-                                         Tag="50"
-                                         Checked="ChartPriceGridButton_Checked"
-                                         ToolTip="Linhas de preco a cada 50 ticks"
-                                         Style="{StaticResource TopNavRadioButtonStyle}" />
-                            <RadioButton x:Name="ChartPriceGrid100Button"
-                                         Content="100"
-                                         GroupName="ChartPriceGrid"
-                                         Tag="100"
-                                         Checked="ChartPriceGridButton_Checked"
-                                         ToolTip="Linhas de preco a cada 100 ticks"
-                                         Style="{StaticResource TopNavRadioButtonStyle}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Espaco" Style="{StaticResource TopNavGroupStyle}" />
-                        <ComboBox x:Name="ChartCandleSpacingComboBox"
-                                  Width="78"
-                                  SelectedIndex="1"
-                                  SelectionChanged="ChartCandleSpacingComboBox_SelectionChanged"
-                                  ToolTip="Espacamento horizontal entre candles"
-                                  Style="{StaticResource TopNavComboBoxStyle}">
-                            <ComboBoxItem Content="75%" Tag="75" />
-                            <ComboBoxItem Content="100%" Tag="100" />
-                            <ComboBoxItem Content="125%" Tag="125" />
-                            <ComboBoxItem Content="150%" Tag="150" />
-                        </ComboBox>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}"
-                        BorderThickness="0"
-                        Background="{StaticResource Bg}"
-                        Panel.ZIndex="30">
-                    <StackPanel Orientation="Vertical">
-                        <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
-                        <WrapPanel Orientation="Horizontal">
-                            <CheckBox x:Name="ChartShowCandlesCheckBox"
-                                      Content="Candles"
-                                      Tag="{StaticResource ChartLineCandlesBrush}"
-                                      Margin="0,0,8,0"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowPriceGridCheckBox"
-                                      Content="Grade"
-                                      Tag="{StaticResource ChartLineGridBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowCurrentPriceLineCheckBox"
-                                      Content="Atual"
-                                      Tag="{StaticResource ChartLineCurrentBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowConfluenceCheckBox"
-                                      Content="Confluencia"
-                                      Tag="{StaticResource ChartLineConfluenceBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
-                                      Content="Niveis"
-                                      Tag="{StaticResource ChartLineKeyLevelsBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowRtdLevelsCheckBox"
-                                      Content="Rtd"
-                                      Tag="{StaticResource ChartLineRtdBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowProfileLevelsCheckBox"
-                                      Content="Perfil"
-                                      Tag="{StaticResource ChartLineProfileBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowTechnicalLevelsCheckBox"
-                                      Content="Tecnico"
-                                      Tag="{StaticResource ChartLineTechnicalBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowMarketLevelsCheckBox"
-                                      Content="Mercado"
-                                      Tag="{StaticResource ChartLineMarketBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      Margin="0,0,8,0"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                            <CheckBox x:Name="ChartShowPercentLevelsCheckBox"
-                                      Content="%"
-                                      Tag="{StaticResource ChartLinePercentBrush}"
-                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                      VerticalContentAlignment="Center"
-                                      Checked="ChartLineVisibility_Checked"
-                                      Unchecked="ChartLineVisibility_Checked" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Grafico" Style="{StaticResource TopNavGroupStyle}" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Z-" ToolTip="Zoom horizontal: menos candles" Click="ChartZoomOutButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
-                            <Button Content="Z+" ToolTip="Zoom horizontal: mais detalhe" Click="ChartZoomInButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
-                            <Button Content="&lt;" ToolTip="Mover para candles anteriores" Click="ChartPanLeftButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
-                            <Button Content="&gt;" ToolTip="Mover para candles mais recentes" Click="ChartPanRightButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
-                            <Button Content="^" ToolTip="Mover grafico para cima" Click="ChartPanUpButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
-                            <Button Content="v" ToolTip="Mover grafico para baixo" Click="ChartPanDownButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
-                            <Button Content="0" ToolTip="Resetar zoom e posicao do grafico" Click="ChartResetButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-            </WrapPanel>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
