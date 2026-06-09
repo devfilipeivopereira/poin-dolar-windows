@@ -1225,8 +1225,8 @@
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,0,1"
                 Padding="10,5"
-                Panel.ZIndex="20"
-                ClipToBounds="True">
+                Panel.ZIndex="500"
+                ClipToBounds="False">
             <Grid x:Name="TopNavigationViewport">
                 <StackPanel x:Name="TopNavigation"
                             Orientation="Vertical"
@@ -1484,6 +1484,7 @@
         <TabControl x:Name="MainTabs"
                     Grid.Row="4"
                     Margin="12,6,12,12"
+                    Panel.ZIndex="0"
                     Style="{StaticResource MainShellTabControlStyle}"
                     ItemContainerStyle="{StaticResource HiddenMainTabItemStyle}"
                     SelectedIndex="0"
