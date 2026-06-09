@@ -14,7 +14,15 @@ $installerScript = Join-Path $projectRoot "installer\build-installer.ps1"
 $distSetup = Join-Path $projectRoot ("dist\" + $SetupName)
 $setupLog = Join-Path $projectRoot "dist\installer.log"
 $installDir = Join-Path $env:LOCALAPPDATA "PoinDolarWindows"
-$appExe = Join-Path $installDir "RtdDolarNative.exe"
+$appExe = @(
+    [IO.Path]::Combine($installDir, "app", "x64", "RtdDolarNative.exe"),
+    [IO.Path]::Combine($installDir, "app", "x86", "RtdDolarNative.exe"),
+    [IO.Path]::Combine($installDir, "RtdDolarNative.exe")
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($null -eq $appExe) {
+    $appExe = Join-Path $installDir "RtdDolarNative.exe"
+}
 
 if (-not $OpenOnly) {
     if (-not (Test-Path $installerScript)) {
