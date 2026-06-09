@@ -58,7 +58,11 @@ namespace RtdDolarNative.MarketData
 
         public decimal? Ajuste
         {
-            get { return GetDecimal("AJU") ?? GetDecimal("AJA"); }
+            get
+            {
+                decimal? aju = GetDecimal("AJU");
+                return aju.HasValue && aju.Value != 0m ? aju : GetDecimal("AJA");
+            }
         }
 
         public decimal? AjusteAnterior

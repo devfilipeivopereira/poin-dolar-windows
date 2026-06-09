@@ -651,7 +651,10 @@ namespace RtdDolarNative.Quant
             decimal adjustmentReference = snapshot != null && snapshot.Ajuste.HasValue && snapshot.Ajuste.Value > 0m
                 ? snapshot.Ajuste.Value
                 : (snapshot != null && snapshot.AjusteAnterior.HasValue ? snapshot.AjusteAnterior.Value : 0m);
-            string adjustmentSource = snapshot != null && snapshot.Rtd.ContainsKey("AJU") && snapshot.Rtd["AJU"] != null
+            decimal? ajusteField = snapshot == null
+                ? (decimal?)null
+                : (snapshot.Rtd != null && snapshot.Rtd.ContainsKey("AJU") ? ValueParser.ToDecimal(snapshot.Rtd["AJU"]) : (decimal?)null);
+            string adjustmentSource = ajusteField.HasValue && ajusteField.Value != 0m
                 ? "RTD AJU"
                 : (snapshot != null && snapshot.AjusteAnterior.HasValue ? "RTD AJA" : "RTD");
             maps.Add(BuildReferenceMap(result, "adjustment", "Ajuste", adjustmentSource, adjustmentReference));
