@@ -105,6 +105,36 @@ namespace RtdDolarNative.Quant
         public string Label { get; set; }
     }
 
+    public sealed class ReferenceMetricSummary
+    {
+        public string MetricKey { get; set; }
+        public string MetricLabel { get; set; }
+        public decimal Points { get; set; }
+        public DeviationLevel NearestSell { get; set; }
+        public DeviationLevel NearestBuy { get; set; }
+    }
+
+    public sealed class ReferenceMapResult
+    {
+        public ReferenceMapResult()
+        {
+            GarmanLevels = new List<DeviationLevel>();
+            GaussLevels = new List<DeviationLevel>();
+            StdDevLevels = new List<DeviationLevel>();
+        }
+
+        public string ReferenceKey { get; set; }
+        public string ReferenceLabel { get; set; }
+        public string ReferenceSource { get; set; }
+        public decimal ReferencePrice { get; set; }
+        public List<DeviationLevel> GarmanLevels { get; set; }
+        public List<DeviationLevel> GaussLevels { get; set; }
+        public List<DeviationLevel> StdDevLevels { get; set; }
+        public ReferenceMetricSummary GarmanSummary { get; set; }
+        public ReferenceMetricSummary GaussSummary { get; set; }
+        public ReferenceMetricSummary StdDevSummary { get; set; }
+    }
+
     public sealed class PercentLevel
     {
         public double Percent { get; set; }
@@ -224,6 +254,7 @@ namespace RtdDolarNative.Quant
             PocDeviationLevels = new List<DeviationLevel>();
             StandardDeviationLevels = new List<DeviationLevel>();
             GaussLevels = new List<DeviationLevel>();
+            ReferenceMaps = new List<ReferenceMapResult>();
             PercentMaps = new List<PercentMap>();
             PercentTable = new List<KeyLevel>();
             KeyLevels = new List<KeyLevel>();
@@ -255,6 +286,7 @@ namespace RtdDolarNative.Quant
         public List<DeviationLevel> PocDeviationLevels { get; set; }
         public List<DeviationLevel> StandardDeviationLevels { get; set; }
         public List<DeviationLevel> GaussLevels { get; set; }
+        public List<ReferenceMapResult> ReferenceMaps { get; set; }
         public List<PercentMap> PercentMaps { get; set; }
         public List<KeyLevel> PercentTable { get; set; }
         public List<KeyLevel> KeyLevels { get; set; }

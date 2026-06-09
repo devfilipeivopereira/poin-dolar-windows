@@ -58,6 +58,7 @@ namespace RtdDolarNative
         private readonly FlowProcessor _flowProcessor;
         private readonly HeatmapProcessor _heatmapProcessor;
         private readonly CsvHistorySqliteStore _csvHistoryStore;
+        private readonly PtaxHistorySqliteStore _ptaxHistoryStore;
         private readonly RingBuffer<TickEvent> _ticks;
         private readonly DispatcherTimer _fastTimer;
         private readonly DispatcherTimer _quantTimer;
@@ -99,6 +100,9 @@ namespace RtdDolarNative
         private bool _syncChartTimeframeSelection = true;
         private bool _syncChartPriceGridSelection = true;
         private bool _syncChartCandleSpacingSelection = true;
+        private DateTime _ptaxTradeDate = DateTime.Today;
+        private decimal? _appliedPtaxValue;
+        private readonly List<PtaxHistoryViewRow> _ptaxHistoryRows = new List<PtaxHistoryViewRow>();
         private readonly HashSet<string> _activeRtdCompleteGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _selectedRtdCompleteGroup = RtdCompleteFieldCatalog.GroupMarket;
         private string _rtdCompleteSearch = string.Empty;
@@ -120,7 +124,9 @@ namespace RtdDolarNative
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
             _flowProcessor = new FlowProcessor(_config.Rtd.TickSize, _config.Flow, _log);
             _heatmapProcessor = new HeatmapProcessor(_config.Rtd.TickSize, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "market_heatmap.sqlite"), _log);
-            _csvHistoryStore = new CsvHistorySqliteStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "csv_history.sqlite"));
+            string historyDatabasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "csv_history.sqlite");
+            _csvHistoryStore = new CsvHistorySqliteStore(historyDatabasePath);
+            _ptaxHistoryStore = new PtaxHistorySqliteStore(historyDatabasePath);
 
             _fastTimer = new DispatcherTimer(DispatcherPriority.Render);
             _fastTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(_config.Ui.FastIntervalMs, 200));
@@ -139,6 +145,7 @@ namespace RtdDolarNative
             InitializeChartTimeframeSelection();
             InitializeChartPriceGridSelection();
             InitializeChartCandleSpacingSelection();
+            InitializePtaxEditor();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -6089,6 +6096,166 @@ namespace RtdDolarNative
             ApplyChartDisplaySelection();
         }
 
+        private void InitializePtaxEditor()
+        {
+            _ptaxTradeDate = DateTime.Today;
+            RefreshPtaxHistoryRows();
+            LoadPtaxForDate(_ptaxTradeDate, false);
+        }
+
+        private void PtaxTodayButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPtaxForDate(DateTime.Today, true);
+        }
+
+        private void PtaxLoadButton_Click(object sender, RoutedEventArgs e)
+        {
+            DateTime tradeDate;
+
+            if (!TryReadPtaxDate(out tradeDate))
+            {
+                return;
+            }
+
+            LoadPtaxForDate(tradeDate, true);
+        }
+
+        private void PtaxSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            DateTime tradeDate;
+
+            if (!TryReadPtaxDate(out tradeDate))
+            {
+                return;
+            }
+
+            decimal? value = ValueParser.ToDecimal(PtaxValueInput == null ? null : PtaxValueInput.Text);
+
+            if (!value.HasValue || value.Value <= 0m)
+            {
+                SetPtaxEditorStatus("Informe um PTAX valido para salvar.", FindResource("Warn") as Brush);
+                return;
+            }
+
+            try
+            {
+                _ptaxHistoryStore.Upsert(tradeDate, value.Value);
+                _ptaxTradeDate = tradeDate.Date;
+                _appliedPtaxValue = value.Value;
+                RefreshPtaxHistoryRows();
+                WritePtaxEditorFields(_ptaxTradeDate, _appliedPtaxValue);
+                SetPtaxEditorStatus("PTAX aplicado e salvo para " + _ptaxTradeDate.ToString("dd/MM/yyyy", _ptBr) + ".", FindResource("Accent") as Brush);
+                AddHistory("Niveis", "PTAX", "PTAX " + value.Value.ToString("N2", _ptBr) + " salvo para " + _ptaxTradeDate.ToString("dd/MM/yyyy", _ptBr) + ".");
+                _log.Info("PTAX salvo: " + value.Value.ToString("N2", _ptBr) + " em " + _ptaxTradeDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".");
+                Recalculate();
+            }
+            catch (Exception ex)
+            {
+                SetPtaxEditorStatus("Falha ao salvar PTAX: " + ex.Message, FindResource("Danger") as Brush);
+                _log.Error("Falha ao salvar PTAX.", ex);
+            }
+        }
+
+        private bool TryReadPtaxDate(out DateTime tradeDate)
+        {
+            tradeDate = DateTime.Today;
+            string text = PtaxDateInput == null ? null : PtaxDateInput.Text;
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                tradeDate = DateTime.Today;
+                return true;
+            }
+
+            DateTime parsed;
+
+            if (DateTime.TryParseExact(text.Trim(), "dd/MM/yyyy", _ptBr, DateTimeStyles.None, out parsed) ||
+                DateTime.TryParseExact(text.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed) ||
+                DateTime.TryParse(text.Trim(), _ptBr, DateTimeStyles.None, out parsed))
+            {
+                tradeDate = parsed.Date;
+                return true;
+            }
+
+            SetPtaxEditorStatus("Data PTAX invalida. Use dd/MM/yyyy.", FindResource("Warn") as Brush);
+            return false;
+        }
+
+        private void LoadPtaxForDate(DateTime tradeDate, bool recalculate)
+        {
+            try
+            {
+                PtaxHistoryEntry entry = _ptaxHistoryStore.Load(tradeDate.Date);
+                _ptaxTradeDate = tradeDate.Date;
+                _appliedPtaxValue = entry == null ? (decimal?)null : entry.Value;
+                WritePtaxEditorFields(_ptaxTradeDate, _appliedPtaxValue);
+
+                if (entry == null)
+                {
+                    SetPtaxEditorStatus("Sem PTAX salvo para " + _ptaxTradeDate.ToString("dd/MM/yyyy", _ptBr) + ".", FindResource("Warn") as Brush);
+                }
+                else
+                {
+                    SetPtaxEditorStatus("PTAX carregado de SQL local. Atualizado em " + entry.UpdatedUtc.ToLocalTime().ToString("dd/MM HH:mm", _ptBr) + ".", FindResource("Accent") as Brush);
+                }
+
+                if (recalculate)
+                {
+                    Recalculate();
+                }
+            }
+            catch (Exception ex)
+            {
+                SetPtaxEditorStatus("Falha ao carregar PTAX: " + ex.Message, FindResource("Danger") as Brush);
+                _log.Error("Falha ao carregar PTAX.", ex);
+            }
+        }
+
+        private void WritePtaxEditorFields(DateTime tradeDate, decimal? value)
+        {
+            if (PtaxDateInput != null)
+            {
+                PtaxDateInput.Text = tradeDate.ToString("dd/MM/yyyy", _ptBr);
+            }
+
+            if (PtaxValueInput != null)
+            {
+                PtaxValueInput.Text = value.HasValue ? value.Value.ToString("N2", _ptBr) : string.Empty;
+            }
+        }
+
+        private void SetPtaxEditorStatus(string text, Brush brush)
+        {
+            if (PtaxEditorStatusText == null)
+            {
+                return;
+            }
+
+            PtaxEditorStatusText.Text = EmptyToDash(text);
+            PtaxEditorStatusText.Foreground = brush ?? (FindResource("Muted") as Brush ?? PtaxEditorStatusText.Foreground);
+        }
+
+        private void RefreshPtaxHistoryRows()
+        {
+            _ptaxHistoryRows.Clear();
+
+            try
+            {
+                foreach (PtaxHistoryEntry entry in _ptaxHistoryStore.LoadAll())
+                {
+                    PtaxHistoryViewRow row = new PtaxHistoryViewRow();
+                    row.Data = entry.TradeDate == DateTime.MinValue ? "-" : entry.TradeDate.ToString("dd/MM/yyyy", _ptBr);
+                    row.Ptax = entry.Value.ToString("N2", _ptBr);
+                    row.AtualizadoEm = entry.UpdatedUtc == DateTime.MinValue ? "-" : entry.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", _ptBr);
+                    _ptaxHistoryRows.Add(row);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Falha ao atualizar grade de PTAX historico.", ex);
+            }
+        }
+
         private int SelectedCalculationDays()
         {
             if (CalculationDaysComboBox == null)
@@ -6917,6 +7084,13 @@ namespace RtdDolarNative
             ApplyInput(snapshot, "ULT", ManualPriceInput.Text);
             ApplyInput(snapshot, "MED", VwapInput.Text);
             ApplyInput(snapshot, "VOL", VolumeInput.Text);
+
+            if (_appliedPtaxValue.HasValue && _appliedPtaxValue.Value > 0m)
+            {
+                snapshot.Rtd["PTAX"] = _appliedPtaxValue.Value;
+                snapshot.Raw["PTAX"] = _appliedPtaxValue.Value.ToString("N2", _ptBr);
+            }
+
             return snapshot;
         }
 
@@ -6955,53 +7129,274 @@ namespace RtdDolarNative
 
         private void RenderLevelsWorkspace(MarketSnapshot snapshot)
         {
-            if (LevelsGrid == null || OpeningMapGrid == null || LevelsSummaryGrid == null || OpeningGrid == null || PocGrid == null || StdDevGrid == null || GaussGrid == null || PercentGrid == null || ConfluenceGrid == null)
+            if (LevelsMapStateText == null ||
+                PrimaryLevelsGrid == null ||
+                ReferenceConfluenceGrid == null ||
+                OpeningReferenceGrid == null ||
+                ClosingReferenceGrid == null ||
+                PocReferenceGrid == null ||
+                AdjustmentReferenceGrid == null ||
+                PtaxReferenceGrid == null ||
+                PtaxHistoryGrid == null)
             {
                 return;
             }
 
             if (_result == null)
             {
-                OpeningMapGrid.ItemsSource = null;
-                LevelsSummaryGrid.ItemsSource = null;
-                LevelsGrid.ItemsSource = null;
-                OpeningGrid.ItemsSource = null;
-                PocGrid.ItemsSource = null;
-                StdDevGrid.ItemsSource = null;
-                GaussGrid.ItemsSource = null;
-                PercentGrid.ItemsSource = null;
-                ConfluenceGrid.ItemsSource = null;
-                LevelsMapStateText.Text = "Carregue o CSV diario para montar os niveis.";
-                LevelsCurrentPriceText.Text = "-";
-                LevelsOpenPriceText.Text = "-";
-                LevelsOpenDistanceText.Text = "-";
-                LevelsGkPointsText.Text = "-";
-                LevelsGkSellText.Text = "-";
-                LevelsGkBuyText.Text = "-";
-                LevelsGaussPointsText.Text = "-";
-                LevelsGaussSellText.Text = "-";
-                LevelsGaussBuyText.Text = "-";
-                LevelsStdDevPointsText.Text = "-";
-                LevelsStdDevSellText.Text = "-";
-                LevelsStdDevBuyText.Text = "-";
+                PrimaryLevelsGrid.ItemsSource = null;
+                ReferenceConfluenceGrid.ItemsSource = null;
+                ClearReferenceTab(OpeningReferenceStateText, OpeningReferencePriceText, OpeningCurrentPriceText, OpeningReferenceDistanceText, OpeningMetricCards, OpeningReferenceGrid, "Carregue o CSV diario para montar os niveis.");
+                ClearReferenceTab(ClosingReferenceStateText, ClosingReferencePriceText, ClosingCurrentPriceText, ClosingReferenceDistanceText, ClosingMetricCards, ClosingReferenceGrid, "Carregue o CSV diario para montar os niveis.");
+                ClearReferenceTab(PocReferenceStateText, PocReferencePriceText, PocCurrentPriceText, PocReferenceDistanceText, PocMetricCards, PocReferenceGrid, "Carregue o CSV diario para montar os niveis.");
+                ClearReferenceTab(AdjustmentReferenceStateText, AdjustmentReferencePriceText, AdjustmentCurrentPriceText, AdjustmentReferenceDistanceText, AdjustmentMetricCards, AdjustmentReferenceGrid, "Carregue o CSV diario para montar os niveis.");
+                ClearReferenceTab(PtaxReferenceStateText, PtaxReferencePriceText, PtaxCurrentPriceText, PtaxReferenceDistanceText, PtaxMetricCards, PtaxReferenceGrid, "Carregue o CSV diario para montar os niveis.");
+                PtaxHistoryGrid.ItemsSource = _ptaxHistoryRows.ToList();
+                PtaxHistoryStateText.Text = _ptaxHistoryRows.Count == 0 ? "Sem PTAX salvo no SQL local." : _ptaxHistoryRows.Count.ToString(_ptBr) + " registro(s) de PTAX no SQL local.";
+                LevelsMapStateText.Text = "Carregue o CSV diario para montar os niveis por referencia.";
                 return;
             }
 
             MarketSnapshot effective = snapshot ?? CurrentSnapshotForCalc();
-            List<LevelsMapRow> openingRows = BuildOpeningMapRows(effective);
+            LevelsMapStateText.Text = BuildLevelsWorkspaceStateText(effective);
+            PrimaryLevelsGrid.ItemsSource = BuildLevelRows(_result.KeyLevels, effective);
+            ReferenceConfluenceGrid.ItemsSource = BuildLevelRows(_result.Confluence, effective);
+            RenderReferenceTab(effective, FindReferenceMap("opening"), OpeningReferenceStateText, OpeningReferencePriceText, OpeningCurrentPriceText, OpeningReferenceDistanceText, OpeningMetricCards, OpeningReferenceGrid, "Referencia de abertura indisponivel.");
+            RenderReferenceTab(effective, FindReferenceMap("closing"), ClosingReferenceStateText, ClosingReferencePriceText, ClosingCurrentPriceText, ClosingReferenceDistanceText, ClosingMetricCards, ClosingReferenceGrid, "Referencia de fechamento indisponivel.");
+            RenderReferenceTab(effective, FindReferenceMap("poc"), PocReferenceStateText, PocReferencePriceText, PocCurrentPriceText, PocReferenceDistanceText, PocMetricCards, PocReferenceGrid, "Referencia de POC indisponivel.");
+            RenderReferenceTab(effective, FindReferenceMap("adjustment"), AdjustmentReferenceStateText, AdjustmentReferencePriceText, AdjustmentCurrentPriceText, AdjustmentReferenceDistanceText, AdjustmentMetricCards, AdjustmentReferenceGrid, "Referencia de ajuste indisponivel.");
+            RenderReferenceTab(effective, FindReferenceMap("ptax"), PtaxReferenceStateText, PtaxReferencePriceText, PtaxCurrentPriceText, PtaxReferenceDistanceText, PtaxMetricCards, PtaxReferenceGrid, "Sem PTAX salvo para a data selecionada.");
+            PtaxHistoryGrid.ItemsSource = _ptaxHistoryRows.ToList();
+            PtaxHistoryStateText.Text = _ptaxHistoryRows.Count == 0
+                ? "Sem PTAX salvo no SQL local."
+                : _ptaxHistoryRows.Count.ToString(_ptBr) + " registro(s) carregados do SQL local.";
+        }
 
-            OpeningMapGrid.ItemsSource = openingRows;
-            OpeningGrid.ItemsSource = openingRows;
-            LevelsSummaryGrid.ItemsSource = BuildLevelsSummaryRows(effective, openingRows);
-            LevelsGrid.ItemsSource = BuildLevelRows(_result.KeyLevels, effective);
-            PocGrid.ItemsSource = BuildDeviationRows(_result.PocDeviationLevels, effective, "POC");
-            StdDevGrid.ItemsSource = BuildDeviationRows(_result.StandardDeviationLevels, effective, "Desvio");
-            GaussGrid.ItemsSource = BuildDeviationRows(_result.GaussLevels, effective, "Gauss");
-            PercentGrid.ItemsSource = BuildLevelRows(_result.PercentTable, effective);
-            ConfluenceGrid.ItemsSource = BuildLevelRows(_result.Confluence, effective);
+        private void ClearReferenceTab(TextBlock stateText, TextBlock referenceText, TextBlock currentText, TextBlock distanceText, ItemsControl metricCards, System.Windows.Controls.DataGrid grid, string stateMessage)
+        {
+            if (stateText != null)
+            {
+                stateText.Text = EmptyToDash(stateMessage);
+            }
 
-            UpdateLevelsHeader(effective, openingRows);
-            ScheduleLevelsMapCenter();
+            if (referenceText != null)
+            {
+                referenceText.Text = "-";
+            }
+
+            if (currentText != null)
+            {
+                currentText.Text = "-";
+            }
+
+            if (distanceText != null)
+            {
+                distanceText.Text = "-";
+                distanceText.Foreground = FindResource("Muted") as Brush ?? distanceText.Foreground;
+            }
+
+            if (metricCards != null)
+            {
+                metricCards.ItemsSource = null;
+            }
+
+            if (grid != null)
+            {
+                grid.ItemsSource = null;
+            }
+        }
+
+        private string BuildLevelsWorkspaceStateText(MarketSnapshot snapshot)
+        {
+            string text = EmptyToDash(FocusedAsset()) +
+                          " | snapshot " + (snapshot == null ? "-" : AgeText(snapshot.LocalTimestamp)) +
+                          " | janela " + SelectedCalculationDays().ToString(_ptBr) + " dias" +
+                          " | RTD " + EmptyToDash(_probeService.Status);
+
+            if (_result != null)
+            {
+                text += " | GK " + MetricPointsText(_result.GarmanKlass == null ? 0m : _result.GarmanKlass.Points) +
+                        " | Gauss " + MetricPointsText(_result.Gauss == null ? 0m : _result.Gauss.Points) +
+                        " | DP " + MetricPointsText(_result.StandardDeviation == null ? 0m : _result.StandardDeviation.Points);
+            }
+
+            if (_appliedPtaxValue.HasValue)
+            {
+                text += " | PTAX " + _appliedPtaxValue.Value.ToString("N2", _ptBr) + " @ " + _ptaxTradeDate.ToString("dd/MM", _ptBr);
+            }
+
+            return text;
+        }
+
+        private void RenderReferenceTab(
+            MarketSnapshot snapshot,
+            ReferenceMapResult map,
+            TextBlock stateText,
+            TextBlock referenceText,
+            TextBlock currentText,
+            TextBlock distanceText,
+            ItemsControl metricCards,
+            System.Windows.Controls.DataGrid grid,
+            string unavailableText)
+        {
+            decimal currentPrice = ResolveLevelsCurrentPrice(snapshot);
+
+            if (map == null)
+            {
+                ClearReferenceTab(stateText, referenceText, currentText, distanceText, metricCards, grid, unavailableText);
+                return;
+            }
+
+            if (stateText != null)
+            {
+                stateText.Text = map.ReferencePrice > 0m
+                    ? map.ReferenceLabel + " | " + EmptyToDash(map.ReferenceSource) + " | venda acima / compra abaixo"
+                    : unavailableText + " | " + EmptyToDash(map.ReferenceSource);
+            }
+
+            if (referenceText != null)
+            {
+                referenceText.Text = map.ReferencePrice > 0m ? map.ReferencePrice.ToString("N2", _ptBr) : "-";
+            }
+
+            if (currentText != null)
+            {
+                currentText.Text = currentPrice > 0m ? currentPrice.ToString("N2", _ptBr) : "-";
+            }
+
+            if (distanceText != null)
+            {
+                decimal? referenceDistance = currentPrice > 0m && map.ReferencePrice > 0m
+                    ? (decimal?)(currentPrice - map.ReferencePrice)
+                    : null;
+                distanceText.Text = FormatPoints(referenceDistance);
+                distanceText.Foreground = VariationBrush(referenceDistance);
+            }
+
+            if (metricCards != null)
+            {
+                metricCards.ItemsSource = BuildReferenceMetricCards(map);
+            }
+
+            if (grid != null)
+            {
+                grid.ItemsSource = BuildReferenceComparisonRows(map, currentPrice);
+            }
+        }
+
+        private ReferenceMapResult FindReferenceMap(string referenceKey)
+        {
+            if (_result == null || _result.ReferenceMaps == null)
+            {
+                return null;
+            }
+
+            return _result.ReferenceMaps.FirstOrDefault(x => string.Equals(x.ReferenceKey, referenceKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private List<ReferenceMetricCardRow> BuildReferenceMetricCards(ReferenceMapResult map)
+        {
+            List<ReferenceMetricCardRow> rows = new List<ReferenceMetricCardRow>();
+            string basis = "Base " + EmptyToDash(map == null ? null : map.ReferenceLabel) + " | " + EmptyToDash(map == null ? null : map.ReferenceSource);
+            rows.Add(BuildReferenceMetricCard(map == null ? null : map.GarmanSummary, basis));
+            rows.Add(BuildReferenceMetricCard(map == null ? null : map.GaussSummary, basis));
+            rows.Add(BuildReferenceMetricCard(map == null ? null : map.StdDevSummary, basis));
+            return rows;
+        }
+
+        private ReferenceMetricCardRow BuildReferenceMetricCard(ReferenceMetricSummary summary, string basis)
+        {
+            ReferenceMetricCardRow row = new ReferenceMetricCardRow();
+            row.MetricLabel = summary == null ? "-" : EmptyToDash(summary.MetricLabel);
+            row.PointsText = MetricPointsText(summary == null ? 0m : summary.Points);
+            row.BasisText = EmptyToDash(basis);
+            row.NearestSellPriceText = summary == null || summary.NearestSell == null ? "-" : summary.NearestSell.Price.ToString("N2", _ptBr);
+            row.NearestSellDistanceText = summary == null || summary.NearestSell == null ? "-" : FormatPoints(summary.NearestSell.DistanceCurrent);
+            row.NearestBuyPriceText = summary == null || summary.NearestBuy == null ? "-" : summary.NearestBuy.Price.ToString("N2", _ptBr);
+            row.NearestBuyDistanceText = summary == null || summary.NearestBuy == null ? "-" : FormatPoints(summary.NearestBuy.DistanceCurrent);
+            return row;
+        }
+
+        private List<ReferenceComparisonRow> BuildReferenceComparisonRows(ReferenceMapResult map, decimal currentPrice)
+        {
+            List<ReferenceComparisonRow> rows = new List<ReferenceComparisonRow>();
+
+            if (map == null || map.ReferencePrice <= 0m)
+            {
+                ReferenceComparisonRow empty = new ReferenceComparisonRow();
+                empty.Direction = "Neutro";
+                empty.Side = "Ref";
+                empty.Level = "Referencia indisponivel";
+                empty.GarmanPrice = "-";
+                empty.GarmanDistance = "-";
+                empty.GaussPrice = "-";
+                empty.GaussDistance = "-";
+                empty.StdDevPrice = "-";
+                empty.StdDevDistance = "-";
+                rows.Add(empty);
+                return rows;
+            }
+
+            for (int multiplier = 4; multiplier >= 1; multiplier--)
+            {
+                rows.Add(BuildReferenceComparisonRow("Venda", "+" + multiplier.ToString(_ptBr), "Venda", map.ReferencePrice, currentPrice,
+                    FindDeviationLevel(map.GarmanLevels, multiplier),
+                    FindDeviationLevel(map.GaussLevels, multiplier),
+                    FindDeviationLevel(map.StdDevLevels, multiplier)));
+            }
+
+            rows.Add(BuildReferenceComparisonRow("Ref", "Referencia", "Neutro", map.ReferencePrice, currentPrice, null, null, null));
+
+            for (int multiplier = 1; multiplier <= 4; multiplier++)
+            {
+                rows.Add(BuildReferenceComparisonRow("Compra", "-" + multiplier.ToString(_ptBr), "Compra", map.ReferencePrice, currentPrice,
+                    FindDeviationLevel(map.GarmanLevels, -multiplier),
+                    FindDeviationLevel(map.GaussLevels, -multiplier),
+                    FindDeviationLevel(map.StdDevLevels, -multiplier)));
+            }
+
+            return rows;
+        }
+
+        private ReferenceComparisonRow BuildReferenceComparisonRow(
+            string side,
+            string level,
+            string direction,
+            decimal referencePrice,
+            decimal currentPrice,
+            DeviationLevel garmanLevel,
+            DeviationLevel gaussLevel,
+            DeviationLevel stdDevLevel)
+        {
+            ReferenceComparisonRow row = new ReferenceComparisonRow();
+            row.Side = side;
+            row.Level = level;
+            row.Direction = direction;
+
+            if (string.Equals(direction, "Neutro", StringComparison.OrdinalIgnoreCase))
+            {
+                row.GarmanPrice = referencePrice.ToString("N2", _ptBr);
+                row.GarmanDistance = FormatPoints(referencePrice - currentPrice);
+                row.GaussPrice = referencePrice.ToString("N2", _ptBr);
+                row.GaussDistance = FormatPoints(referencePrice - currentPrice);
+                row.StdDevPrice = referencePrice.ToString("N2", _ptBr);
+                row.StdDevDistance = FormatPoints(referencePrice - currentPrice);
+                return row;
+            }
+
+            row.GarmanPrice = garmanLevel == null ? "-" : garmanLevel.Price.ToString("N2", _ptBr);
+            row.GarmanDistance = garmanLevel == null ? "-" : FormatPoints(garmanLevel.DistanceCurrent);
+            row.GaussPrice = gaussLevel == null ? "-" : gaussLevel.Price.ToString("N2", _ptBr);
+            row.GaussDistance = gaussLevel == null ? "-" : FormatPoints(gaussLevel.DistanceCurrent);
+            row.StdDevPrice = stdDevLevel == null ? "-" : stdDevLevel.Price.ToString("N2", _ptBr);
+            row.StdDevDistance = stdDevLevel == null ? "-" : FormatPoints(stdDevLevel.DistanceCurrent);
+            return row;
+        }
+
+        private DeviationLevel FindDeviationLevel(IEnumerable<DeviationLevel> levels, decimal sigma)
+        {
+            return (levels ?? new List<DeviationLevel>())
+                .FirstOrDefault(x => x != null && x.Sigma == sigma);
         }
 
         private List<LevelsMapRow> BuildOpeningMapRows(MarketSnapshot snapshot)
@@ -9037,6 +9432,37 @@ namespace RtdDolarNative
             public string Distance { get; set; }
             public string Evidence { get; set; }
             public string Direction { get; set; }
+        }
+
+        private sealed class ReferenceMetricCardRow
+        {
+            public string MetricLabel { get; set; }
+            public string PointsText { get; set; }
+            public string BasisText { get; set; }
+            public string NearestSellPriceText { get; set; }
+            public string NearestSellDistanceText { get; set; }
+            public string NearestBuyPriceText { get; set; }
+            public string NearestBuyDistanceText { get; set; }
+        }
+
+        private sealed class ReferenceComparisonRow
+        {
+            public string Side { get; set; }
+            public string Level { get; set; }
+            public string GarmanPrice { get; set; }
+            public string GarmanDistance { get; set; }
+            public string GaussPrice { get; set; }
+            public string GaussDistance { get; set; }
+            public string StdDevPrice { get; set; }
+            public string StdDevDistance { get; set; }
+            public string Direction { get; set; }
+        }
+
+        private sealed class PtaxHistoryViewRow
+        {
+            public string Data { get; set; }
+            public string Ptax { get; set; }
+            public string AtualizadoEm { get; set; }
         }
 
         private sealed class LevelsMapRow

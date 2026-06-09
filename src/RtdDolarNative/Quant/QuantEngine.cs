@@ -82,11 +82,11 @@ namespace RtdDolarNative.Quant
             result.Profile = VolumeProfileProxy(selectedWindow);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
-            decimal standardDeviationReference = snapshot != null && snapshot.Abertura.HasValue ? result.Intraday.Open : result.PreviousDay.Open;
             result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
-            result.StandardDeviationLevels = StandardDeviationLevels(selectedWindow, standardDeviationReference, result.Intraday.Price, tickSize);
-            result.GaussLevels = GaussLevels(result.Intraday.Open, result.Gauss, result.Intraday.Price);
+            result.StandardDeviationLevels = MetricLevels("Desvio padrao", result.Intraday.Open, result.StandardDeviation, result.Intraday.Price);
+            result.GaussLevels = MetricLevels("Gauss robusto", result.Intraday.Open, result.Gauss, result.Intraday.Price);
+            result.ReferenceMaps = BuildReferenceMaps(result, snapshot);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, windowDays);
@@ -606,6 +606,12 @@ namespace RtdDolarNative.Quant
         private static List<DeviationLevel> ReferenceDeviationLevels(string referenceName, decimal referencePrice, decimal sigma, decimal currentPrice)
         {
             List<DeviationLevel> levels = new List<DeviationLevel>();
+
+            if (referencePrice <= 0m || sigma <= 0m)
+            {
+                return levels;
+            }
+
             int[] multipliers = new[] { 1, 2, 3, 4 };
             string prefix = string.IsNullOrWhiteSpace(referenceName) ? string.Empty : referenceName.Trim() + " ";
 
@@ -620,45 +626,80 @@ namespace RtdDolarNative.Quant
             return levels;
         }
 
-        private static List<DeviationLevel> StandardDeviationLevels(List<DailyBar> bars, decimal openPrice, decimal currentPrice, decimal tickSize)
+        private static List<ReferenceMapResult> BuildReferenceMaps(QuantResult result, MarketSnapshot snapshot)
         {
-            List<DeviationLevel> levels = new List<DeviationLevel>();
+            List<ReferenceMapResult> maps = new List<ReferenceMapResult>();
 
-            if (bars == null || bars.Count < 2)
+            if (result == null || result.Intraday == null)
             {
-                return levels;
+                return maps;
             }
 
-            List<decimal> ranges = bars.Select(x => x.High - x.Low).Where(x => x > 0m).ToList();
+            decimal openingReference = snapshot != null && snapshot.Abertura.HasValue && snapshot.Abertura.Value > 0m
+                ? snapshot.Abertura.Value
+                : result.Intraday.Open;
+            maps.Add(BuildReferenceMap(result, "opening", "Abertura", snapshot != null && snapshot.Abertura.HasValue ? "RTD" : "Intraday", openingReference));
 
-            if (ranges.Count < 2 || openPrice <= 0m)
-            {
-                return levels;
-            }
+            decimal closingReference = snapshot != null && snapshot.FechamentoAnterior.HasValue && snapshot.FechamentoAnterior.Value > 0m
+                ? snapshot.FechamentoAnterior.Value
+                : (result.PreviousDay == null ? 0m : result.PreviousDay.Close);
+            maps.Add(BuildReferenceMap(result, "closing", "Fechamento", snapshot != null && snapshot.FechamentoAnterior.HasValue ? "RTD" : "CSV D-1", closingReference));
 
-            decimal sigma = RoundToStep(PopulationStdevDecimal(ranges), tickSize);
+            decimal pocReference = result.Profile == null || result.Profile.Poc == null ? 0m : result.Profile.Poc.Price;
+            maps.Add(BuildReferenceMap(result, "poc", "POC", "Profile CSV", pocReference));
 
-            if (sigma <= 0m)
-            {
-                return levels;
-            }
+            decimal adjustmentReference = snapshot != null && snapshot.Ajuste.HasValue && snapshot.Ajuste.Value > 0m
+                ? snapshot.Ajuste.Value
+                : (snapshot != null && snapshot.AjusteAnterior.HasValue ? snapshot.AjusteAnterior.Value : 0m);
+            string adjustmentSource = snapshot != null && snapshot.Rtd.ContainsKey("AJU") && snapshot.Rtd["AJU"] != null
+                ? "RTD AJU"
+                : (snapshot != null && snapshot.AjusteAnterior.HasValue ? "RTD AJA" : "RTD");
+            maps.Add(BuildReferenceMap(result, "adjustment", "Ajuste", adjustmentSource, adjustmentReference));
 
-            for (int m = 1; m <= 4; m++)
-            {
-                decimal sell = openPrice + m * sigma;
-                decimal buy = openPrice - m * sigma;
-                levels.Add(Deviation("Venda", "sell", m, sell, openPrice, currentPrice, "Ponto " + m + " | Abertura +" + m + " desvio"));
-                levels.Add(Deviation("Compra", "buy", -m, buy, openPrice, currentPrice, "Ponto " + (m + 4) + " | Abertura -" + m + " desvio"));
-            }
+            decimal ptaxReference = snapshot != null && snapshot.Ptax.HasValue && snapshot.Ptax.Value > 0m ? snapshot.Ptax.Value : 0m;
+            maps.Add(BuildReferenceMap(result, "ptax", "PTAX", ptaxReference > 0m ? "SQL manual" : "SQL manual sem valor", ptaxReference));
 
-            return levels;
+            return maps;
         }
 
-        private static List<DeviationLevel> GaussLevels(decimal reference, VolatilityMetric metric, decimal currentPrice)
+        private static ReferenceMapResult BuildReferenceMap(QuantResult result, string referenceKey, string referenceLabel, string source, decimal referencePrice)
+        {
+            ReferenceMapResult map = new ReferenceMapResult();
+            map.ReferenceKey = referenceKey;
+            map.ReferenceLabel = referenceLabel;
+            map.ReferenceSource = source;
+            map.ReferencePrice = referencePrice;
+            decimal currentPrice = result == null || result.Intraday == null ? 0m : result.Intraday.Price;
+
+            if (referencePrice > 0m)
+            {
+                map.GarmanLevels = ReferenceDeviationLevels(referenceLabel, referencePrice, result == null || result.GarmanKlass == null ? 0m : result.GarmanKlass.Points, currentPrice);
+                map.GaussLevels = MetricLevels("Gauss robusto", referencePrice, result == null ? null : result.Gauss, currentPrice);
+                map.StdDevLevels = MetricLevels("Desvio padrao", referencePrice, result == null ? null : result.StandardDeviation, currentPrice);
+            }
+
+            map.GarmanSummary = BuildReferenceMetricSummary("garman", "Garman-Klass", result == null ? null : result.GarmanKlass, map.GarmanLevels, currentPrice);
+            map.GaussSummary = BuildReferenceMetricSummary("gauss", "Gauss", result == null ? null : result.Gauss, map.GaussLevels, currentPrice);
+            map.StdDevSummary = BuildReferenceMetricSummary("stddev", "Desvio padrao", result == null ? null : result.StandardDeviation, map.StdDevLevels, currentPrice);
+            return map;
+        }
+
+        private static ReferenceMetricSummary BuildReferenceMetricSummary(string metricKey, string metricLabel, VolatilityMetric metric, IEnumerable<DeviationLevel> levels, decimal currentPrice)
+        {
+            ReferenceMetricSummary summary = new ReferenceMetricSummary();
+            summary.MetricKey = metricKey;
+            summary.MetricLabel = metricLabel;
+            summary.Points = metric == null ? 0m : metric.Points;
+            summary.NearestSell = NearestDeviationLevel(levels, "Venda", currentPrice);
+            summary.NearestBuy = NearestDeviationLevel(levels, "Compra", currentPrice);
+            return summary;
+        }
+
+        private static List<DeviationLevel> MetricLevels(string metricLabel, decimal referencePrice, VolatilityMetric metric, decimal currentPrice)
         {
             List<DeviationLevel> levels = new List<DeviationLevel>();
 
-            if (metric == null || metric.Points <= 0m || reference <= 0m)
+            if (metric == null || metric.Points <= 0m || referencePrice <= 0m)
             {
                 return levels;
             }
@@ -667,13 +708,40 @@ namespace RtdDolarNative.Quant
 
             for (int m = 1; m <= 4; m++)
             {
-                decimal sell = reference + m * sigma;
-                decimal buy = reference - m * sigma;
-                levels.Add(Deviation("Venda", "sell", m, sell, reference, currentPrice, "Ponto " + m + " | Gauss robusto +" + m + " desvio"));
-                levels.Add(Deviation("Compra", "buy", -m, buy, reference, currentPrice, "Ponto " + (m + 4) + " | Gauss robusto -" + m + " desvio"));
+                decimal sell = referencePrice + m * sigma;
+                decimal buy = referencePrice - m * sigma;
+                levels.Add(Deviation("Venda", "sell", m, sell, referencePrice, currentPrice, "Ponto " + m + " | " + metricLabel + " +" + m + " desvio"));
+                levels.Add(Deviation("Compra", "buy", -m, buy, referencePrice, currentPrice, "Ponto " + (m + 4) + " | " + metricLabel + " -" + m + " desvio"));
             }
 
             return levels;
+        }
+
+        private static DeviationLevel NearestDeviationLevel(IEnumerable<DeviationLevel> levels, string side, decimal currentPrice)
+        {
+            List<DeviationLevel> filtered = (levels ?? new List<DeviationLevel>())
+                .Where(x => string.Equals(x.Side, side, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(x.Direction, side, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (filtered.Count == 0)
+            {
+                return null;
+            }
+
+            if (currentPrice > 0m)
+            {
+                List<DeviationLevel> directional = string.Equals(side, "Venda", StringComparison.OrdinalIgnoreCase)
+                    ? filtered.Where(x => x.Price >= currentPrice).OrderBy(x => x.Price).ToList()
+                    : filtered.Where(x => x.Price <= currentPrice).OrderByDescending(x => x.Price).ToList();
+
+                if (directional.Count > 0)
+                {
+                    return directional.First();
+                }
+            }
+
+            return filtered.OrderBy(x => Math.Abs(x.Price - currentPrice)).FirstOrDefault();
         }
 
         private static DeviationLevel Deviation(string side, string dir, decimal sigma, decimal price, decimal reference, decimal current, string label)

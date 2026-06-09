@@ -7,7 +7,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>RtdDolarNative</RootNamespace>
     <AssemblyName>RtdDolarNative</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
@@ -110,6 +110,7 @@
     <Compile Include="Csv\DailyBar.cs" />
     <Compile Include="Csv\DailyCsvParser.cs" />
     <Compile Include="Csv\CsvHistorySqliteStore.cs" />
+    <Compile Include="Csv\PtaxHistorySqliteStore.cs" />
     <Compile Include="Dom\DomLadderModel.cs" />
     <Compile Include="Dom\DomRow.cs" />
     <Compile Include="Flow\FlowEngine.cs" />

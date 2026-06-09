@@ -7,7 +7,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>QuantEngineTests</RootNamespace>
     <AssemblyName>QuantEngineTests</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
@@ -34,6 +34,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\..\src\RtdDolarNative\External\SQLite\System.Data.SQLite.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="System.Xaml" />
@@ -51,6 +56,9 @@
     <Compile Include="..\..\src\RtdDolarNative\Csv\DailyBar.cs">
       <Link>Csv\DailyBar.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Csv\PtaxHistorySqliteStore.cs">
+      <Link>Csv\PtaxHistorySqliteStore.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\MarketData\MarketSnapshot.cs">
       <Link>MarketData\MarketSnapshot.cs</Link>
     </Compile>
@@ -63,6 +71,20 @@
     <Compile Include="..\..\src\RtdDolarNative\Quant\QuantEngine.cs">
       <Link>Quant\QuantEngine.cs</Link>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\System.Data.SQLite.dll">
+      <Link>System.Data.SQLite.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\x64\SQLite.Interop.dll">
+      <Link>x64\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\x86\SQLite.Interop.dll">
+      <Link>x86\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

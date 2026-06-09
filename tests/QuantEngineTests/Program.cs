@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using RtdDolarNative.Charts;
 using RtdDolarNative.Csv;
@@ -18,6 +19,10 @@ namespace QuantEngineTests
                 GaussUsesDataDrivenRobustScale,
                 GaussLevelsAreCenteredOnCurrentOpen,
                 GaussLevelsFeedConfluenceMap,
+                ReferenceMapsResolvePrimarySources,
+                ReferenceMapsFallbackWhenSnapshotFieldsAreMissing,
+                ReferenceMapsBuildDirectionalLadders,
+                PtaxHistoryStoreUpsertsAndLoads,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings
             };
@@ -74,6 +79,94 @@ namespace QuantEngineTests
             Assert(result.KeyLevels.Any(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase)), "Gauss levels should be part of the raw/confluence level map.");
         }
 
+        private static void ReferenceMapsResolvePrimarySources()
+        {
+            QuantResult result = BuildResult();
+            ReferenceMapResult opening = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "opening");
+            ReferenceMapResult closing = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "closing");
+            ReferenceMapResult poc = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "poc");
+            ReferenceMapResult adjustment = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "adjustment");
+            ReferenceMapResult ptax = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "ptax");
+
+            Assert(opening != null, "Opening reference map should exist.");
+            Assert(closing != null, "Closing reference map should exist.");
+            Assert(poc != null, "POC reference map should exist.");
+            Assert(adjustment != null, "Adjustment reference map should exist.");
+            Assert(ptax != null, "PTAX reference map should exist.");
+            AssertEqual(5180m, opening.ReferencePrice, "Opening reference should use RTD abertura.");
+            AssertEqual(5200m, closing.ReferencePrice, "Closing reference should use RTD fechamento anterior when available.");
+            AssertEqual(5192m, adjustment.ReferencePrice, "Adjustment reference should use AJU when available.");
+            AssertEqual(5.41m, ptax.ReferencePrice, "PTAX reference should use the applied manual SQL value.");
+            Assert(poc.ReferencePrice > 0m, "POC reference should come from the proxy profile.");
+        }
+
+        private static void ReferenceMapsFallbackWhenSnapshotFieldsAreMissing()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 5223.5m;
+            snapshot.Rtd["MAX"] = 5232.5m;
+            snapshot.Rtd["MIN"] = 5162m;
+            snapshot.Rtd["MED"] = 5204m;
+            snapshot.Rtd["VOL"] = 100000m;
+            snapshot.Rtd["AJA"] = 5188m;
+
+            QuantResult result = QuantEngine.Build(BuildBars(), snapshot, 0.5m, 45);
+            ReferenceMapResult opening = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "opening");
+            ReferenceMapResult closing = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "closing");
+            ReferenceMapResult adjustment = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "adjustment");
+            ReferenceMapResult ptax = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "ptax");
+
+            Assert(opening != null, "Opening fallback map should exist.");
+            Assert(closing != null, "Closing fallback map should exist.");
+            Assert(adjustment != null, "Adjustment fallback map should exist.");
+            Assert(ptax != null, "PTAX fallback map should exist.");
+            AssertEqual(result.Intraday.Open, opening.ReferencePrice, "Opening fallback should use the intraday open proxy.");
+            AssertEqual(result.PreviousDay.Close, closing.ReferencePrice, "Closing fallback should use D-1 close from CSV.");
+            AssertEqual(5188m, adjustment.ReferencePrice, "Adjustment fallback should use AJA when AJU is unavailable.");
+            AssertEqual(0m, ptax.ReferencePrice, "PTAX should stay unavailable when there is no saved value.");
+            Assert(ptax.GarmanLevels.Count == 0 && ptax.GaussLevels.Count == 0 && ptax.StdDevLevels.Count == 0, "PTAX map should not fabricate levels without a valid reference.");
+        }
+
+        private static void ReferenceMapsBuildDirectionalLadders()
+        {
+            QuantResult result = BuildResult();
+            ReferenceMapResult opening = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "opening");
+
+            Assert(opening != null, "Opening reference map should exist.");
+            AssertEqual(8, opening.GarmanLevels.Count, "Garman-Klass opening map should build 8 directional levels.");
+            AssertEqual(8, opening.GaussLevels.Count, "Gauss opening map should build 8 directional levels.");
+            AssertEqual(8, opening.StdDevLevels.Count, "StdDev opening map should build 8 directional levels.");
+            Assert(opening.GarmanLevels.Count(x => x.Side == "Venda" && x.Price > opening.ReferencePrice) == 4, "Sell Garman levels should stay above the reference.");
+            Assert(opening.GarmanLevels.Count(x => x.Side == "Compra" && x.Price < opening.ReferencePrice) == 4, "Buy Garman levels should stay below the reference.");
+        }
+
+        private static void PtaxHistoryStoreUpsertsAndLoads()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "ptax-history-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "history.sqlite");
+            PtaxHistorySqliteStore store = new PtaxHistorySqliteStore(path);
+
+            try
+            {
+                store.Upsert(new DateTime(2026, 6, 7), 5.31m);
+                store.Upsert(new DateTime(2026, 6, 8), 5.44m);
+                store.Upsert(new DateTime(2026, 6, 7), 5.36m);
+
+                PtaxHistoryEntry loaded = store.Load(new DateTime(2026, 6, 7));
+                List<PtaxHistoryEntry> all = store.LoadAll();
+
+                Assert(loaded != null, "PTAX load by date should return the saved row.");
+                AssertEqual(5.36m, loaded.Value, "PTAX upsert should overwrite the previous value for the same date.");
+                AssertEqual(2, all.Count, "PTAX history should deduplicate repeated dates.");
+                AssertEqual(new DateTime(2026, 6, 8), all[0].TradeDate, "PTAX history should be sorted from newest to oldest.");
+                AssertEqual(new DateTime(2026, 6, 7), all[1].TradeDate, "PTAX history should keep the previous date after the newest row.");
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
         private static void ChartCommandsAdjustViewportPredictably()
         {
             NativeChartControl chart = new NativeChartControl();
@@ -128,8 +221,11 @@ namespace QuantEngineTests
             snapshot.Rtd["ABE"] = 5180m;
             snapshot.Rtd["MAX"] = 5232.5m;
             snapshot.Rtd["MIN"] = 5162m;
+            snapshot.Rtd["FEC"] = 5200m;
+            snapshot.Rtd["AJU"] = 5192m;
             snapshot.Rtd["MED"] = 5204m;
             snapshot.Rtd["VOL"] = 100000m;
+            snapshot.Rtd["PTAX"] = 5.41m;
             return QuantEngine.Build(BuildBars(), snapshot, 0.5m, 45);
         }
 
@@ -217,11 +313,33 @@ namespace QuantEngineTests
             }
         }
 
+        private static void AssertEqual(DateTime expected, DateTime actual, string message)
+        {
+            if (expected != actual)
+            {
+                throw new InvalidOperationException(message + " Expected " + expected.ToString("yyyy-MM-dd") + ", got " + actual.ToString("yyyy-MM-dd") + ".");
+            }
+        }
+
         private static void AssertEqual(double expected, double actual, string message)
         {
             if (Math.Abs(expected - actual) > 0.000001d)
             {
                 throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
+            }
+        }
+
+        private static void TryDelete(string folder)
+        {
+            try
+            {
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, true);
+                }
+            }
+            catch
+            {
             }
         }
     }

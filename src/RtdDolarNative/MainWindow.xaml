@@ -688,6 +688,53 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
+        <DataTemplate x:Key="ReferenceMetricCardTemplate">
+            <Border Width="392"
+                    Margin="0,0,10,10"
+                    Padding="10,8"
+                    Background="{StaticResource InputBg}"
+                    BorderBrush="{StaticResource Border}"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="132" />
+                        <ColumnDefinition Width="82" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{Binding MetricLabel}"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                        <TextBlock Text="Pontos" Foreground="{StaticResource Muted}" FontSize="10" />
+                        <TextBlock Text="{Binding PointsText}" Foreground="{StaticResource DeepWarn}" FontWeight="Bold" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                        <TextBlock Text="Venda" Foreground="{StaticResource Muted}" FontSize="10" />
+                        <TextBlock Text="{Binding NearestSellPriceText}" Foreground="{StaticResource Danger}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding NearestSellDistanceText}" Foreground="{StaticResource Danger}" FontSize="10" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="Compra" Foreground="{StaticResource Muted}" FontSize="10" />
+                        <TextBlock Text="{Binding NearestBuyPriceText}" Foreground="{StaticResource Accent}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding NearestBuyDistanceText}" Foreground="{StaticResource Accent}" FontSize="10" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1"
+                               Grid.ColumnSpan="4"
+                               Margin="0,8,0,0"
+                               Text="{Binding BasisText}"
+                               Foreground="{StaticResource Muted}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="{StaticResource Bg}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
@@ -1956,7 +2003,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Margin="0,2,0,0">
-                                <TextBlock Text="Mapa da Abertura" FontSize="16" FontWeight="Bold" />
+                                <TextBlock Text="Niveis por referencia" FontSize="16" FontWeight="Bold" />
                                 <TextBlock x:Name="LevelsMapStateText"
                                            Text="-"
                                            Foreground="{StaticResource Muted}"
@@ -1964,7 +2011,7 @@
                                            TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <WrapPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
+                            <WrapPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
                                 <StackPanel Width="148" Margin="0,0,12,0">
                                     <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
                                     <TextBlock x:Name="LevelsCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
@@ -2072,7 +2119,7 @@
                         </Grid>
                     </Border>
 
-                    <Grid Grid.Row="1" Width="1540" HorizontalAlignment="Left">
+                    <Grid Grid.Row="1" Width="1540" HorizontalAlignment="Left" Visibility="Collapsed">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1112" />
                             <ColumnDefinition Width="12" />
@@ -2166,7 +2213,7 @@
                         </Border>
                     </Grid>
 
-                    <TabControl Grid.Row="2" Margin="0,10,0,0" Width="1540" HorizontalAlignment="Left">
+                    <TabControl Grid.Row="2" Margin="0,10,0,0" Width="1540" HorizontalAlignment="Left" Visibility="Collapsed">
                         <TabItem Header="Principais">
                             <DataGrid x:Name="LevelsGrid" Margin="0,10,0,0" AutoGenerateColumns="False" CellStyle="{StaticResource DirectionalDataGridCellStyle}" RowStyle="{StaticResource LevelsMapRowStyle}">
                                 <DataGrid.Columns>
@@ -2257,6 +2304,336 @@
                             </DataGrid>
                         </TabItem>
                     </TabControl>
+
+                    <Grid Grid.Row="1" Grid.RowSpan="2" Width="1320" HorizontalAlignment="Left">
+                        <TabControl Margin="0,0,0,0">
+                            <TabItem Header="Principais">
+                                <DataGrid x:Name="PrimaryLevelsGrid" Margin="0,10,0,0" AutoGenerateColumns="False" CellStyle="{StaticResource DirectionalDataGridCellStyle}" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="250" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="90" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Tipo" Binding="{Binding Direction}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="90" />
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="64" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Dist Atual" Binding="{Binding Distance}" Width="100" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                        <DataGridTextColumn Header="Leitura" Binding="{Binding Evidence}" Width="220" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </TabItem>
+
+                            <TabItem Header="Abertura">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="290" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mapa por referencia" FontSize="15" FontWeight="Bold" />
+                                                    <TextBlock x:Name="OpeningReferenceStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="16,0,0,0">
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="OpeningReferencePriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="OpeningCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="170">
+                                                        <TextBlock Text="Atual x referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="OpeningReferenceDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl x:Name="OpeningMetricCards" ItemTemplate="{StaticResource ReferenceMetricCardTemplate}" Margin="0,0,0,4">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <DataGrid x:Name="OpeningReferenceGrid" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="70" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="120" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Preco" Binding="{Binding GarmanPrice}" Width="92" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Dist" Binding="{Binding GarmanDistance}" Width="90" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Gauss Preco" Binding="{Binding GaussPrice}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="Fechamento">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="290" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mapa por referencia" FontSize="15" FontWeight="Bold" />
+                                                    <TextBlock x:Name="ClosingReferenceStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="16,0,0,0">
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="ClosingReferencePriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="ClosingCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="170">
+                                                        <TextBlock Text="Atual x referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="ClosingReferenceDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl x:Name="ClosingMetricCards" ItemTemplate="{StaticResource ReferenceMetricCardTemplate}" Margin="0,0,0,4">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <DataGrid x:Name="ClosingReferenceGrid" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="70" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="120" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Preco" Binding="{Binding GarmanPrice}" Width="92" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Dist" Binding="{Binding GarmanDistance}" Width="90" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Gauss Preco" Binding="{Binding GaussPrice}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="POC">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="290" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mapa por referencia" FontSize="15" FontWeight="Bold" />
+                                                    <TextBlock x:Name="PocReferenceStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="16,0,0,0">
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PocReferencePriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PocCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="170">
+                                                        <TextBlock Text="Atual x referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PocReferenceDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl x:Name="PocMetricCards" ItemTemplate="{StaticResource ReferenceMetricCardTemplate}" Margin="0,0,0,4">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <DataGrid x:Name="PocReferenceGrid" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="70" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="120" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Preco" Binding="{Binding GarmanPrice}" Width="92" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Dist" Binding="{Binding GarmanDistance}" Width="90" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Gauss Preco" Binding="{Binding GaussPrice}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="Ajuste">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="290" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mapa por referencia" FontSize="15" FontWeight="Bold" />
+                                                    <TextBlock x:Name="AdjustmentReferenceStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="16,0,0,0">
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="AdjustmentReferencePriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="AdjustmentCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="170">
+                                                        <TextBlock Text="Atual x referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="AdjustmentReferenceDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl x:Name="AdjustmentMetricCards" ItemTemplate="{StaticResource ReferenceMetricCardTemplate}" Margin="0,0,0,4">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <DataGrid x:Name="AdjustmentReferenceGrid" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="70" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="120" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Preco" Binding="{Binding GarmanPrice}" Width="92" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Dist" Binding="{Binding GarmanDistance}" Width="90" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Gauss Preco" Binding="{Binding GaussPrice}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="PTAX">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <WrapPanel>
+                                                <StackPanel Width="130" Margin="0,0,12,0">
+                                                    <TextBlock Text="Data PTAX" Foreground="{StaticResource Muted}" />
+                                                    <TextBox x:Name="PtaxDateInput" Text="08/06/2026" />
+                                                </StackPanel>
+                                                <StackPanel Width="130" Margin="0,0,12,0">
+                                                    <TextBlock Text="Valor PTAX" Foreground="{StaticResource Muted}" />
+                                                    <TextBox x:Name="PtaxValueInput" Text="" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,18,12,0">
+                                                    <Button Content="Hoje" Click="PtaxTodayButton_Click" MinWidth="70" />
+                                                    <Button Content="Carregar" Click="PtaxLoadButton_Click" MinWidth="86" />
+                                                    <Button Content="Salvar / Aplicar" Click="PtaxSaveButton_Click" MinWidth="128" Margin="0" />
+                                                </StackPanel>
+                                                <TextBlock x:Name="PtaxEditorStatusText"
+                                                           Text="-"
+                                                           Width="480"
+                                                           Margin="0,18,0,0"
+                                                           Foreground="{StaticResource Muted}"
+                                                           TextWrapping="Wrap" />
+                                            </WrapPanel>
+                                        </Border>
+                                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="290" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Mapa por referencia" FontSize="15" FontWeight="Bold" />
+                                                    <TextBlock x:Name="PtaxReferenceStateText" Text="-" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="16,0,0,0">
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PtaxReferencePriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="140" Margin="0,0,12,0">
+                                                        <TextBlock Text="Preco atual" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PtaxCurrentPriceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                    <StackPanel Width="170">
+                                                        <TextBlock Text="Atual x referencia" Foreground="{StaticResource Muted}" />
+                                                        <TextBlock x:Name="PtaxReferenceDistanceText" Text="-" FontSize="16" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl x:Name="PtaxMetricCards" ItemTemplate="{StaticResource ReferenceMetricCardTemplate}" Margin="0,0,0,4">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <DataGrid x:Name="PtaxReferenceGrid" AutoGenerateColumns="False" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="70" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Nivel" Binding="{Binding Level}" Width="120" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Preco" Binding="{Binding GarmanPrice}" Width="92" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GK Dist" Binding="{Binding GarmanDistance}" Width="90" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Gauss Preco" Binding="{Binding GaussPrice}" Width="96" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="PTAX Historico">
+                                <StackPanel Margin="0,10,0,0">
+                                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                                        <TextBlock x:Name="PtaxHistoryStateText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                                    </Border>
+                                    <DataGrid x:Name="PtaxHistoryGrid" AutoGenerateColumns="False">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Data" Binding="{Binding Data}" Width="120" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                            <DataGridTextColumn Header="PTAX" Binding="{Binding Ptax}" Width="120" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                            <DataGridTextColumn Header="Atualizado em" Binding="{Binding AtualizadoEm}" Width="180" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </TabItem>
+
+                            <TabItem Header="Confluencia">
+                                <DataGrid x:Name="ReferenceConfluenceGrid" Margin="0,10,0,0" AutoGenerateColumns="False" CellStyle="{StaticResource DirectionalDataGridCellStyle}" RowStyle="{StaticResource LevelsMapRowStyle}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Nivel" Binding="{Binding Label}" Width="250" ElementStyle="{StaticResource LevelLabelTextElementStyle}" EditingElementStyle="{StaticResource LevelLabelEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="90" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Tipo" Binding="{Binding Direction}" Width="88" CellStyle="{StaticResource LevelsSideCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="90" />
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="64" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                        <DataGridTextColumn Header="Dist Atual" Binding="{Binding Distance}" Width="100" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                        <DataGridTextColumn Header="Leitura" Binding="{Binding Evidence}" Width="220" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
                 </Grid>
             </TabItem>
 

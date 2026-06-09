@@ -56,6 +56,21 @@ namespace RtdDolarNative.MarketData
             get { return GetDecimal("FEC"); }
         }
 
+        public decimal? Ajuste
+        {
+            get { return GetDecimal("AJU") ?? GetDecimal("AJA"); }
+        }
+
+        public decimal? AjusteAnterior
+        {
+            get { return GetDecimal("AJA"); }
+        }
+
+        public decimal? Ptax
+        {
+            get { return GetDecimal("PTAX"); }
+        }
+
         public decimal? Variacao
         {
             get { return GetDecimal("VAR"); }
