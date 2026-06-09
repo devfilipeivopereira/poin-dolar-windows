@@ -122,6 +122,32 @@ powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 
 O setup instala em `%LOCALAPPDATA%\PoinDolarWindows`, cria atalhos no Menu Iniciar e na area de trabalho, e registra desinstalacao em "Aplicativos instalados" do Windows. Ele inclui builds `x64` e `x86`; em Windows 64-bit o atalho principal usa `x64`. Em atualizacoes, o instalador preserva `appsettings.json` existente para manter a lista de ativos RTD configurada no app.
 
+### Atualizacao padrao do app
+
+Pelo padrão de desenvolvimento, sempre que houver atualização, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\reinstall-and-open.ps1
+```
+
+Isso:
+
+1. gera o instalador (`dist\PoinDolarWindowsSetup.exe`),
+2. reinstala a aplicacao preservando configuração do usuário,
+3. abre o app automaticamente.
+
+Se você quiser só reinstalar e abrir sem rebuild, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\reinstall-and-open.ps1 -NoBuild
+```
+
+Para só abrir a versão já instalada:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\reinstall-and-open.ps1 -OpenOnly
+```
+
 ## Projeto antigo
 
 O projeto antigo em `D:\OneDrive\Documentos\RTD_C#` deve permanecer intacto. Este projeto copia/adapta apenas contratos e ideias ja validados.
