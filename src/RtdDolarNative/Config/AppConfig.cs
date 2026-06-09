@@ -821,6 +821,11 @@ namespace RtdDolarNative.Config
             ChartTimeframeIndex = DefaultChartTimeframeIndex;
             PriceGridTickInterval = DefaultPriceGridTickInterval;
             CandleSpacingPercent = DefaultCandleSpacingPercent;
+            ShowChartCandles = true;
+            ShowChartPriceGrid = true;
+            ShowChartCurrentPriceLine = true;
+            ShowChartConfluenceLevels = true;
+            ShowChartKeyLevels = true;
         }
 
         public int FastIntervalMs { get; set; }
@@ -832,6 +837,11 @@ namespace RtdDolarNative.Config
         public int ChartTimeframeIndex { get; set; }
         public int PriceGridTickInterval { get; set; }
         public int CandleSpacingPercent { get; set; }
+        public bool ShowChartCandles { get; set; }
+        public bool ShowChartPriceGrid { get; set; }
+        public bool ShowChartCurrentPriceLine { get; set; }
+        public bool ShowChartConfluenceLevels { get; set; }
+        public bool ShowChartKeyLevels { get; set; }
 
         public void Normalize()
         {

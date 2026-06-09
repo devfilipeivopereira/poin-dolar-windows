@@ -100,6 +100,7 @@ namespace RtdDolarNative
         private bool _syncChartTimeframeSelection = true;
         private bool _syncChartPriceGridSelection = true;
         private bool _syncChartCandleSpacingSelection = true;
+        private bool _syncChartLineVisibilitySelection = true;
         private DateTime _ptaxTradeDate = DateTime.Today;
         private decimal? _appliedPtaxValue;
         private readonly List<PtaxHistoryViewRow> _ptaxHistoryRows = new List<PtaxHistoryViewRow>();
@@ -145,6 +146,7 @@ namespace RtdDolarNative
             InitializeChartTimeframeSelection();
             InitializeChartPriceGridSelection();
             InitializeChartCandleSpacingSelection();
+            InitializeChartLineVisibilitySelection();
             InitializePtaxEditor();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
@@ -1028,6 +1030,62 @@ namespace RtdDolarNative
                 _config.Ui.Normalize();
                 SaveRuntimeConfig();
                 AddHistory("App", "Espaco do grafico", "Espacamento horizontal a " + selectedPercent.ToString(_ptBr) + "%.");
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
+        private void InitializeChartLineVisibilitySelection()
+        {
+            if (ChartShowCandlesCheckBox == null || ChartShowPriceGridCheckBox == null || ChartShowCurrentPriceLineCheckBox == null || ChartShowConfluenceCheckBox == null || ChartShowKeyLevelsCheckBox == null)
+            {
+                return;
+            }
+
+            _syncChartLineVisibilitySelection = true;
+
+            try
+            {
+                ChartShowCandlesCheckBox.IsChecked = _config.Ui.ShowChartCandles;
+                ChartShowPriceGridCheckBox.IsChecked = _config.Ui.ShowChartPriceGrid;
+                ChartShowCurrentPriceLineCheckBox.IsChecked = _config.Ui.ShowChartCurrentPriceLine;
+                ChartShowConfluenceCheckBox.IsChecked = _config.Ui.ShowChartConfluenceLevels;
+                ChartShowKeyLevelsCheckBox.IsChecked = _config.Ui.ShowChartKeyLevels;
+            }
+            finally
+            {
+                _syncChartLineVisibilitySelection = false;
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
+        private void ChartLineVisibility_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_syncChartLineVisibilitySelection)
+            {
+                return;
+            }
+
+            bool showCandles = ChartShowCandlesCheckBox != null && ChartShowCandlesCheckBox.IsChecked == true;
+            bool showPriceGrid = ChartShowPriceGridCheckBox != null && ChartShowPriceGridCheckBox.IsChecked == true;
+            bool showCurrentPriceLine = ChartShowCurrentPriceLineCheckBox != null && ChartShowCurrentPriceLineCheckBox.IsChecked == true;
+            bool showConfluence = ChartShowConfluenceCheckBox != null && ChartShowConfluenceCheckBox.IsChecked == true;
+            bool showKeyLevels = ChartShowKeyLevelsCheckBox != null && ChartShowKeyLevelsCheckBox.IsChecked == true;
+
+            if (_config.Ui.ShowChartCandles != showCandles ||
+                _config.Ui.ShowChartPriceGrid != showPriceGrid ||
+                _config.Ui.ShowChartCurrentPriceLine != showCurrentPriceLine ||
+                _config.Ui.ShowChartConfluenceLevels != showConfluence ||
+                _config.Ui.ShowChartKeyLevels != showKeyLevels)
+            {
+                _config.Ui.ShowChartCandles = showCandles;
+                _config.Ui.ShowChartPriceGrid = showPriceGrid;
+                _config.Ui.ShowChartCurrentPriceLine = showCurrentPriceLine;
+                _config.Ui.ShowChartConfluenceLevels = showConfluence;
+                _config.Ui.ShowChartKeyLevels = showKeyLevels;
+                SaveRuntimeConfig();
+                AddHistory("App", "Exibicao grafico", "Configuracao de linhas atualizada.");
             }
 
             ApplyChartDisplaySelection();
@@ -6319,6 +6377,11 @@ namespace RtdDolarNative
             int selectedPriceGridTicks = SelectedChartPriceGridTicks();
             int selectedCandleSpacingPercent = SelectedChartCandleSpacingPercent();
             ChartTimeframe timeframe = SelectedChartTimeframe();
+            bool showCandles = _config.Ui.ShowChartCandles;
+            bool showPriceGrid = _config.Ui.ShowChartPriceGrid;
+            bool showCurrentPrice = _config.Ui.ShowChartCurrentPriceLine;
+            bool showConfluence = _config.Ui.ShowChartConfluenceLevels;
+            bool showKeyLevels = _config.Ui.ShowChartKeyLevels;
 
             if (DashboardChartControl != null)
             {
@@ -6326,6 +6389,11 @@ namespace RtdDolarNative
                 DashboardChartControl.PriceGridTickInterval = selectedPriceGridTicks;
                 DashboardChartControl.CandleSpacingPercent = selectedCandleSpacingPercent;
                 DashboardChartControl.Timeframe = timeframe;
+                DashboardChartControl.ShowCandles = showCandles;
+                DashboardChartControl.ShowPriceGrid = showPriceGrid;
+                DashboardChartControl.ShowCurrentPriceLine = showCurrentPrice;
+                DashboardChartControl.ShowConfluenceLevels = showConfluence;
+                DashboardChartControl.ShowKeyLevels = showKeyLevels;
                 DashboardChartControl.InvalidateVisual();
             }
 
@@ -6335,6 +6403,11 @@ namespace RtdDolarNative
                 ChartControl.PriceGridTickInterval = selectedPriceGridTicks;
                 ChartControl.CandleSpacingPercent = selectedCandleSpacingPercent;
                 ChartControl.Timeframe = timeframe;
+                ChartControl.ShowCandles = showCandles;
+                ChartControl.ShowPriceGrid = showPriceGrid;
+                ChartControl.ShowCurrentPriceLine = showCurrentPrice;
+                ChartControl.ShowConfluenceLevels = showConfluence;
+                ChartControl.ShowKeyLevels = showKeyLevels;
                 ChartControl.InvalidateVisual();
             }
         }
@@ -9752,3 +9825,4 @@ namespace RtdDolarNative
         }
     }
 }
+

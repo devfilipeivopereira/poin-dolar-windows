@@ -1264,6 +1264,48 @@
                 </Border>
 
                 <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
+                        <WrapPanel Orientation="Horizontal">
+                            <CheckBox x:Name="ChartShowCandlesCheckBox"
+                                      Content="Candles"
+                                      Foreground="{StaticResource Muted}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowPriceGridCheckBox"
+                                      Content="Grade"
+                                      Foreground="{StaticResource Muted}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowCurrentPriceLineCheckBox"
+                                      Content="Atual"
+                                      Foreground="{StaticResource Muted}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowConfluenceCheckBox"
+                                      Content="Confluencia"
+                                      Foreground="{StaticResource Muted}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
+                                      Content="Niveis"
+                                      Foreground="{StaticResource Muted}"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Grafico" Style="{StaticResource TopNavGroupStyle}" />
                         <StackPanel Orientation="Horizontal">

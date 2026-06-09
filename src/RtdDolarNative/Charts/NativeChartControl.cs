@@ -40,6 +40,11 @@ namespace RtdDolarNative.Charts
         private decimal _tickSize = 0.5m;
         private int _priceGridTickInterval = DefaultPriceGridTickInterval;
         private int _candleSpacingPercent = DefaultCandleSpacingPercent;
+        private bool _showCandles = true;
+        private bool _showPriceGrid = true;
+        private bool _showCurrentPriceLine = true;
+        private bool _showKeyLevels = true;
+        private bool _showConfluenceLevels = true;
 
         public NativeChartControl()
         {
@@ -124,6 +129,81 @@ namespace RtdDolarNative.Charts
                 }
 
                 _candleSpacingPercent = normalized;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowCandles
+        {
+            get { return _showCandles; }
+            set
+            {
+                if (_showCandles == value)
+                {
+                    return;
+                }
+
+                _showCandles = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowPriceGrid
+        {
+            get { return _showPriceGrid; }
+            set
+            {
+                if (_showPriceGrid == value)
+                {
+                    return;
+                }
+
+                _showPriceGrid = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowCurrentPriceLine
+        {
+            get { return _showCurrentPriceLine; }
+            set
+            {
+                if (_showCurrentPriceLine == value)
+                {
+                    return;
+                }
+
+                _showCurrentPriceLine = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowKeyLevels
+        {
+            get { return _showKeyLevels; }
+            set
+            {
+                if (_showKeyLevels == value)
+                {
+                    return;
+                }
+
+                _showKeyLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowConfluenceLevels
+        {
+            get { return _showConfluenceLevels; }
+            set
+            {
+                if (_showConfluenceLevels == value)
+                {
+                    return;
+                }
+
+                _showConfluenceLevels = value;
                 InvalidateVisual();
             }
         }
@@ -265,8 +345,15 @@ namespace RtdDolarNative.Charts
 
             if (_result != null)
             {
-                levels.AddRange(_result.KeyLevels);
-                levels.AddRange(_result.Confluence.Take(12));
+                if (_showKeyLevels)
+                {
+                    levels.AddRange(_result.KeyLevels);
+                }
+
+                if (_showConfluenceLevels)
+                {
+                    levels.AddRange(_result.Confluence.Take(12));
+                }
             }
 
             foreach (KeyLevel level in levels)
@@ -284,41 +371,46 @@ namespace RtdDolarNative.Charts
             ApplyPriceScale(ref min, ref max);
             _lastVisiblePriceRange = Math.Max(1m, max - min);
 
-            DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
-
+            if (_showPriceGrid)
+            {
+                DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
+            }
             double candleSlot = EffectiveCandleSlot(plot, viewport.SlotCount);
             double candleWidth = Math.Max(3d, Math.Min(12d, candleSlot * EffectiveCandleBodyFactor()));
 
-            dc.PushClip(new RectangleGeometry(plot));
-
-            try
+            if (_showCandles)
             {
-                for (int slot = 0; slot < viewport.SlotCount; slot++)
+                dc.PushClip(new RectangleGeometry(plot));
+
+                try
                 {
-                    int index = viewport.StartIndex + slot;
-
-                    if (index < 0 || index >= series.Count)
+                    for (int slot = 0; slot < viewport.SlotCount; slot++)
                     {
-                        continue;
-                    }
+                        int index = viewport.StartIndex + slot;
 
-                    DailyBar bar = series[index];
-                    double x = plot.Left + candleSlot * slot + candleSlot / 2d;
-                    double yHigh = Y(bar.High, min, max, plot);
-                    double yLow = Y(bar.Low, min, max, plot);
-                    double yOpen = Y(bar.Open, min, max, plot);
-                    double yClose = Y(bar.Close, min, max, plot);
-                    bool up = bar.Close >= bar.Open;
-                    Brush fill = new SolidColorBrush(up ? Color.FromRgb(18, 184, 134) : Color.FromRgb(250, 82, 82));
-                    Pen wick = new Pen(fill, 1);
-                    dc.DrawLine(wick, new Point(x, yHigh), new Point(x, yLow));
-                    Rect body = new Rect(x - candleWidth / 2d, Math.Min(yOpen, yClose), candleWidth, Math.Max(1d, Math.Abs(yClose - yOpen)));
-                    dc.DrawRectangle(fill, null, body);
+                        if (index < 0 || index >= series.Count)
+                        {
+                            continue;
+                        }
+
+                        DailyBar bar = series[index];
+                        double x = plot.Left + candleSlot * slot + candleSlot / 2d;
+                        double yHigh = Y(bar.High, min, max, plot);
+                        double yLow = Y(bar.Low, min, max, plot);
+                        double yOpen = Y(bar.Open, min, max, plot);
+                        double yClose = Y(bar.Close, min, max, plot);
+                        bool up = bar.Close >= bar.Open;
+                        Brush fill = new SolidColorBrush(up ? Color.FromRgb(18, 184, 134) : Color.FromRgb(250, 82, 82));
+                        Pen wick = new Pen(fill, 1);
+                        dc.DrawLine(wick, new Point(x, yHigh), new Point(x, yLow));
+                        Rect body = new Rect(x - candleWidth / 2d, Math.Min(yOpen, yClose), candleWidth, Math.Max(1d, Math.Abs(yClose - yOpen)));
+                        dc.DrawRectangle(fill, null, body);
+                    }
                 }
-            }
-            finally
-            {
-                dc.Pop();
+                finally
+                {
+                    dc.Pop();
+                }
             }
 
             DrawText(dc, TimeframeText(_timeframe), plot.Left + 6, plot.Top + 6, textBrush, 11);
@@ -336,7 +428,10 @@ namespace RtdDolarNative.Charts
                 DrawText(dc, level.Label, plot.Left + 6, y - 14, LevelBrush(level), 10);
             }
 
-            DrawCurrentPriceMarker(dc, plot, min, max);
+            if (_showCurrentPriceLine)
+            {
+                DrawCurrentPriceMarker(dc, plot, min, max);
+            }
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
