@@ -45,6 +45,11 @@ namespace RtdDolarNative.Charts
         private bool _showCurrentPriceLine = true;
         private bool _showKeyLevels = true;
         private bool _showConfluenceLevels = true;
+        private bool _showRtdLevels = true;
+        private bool _showProfileLevels = true;
+        private bool _showTechnicalLevels = true;
+        private bool _showMarketLevels = true;
+        private bool _showPercentLevels = true;
 
         public NativeChartControl()
         {
@@ -208,6 +213,81 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public bool ShowRtdLevels
+        {
+            get { return _showRtdLevels; }
+            set
+            {
+                if (_showRtdLevels == value)
+                {
+                    return;
+                }
+
+                _showRtdLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowProfileLevels
+        {
+            get { return _showProfileLevels; }
+            set
+            {
+                if (_showProfileLevels == value)
+                {
+                    return;
+                }
+
+                _showProfileLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowTechnicalLevels
+        {
+            get { return _showTechnicalLevels; }
+            set
+            {
+                if (_showTechnicalLevels == value)
+                {
+                    return;
+                }
+
+                _showTechnicalLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowMarketLevels
+        {
+            get { return _showMarketLevels; }
+            set
+            {
+                if (_showMarketLevels == value)
+                {
+                    return;
+                }
+
+                _showMarketLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowPercentLevels
+        {
+            get { return _showPercentLevels; }
+            set
+            {
+                if (_showPercentLevels == value)
+                {
+                    return;
+                }
+
+                _showPercentLevels = value;
+                InvalidateVisual();
+            }
+        }
+
         public int ViewOffsetFromEndForDiagnostics
         {
             get { return _viewOffsetFromEnd; }
@@ -347,7 +427,7 @@ namespace RtdDolarNative.Charts
             {
                 if (_showKeyLevels)
                 {
-                    levels.AddRange(_result.KeyLevels);
+                    levels.AddRange(_result.KeyLevels.Where(IsLevelCategoryEnabled));
                 }
 
                 if (_showConfluenceLevels)
@@ -432,6 +512,85 @@ namespace RtdDolarNative.Charts
             {
                 DrawCurrentPriceMarker(dc, plot, min, max);
             }
+        }
+
+        private bool IsLevelCategoryEnabled(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            string source = level.Source ?? string.Empty;
+
+            if (IsPercentSource(source))
+            {
+                return _showPercentLevels;
+            }
+
+            if (IsTechnicalSource(source))
+            {
+                return _showTechnicalLevels;
+            }
+
+            if (IsProfileSource(source))
+            {
+                return _showProfileLevels;
+            }
+
+            if (IsMarketSource(source))
+            {
+                return _showMarketLevels;
+            }
+
+            if (IsRtdSource(source))
+            {
+                return _showRtdLevels;
+            }
+
+            return _showRtdLevels || _showMarketLevels || _showTechnicalLevels || _showProfileLevels || _showPercentLevels;
+        }
+
+        private static bool IsPercentSource(string source)
+        {
+            return string.Equals(source, "Percent", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsTechnicalSource(string source)
+        {
+            if (string.Equals(source, "Tecnico", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "RTD+Tecnico", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsProfileSource(string source)
+        {
+            return string.Equals(source, "VAH", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "VAL", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "POC", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "HVN", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "LVN", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "AVWAP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "profile", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsMarketSource(string source)
+        {
+            return string.Equals(source, "D1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "csv", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRtdSource(string source)
+        {
+            return string.Equals(source, "RTD", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Open", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "VWAP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Sigma", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Atual", StringComparison.OrdinalIgnoreCase);
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

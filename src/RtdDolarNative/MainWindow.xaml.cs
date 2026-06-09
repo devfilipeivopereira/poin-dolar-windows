@@ -1037,7 +1037,16 @@ namespace RtdDolarNative
 
         private void InitializeChartLineVisibilitySelection()
         {
-            if (ChartShowCandlesCheckBox == null || ChartShowPriceGridCheckBox == null || ChartShowCurrentPriceLineCheckBox == null || ChartShowConfluenceCheckBox == null || ChartShowKeyLevelsCheckBox == null)
+            if (ChartShowCandlesCheckBox == null ||
+                ChartShowPriceGridCheckBox == null ||
+                ChartShowCurrentPriceLineCheckBox == null ||
+                ChartShowConfluenceCheckBox == null ||
+                ChartShowKeyLevelsCheckBox == null ||
+                ChartShowRtdLevelsCheckBox == null ||
+                ChartShowProfileLevelsCheckBox == null ||
+                ChartShowTechnicalLevelsCheckBox == null ||
+                ChartShowMarketLevelsCheckBox == null ||
+                ChartShowPercentLevelsCheckBox == null)
             {
                 return;
             }
@@ -1051,6 +1060,11 @@ namespace RtdDolarNative
                 ChartShowCurrentPriceLineCheckBox.IsChecked = _config.Ui.ShowChartCurrentPriceLine;
                 ChartShowConfluenceCheckBox.IsChecked = _config.Ui.ShowChartConfluenceLevels;
                 ChartShowKeyLevelsCheckBox.IsChecked = _config.Ui.ShowChartKeyLevels;
+                ChartShowRtdLevelsCheckBox.IsChecked = _config.Ui.ShowChartRtdLevels;
+                ChartShowProfileLevelsCheckBox.IsChecked = _config.Ui.ShowChartProfileLevels;
+                ChartShowTechnicalLevelsCheckBox.IsChecked = _config.Ui.ShowChartTechnicalLevels;
+                ChartShowMarketLevelsCheckBox.IsChecked = _config.Ui.ShowChartMarketLevels;
+                ChartShowPercentLevelsCheckBox.IsChecked = _config.Ui.ShowChartPercentLevels;
             }
             finally
             {
@@ -1072,18 +1086,33 @@ namespace RtdDolarNative
             bool showCurrentPriceLine = ChartShowCurrentPriceLineCheckBox != null && ChartShowCurrentPriceLineCheckBox.IsChecked == true;
             bool showConfluence = ChartShowConfluenceCheckBox != null && ChartShowConfluenceCheckBox.IsChecked == true;
             bool showKeyLevels = ChartShowKeyLevelsCheckBox != null && ChartShowKeyLevelsCheckBox.IsChecked == true;
+            bool showRtdLevels = ChartShowRtdLevelsCheckBox != null && ChartShowRtdLevelsCheckBox.IsChecked == true;
+            bool showProfileLevels = ChartShowProfileLevelsCheckBox != null && ChartShowProfileLevelsCheckBox.IsChecked == true;
+            bool showTechnicalLevels = ChartShowTechnicalLevelsCheckBox != null && ChartShowTechnicalLevelsCheckBox.IsChecked == true;
+            bool showMarketLevels = ChartShowMarketLevelsCheckBox != null && ChartShowMarketLevelsCheckBox.IsChecked == true;
+            bool showPercentLevels = ChartShowPercentLevelsCheckBox != null && ChartShowPercentLevelsCheckBox.IsChecked == true;
 
             if (_config.Ui.ShowChartCandles != showCandles ||
                 _config.Ui.ShowChartPriceGrid != showPriceGrid ||
                 _config.Ui.ShowChartCurrentPriceLine != showCurrentPriceLine ||
                 _config.Ui.ShowChartConfluenceLevels != showConfluence ||
-                _config.Ui.ShowChartKeyLevels != showKeyLevels)
+                _config.Ui.ShowChartKeyLevels != showKeyLevels ||
+                _config.Ui.ShowChartRtdLevels != showRtdLevels ||
+                _config.Ui.ShowChartProfileLevels != showProfileLevels ||
+                _config.Ui.ShowChartTechnicalLevels != showTechnicalLevels ||
+                _config.Ui.ShowChartMarketLevels != showMarketLevels ||
+                _config.Ui.ShowChartPercentLevels != showPercentLevels)
             {
                 _config.Ui.ShowChartCandles = showCandles;
                 _config.Ui.ShowChartPriceGrid = showPriceGrid;
                 _config.Ui.ShowChartCurrentPriceLine = showCurrentPriceLine;
                 _config.Ui.ShowChartConfluenceLevels = showConfluence;
                 _config.Ui.ShowChartKeyLevels = showKeyLevels;
+                _config.Ui.ShowChartRtdLevels = showRtdLevels;
+                _config.Ui.ShowChartProfileLevels = showProfileLevels;
+                _config.Ui.ShowChartTechnicalLevels = showTechnicalLevels;
+                _config.Ui.ShowChartMarketLevels = showMarketLevels;
+                _config.Ui.ShowChartPercentLevels = showPercentLevels;
                 SaveRuntimeConfig();
                 AddHistory("App", "Exibicao grafico", "Configuracao de linhas atualizada.");
             }
@@ -6382,6 +6411,11 @@ namespace RtdDolarNative
             bool showCurrentPrice = _config.Ui.ShowChartCurrentPriceLine;
             bool showConfluence = _config.Ui.ShowChartConfluenceLevels;
             bool showKeyLevels = _config.Ui.ShowChartKeyLevels;
+            bool showRtdLevels = _config.Ui.ShowChartRtdLevels;
+            bool showProfileLevels = _config.Ui.ShowChartProfileLevels;
+            bool showTechnicalLevels = _config.Ui.ShowChartTechnicalLevels;
+            bool showMarketLevels = _config.Ui.ShowChartMarketLevels;
+            bool showPercentLevels = _config.Ui.ShowChartPercentLevels;
 
             if (DashboardChartControl != null)
             {
@@ -6394,6 +6428,11 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowCurrentPriceLine = showCurrentPrice;
                 DashboardChartControl.ShowConfluenceLevels = showConfluence;
                 DashboardChartControl.ShowKeyLevels = showKeyLevels;
+                DashboardChartControl.ShowRtdLevels = showRtdLevels;
+                DashboardChartControl.ShowProfileLevels = showProfileLevels;
+                DashboardChartControl.ShowTechnicalLevels = showTechnicalLevels;
+                DashboardChartControl.ShowMarketLevels = showMarketLevels;
+                DashboardChartControl.ShowPercentLevels = showPercentLevels;
                 DashboardChartControl.InvalidateVisual();
             }
 
@@ -6408,6 +6447,11 @@ namespace RtdDolarNative
                 ChartControl.ShowCurrentPriceLine = showCurrentPrice;
                 ChartControl.ShowConfluenceLevels = showConfluence;
                 ChartControl.ShowKeyLevels = showKeyLevels;
+                ChartControl.ShowRtdLevels = showRtdLevels;
+                ChartControl.ShowProfileLevels = showProfileLevels;
+                ChartControl.ShowTechnicalLevels = showTechnicalLevels;
+                ChartControl.ShowMarketLevels = showMarketLevels;
+                ChartControl.ShowPercentLevels = showPercentLevels;
                 ChartControl.InvalidateVisual();
             }
         }
