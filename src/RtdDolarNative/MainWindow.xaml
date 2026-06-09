@@ -1385,114 +1385,122 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Margin="0,6,0,0"
-                            Padding="0,6,0,0"
-                            Background="{StaticResource Panel2}"
-                            BorderBrush="{StaticResource Accent}"
-                            BorderThickness="1"
-                            Panel.ZIndex="100100">
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
-                            <ScrollViewer Margin="0,2,0,0"
-                                          Background="{StaticResource Panel2}"
-                                          MinHeight="30"
-                                          HorizontalScrollBarVisibility="Auto"
-                                          VerticalScrollBarVisibility="Disabled"
-                                          CanContentScroll="False"
-                                          PanningMode="HorizontalOnly"
-                                          Focusable="False">
-                                <StackPanel Orientation="Horizontal">
-                                    <CheckBox x:Name="ChartShowCandlesCheckBox"
-                                              Content="Candles"
-                                              Tag="{StaticResource ChartLineCandlesBrush}"
-                                              Margin="0,0,8,0"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowPriceGridCheckBox"
-                                              Content="Grade"
-                                              Tag="{StaticResource ChartLineGridBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowCurrentPriceLineCheckBox"
-                                              Content="Atual"
-                                              Tag="{StaticResource ChartLineCurrentBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowConfluenceCheckBox"
-                                              Content="Confluencia"
-                                              Tag="{StaticResource ChartLineConfluenceBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
-                                              Content="Niveis"
-                                              Tag="{StaticResource ChartLineKeyLevelsBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowRtdLevelsCheckBox"
-                                              Content="Rtd"
-                                              Tag="{StaticResource ChartLineRtdBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowProfileLevelsCheckBox"
-                                              Content="Perfil"
-                                              Tag="{StaticResource ChartLineProfileBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowTechnicalLevelsCheckBox"
-                                              Content="Tecnico"
-                                              Tag="{StaticResource ChartLineTechnicalBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowMarketLevelsCheckBox"
-                                              Content="Mercado"
-                                              Tag="{StaticResource ChartLineMarketBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              Margin="0,0,8,0"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                    <CheckBox x:Name="ChartShowPercentLevelsCheckBox"
-                                              Content="%"
-                                              Tag="{StaticResource ChartLinePercentBrush}"
-                                              Style="{StaticResource TopNavChartLineCheckBoxStyle}"
-                                              VerticalContentAlignment="Center"
-                                              Checked="ChartLineVisibility_Checked"
-                                              Unchecked="ChartLineVisibility_Checked" />
-                                </StackPanel>
-                            </ScrollViewer>
-                        </StackPanel>
-                    </Border>
-
                 </StackPanel>
             </Grid>
         </Border>
 
-        <TabControl x:Name="MainTabs"
-                    Grid.Row="4"
-                    Margin="12,6,12,12"
+        <Grid Grid.Row="4"
+              Margin="12,6,12,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border x:Name="ChartLineControlsDock"
+                    Grid.Row="0"
+                    Padding="0,6,0,0"
+                    Background="{StaticResource Panel2}"
+                    BorderBrush="{StaticResource Accent}"
+                    BorderThickness="1"
+                    Panel.ZIndex="2147483647">
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
+                    <ScrollViewer Margin="0,2,0,0"
+                                  Background="{StaticResource Panel2}"
+                                  MinHeight="30"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  CanContentScroll="False"
+                                  PanningMode="HorizontalOnly"
+                                  Focusable="False">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox x:Name="ChartShowCandlesCheckBox"
+                                      Content="Candles"
+                                      Tag="{StaticResource ChartLineCandlesBrush}"
+                                      Margin="0,0,8,0"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowPriceGridCheckBox"
+                                      Content="Grade"
+                                      Tag="{StaticResource ChartLineGridBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowCurrentPriceLineCheckBox"
+                                      Content="Atual"
+                                      Tag="{StaticResource ChartLineCurrentBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowConfluenceCheckBox"
+                                      Content="Confluencia"
+                                      Tag="{StaticResource ChartLineConfluenceBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
+                                      Content="Niveis"
+                                      Tag="{StaticResource ChartLineKeyLevelsBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowRtdLevelsCheckBox"
+                                      Content="Rtd"
+                                      Tag="{StaticResource ChartLineRtdBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowProfileLevelsCheckBox"
+                                      Content="Perfil"
+                                      Tag="{StaticResource ChartLineProfileBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowTechnicalLevelsCheckBox"
+                                      Content="Tecnico"
+                                      Tag="{StaticResource ChartLineTechnicalBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowMarketLevelsCheckBox"
+                                      Content="Mercado"
+                                      Tag="{StaticResource ChartLineMarketBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      Margin="0,0,8,0"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                            <CheckBox x:Name="ChartShowPercentLevelsCheckBox"
+                                      Content="%"
+                                      Tag="{StaticResource ChartLinePercentBrush}"
+                                      Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                      VerticalContentAlignment="Center"
+                                      Checked="ChartLineVisibility_Checked"
+                                      Unchecked="ChartLineVisibility_Checked" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <TabControl x:Name="MainTabs"
+                    Grid.Row="1"
+                    Margin="0,6,0,0"
                     Panel.ZIndex="0"
                     Style="{StaticResource MainShellTabControlStyle}"
                     ItemContainerStyle="{StaticResource HiddenMainTabItemStyle}"
@@ -3866,5 +3874,6 @@
                 </Grid>
             </TabItem>
         </TabControl>
+    </Grid>
     </Grid>
 </Window>
