@@ -34,10 +34,20 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="TestUiConfig.cs" />
+    <Compile Include="..\..\src\RtdDolarNative\Charts\ChartTimeframe.cs">
+      <Link>Charts\ChartTimeframe.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Charts\NativeChartControl.cs">
+      <Link>Charts\NativeChartControl.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Csv\DailyBar.cs">
       <Link>Csv\DailyBar.cs</Link>
     </Compile>

@@ -6172,6 +6172,59 @@ namespace RtdDolarNative
             }
         }
 
+        private void ChartZoomInButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.ZoomHorizontalSteps(1));
+        }
+
+        private void ChartZoomOutButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.ZoomHorizontalSteps(-1));
+        }
+
+        private void ChartPanLeftButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.PanHorizontalCandles(8));
+        }
+
+        private void ChartPanRightButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.PanHorizontalCandles(-8));
+        }
+
+        private void ChartPanUpButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.PanVerticalFraction(-0.12d));
+        }
+
+        private void ChartPanDownButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.PanVerticalFraction(0.12d));
+        }
+
+        private void ChartResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyChartCommand(x => x.ResetViewport());
+        }
+
+        private void ApplyChartCommand(Action<NativeChartControl> command)
+        {
+            if (command == null)
+            {
+                return;
+            }
+
+            if (DashboardChartControl != null)
+            {
+                command(DashboardChartControl);
+            }
+
+            if (ChartControl != null && !ReferenceEquals(ChartControl, DashboardChartControl))
+            {
+                command(ChartControl);
+            }
+        }
+
         private static int ParseChartTimeframeIndex(object tag)
         {
             if (tag == null)

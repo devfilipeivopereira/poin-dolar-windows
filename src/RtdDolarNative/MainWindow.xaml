@@ -1216,6 +1216,21 @@
                     </StackPanel>
                 </Border>
 
+                <Border Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Grafico" Style="{StaticResource TopNavGroupStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Z-" ToolTip="Zoom horizontal: menos candles" Click="ChartZoomOutButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
+                            <Button Content="Z+" ToolTip="Zoom horizontal: mais detalhe" Click="ChartZoomInButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="34" />
+                            <Button Content="&lt;" ToolTip="Mover para candles anteriores" Click="ChartPanLeftButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                            <Button Content="&gt;" ToolTip="Mover para candles mais recentes" Click="ChartPanRightButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                            <Button Content="^" ToolTip="Mover grafico para cima" Click="ChartPanUpButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                            <Button Content="v" ToolTip="Mover grafico para baixo" Click="ChartPanDownButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                            <Button Content="0" ToolTip="Resetar zoom e posicao do grafico" Click="ChartResetButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="32" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
             </WrapPanel>
             </Grid>
         </Border>

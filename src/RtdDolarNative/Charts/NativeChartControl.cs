@@ -128,6 +128,92 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public int ViewOffsetFromEndForDiagnostics
+        {
+            get { return _viewOffsetFromEnd; }
+        }
+
+        public int VisibleCandlesForDiagnostics
+        {
+            get { return _visibleCandles; }
+        }
+
+        public double PriceScaleForDiagnostics
+        {
+            get { return _priceScale; }
+        }
+
+        public decimal PricePanOffsetForDiagnostics
+        {
+            get { return _pricePanOffset; }
+        }
+
+        public void PanHorizontalCandles(int candles)
+        {
+            _viewOffsetFromEnd += candles;
+            ClampViewportOffset();
+            InvalidateVisual();
+        }
+
+        public void ZoomHorizontalSteps(int steps)
+        {
+            if (steps == 0)
+            {
+                return;
+            }
+
+            Point anchor = CenterPoint(InteractionPlot());
+            int count = Math.Abs(steps);
+            int direction = steps > 0 ? 1 : -1;
+
+            for (int i = 0; i < count; i++)
+            {
+                ZoomCandles(direction, anchor);
+            }
+
+            InvalidateVisual();
+        }
+
+        public void PanVerticalFraction(double fraction)
+        {
+            if (double.IsNaN(fraction) || double.IsInfinity(fraction))
+            {
+                return;
+            }
+
+            decimal range = _lastVisiblePriceRange <= 0m ? 1m : _lastVisiblePriceRange;
+            _pricePanOffset += Convert.ToDecimal(fraction) * range;
+            InvalidateVisual();
+        }
+
+        public void ZoomVerticalSteps(int steps)
+        {
+            if (steps == 0)
+            {
+                return;
+            }
+
+            int count = Math.Abs(steps);
+            double factor = steps > 0 ? 0.9d : 1.1d;
+
+            for (int i = 0; i < count; i++)
+            {
+                _priceScale = Clamp(_priceScale * factor, 0.35d, 3.0d);
+            }
+
+            InvalidateVisual();
+        }
+
+        public void ResetViewport()
+        {
+            _viewOffsetFromEnd = 0;
+            _visibleCandles = 90;
+            _priceScale = 1d;
+            _pricePanOffset = 0m;
+            ClampViewportOffset();
+            InvalidateVisual();
+        }
+
         public void SetData(List<DailyBar> bars, MarketSnapshot snapshot, QuantResult result)
         {
             int previousCount = _bars.Count;
@@ -200,9 +286,8 @@ namespace RtdDolarNative.Charts
 
             DrawPriceGrid(dc, plot, min, max, gridPen, textBrush);
 
-            double baseCandleSlot = plot.Width / Math.Max(1, viewport.SlotCount);
-            double candleSlot = baseCandleSlot * EffectiveCandleSpacingFactor();
-            double candleWidth = Math.Max(3d, Math.Min(12d, baseCandleSlot * 0.58d));
+            double candleSlot = EffectiveCandleSlot(plot, viewport.SlotCount);
+            double candleWidth = Math.Max(3d, Math.Min(12d, candleSlot * EffectiveCandleBodyFactor()));
 
             dc.PushClip(new RectangleGeometry(plot));
 
@@ -276,13 +361,14 @@ namespace RtdDolarNative.Charts
             }
 
             Point current = e.GetPosition(this);
-            double slot = EffectiveCandleSlot(_lastPlot, _visibleCandles);
+            Rect plot = InteractionPlot();
+            double slot = EffectiveCandleSlot(plot, _visibleCandles);
             int deltaCandles = (int)Math.Round((current.X - _dragStart.X) / Math.Max(1d, slot));
             _viewOffsetFromEnd = _dragStartOffset + deltaCandles;
 
-            if (_lastPlot.Height > 0d)
+            if (plot.Height > 0d)
             {
-                decimal deltaPrice = Convert.ToDecimal((current.Y - _dragStart.Y) / _lastPlot.Height) * _lastVisiblePriceRange;
+                decimal deltaPrice = Convert.ToDecimal((current.Y - _dragStart.Y) / plot.Height) * _lastVisiblePriceRange;
                 _pricePanOffset = _dragStartPriceOffset + deltaPrice;
             }
 
@@ -313,7 +399,7 @@ namespace RtdDolarNative.Charts
             }
             else
             {
-                _priceScale = Clamp(_priceScale * (direction > 0 ? 0.9d : 1.1d), 0.35d, 3.0d);
+                ZoomVerticalSteps(direction);
             }
 
             InvalidateVisual();
@@ -323,14 +409,65 @@ namespace RtdDolarNative.Charts
         protected override void OnMouseRightButtonDown(MouseButtonEventArgs e)
         {
             base.OnMouseRightButtonDown(e);
-            _viewOffsetFromEnd = 0;
-            _visibleCandles = 90;
-            _priceGridTickInterval = DefaultPriceGridTickInterval;
-            _candleSpacingPercent = DefaultCandleSpacingPercent;
-            _priceScale = 1d;
-            _pricePanOffset = 0m;
-            InvalidateVisual();
+            ResetViewport();
             e.Handled = true;
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+
+            bool handled = true;
+            int horizontalStep = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift ? 20 : 5;
+            double verticalStep = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift ? 0.22d : 0.10d;
+
+            switch (e.Key)
+            {
+                case Key.Left:
+                    PanHorizontalCandles(horizontalStep);
+                    break;
+                case Key.Right:
+                    PanHorizontalCandles(-horizontalStep);
+                    break;
+                case Key.Up:
+                    if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                    {
+                        ZoomVerticalSteps(1);
+                    }
+                    else
+                    {
+                        PanVerticalFraction(-verticalStep);
+                    }
+
+                    break;
+                case Key.Down:
+                    if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                    {
+                        ZoomVerticalSteps(-1);
+                    }
+                    else
+                    {
+                        PanVerticalFraction(verticalStep);
+                    }
+
+                    break;
+                case Key.Add:
+                case Key.OemPlus:
+                    ZoomHorizontalSteps(1);
+                    break;
+                case Key.Subtract:
+                case Key.OemMinus:
+                    ZoomHorizontalSteps(-1);
+                    break;
+                case Key.Home:
+                    ResetViewport();
+                    break;
+                default:
+                    handled = false;
+                    break;
+            }
+
+            e.Handled = handled;
         }
 
         private List<DailyBar> SeriesForChart()
@@ -579,8 +716,9 @@ namespace RtdDolarNative.Charts
             }
 
             int currentStart = CurrentStartIndex(seriesCount, currentVisible, _viewOffsetFromEnd);
-            double slotWidth = EffectiveCandleSlot(_lastPlot, currentVisible);
-            int anchorSlot = Clamp((int)Math.Round((point.X - _lastPlot.Left) / Math.Max(1d, slotWidth)), 0, Math.Max(0, currentVisible - 1));
+            Rect plot = InteractionPlot();
+            double slotWidth = EffectiveCandleSlot(plot, currentVisible);
+            int anchorSlot = Clamp((int)Math.Round((point.X - plot.Left) / Math.Max(1d, slotWidth)), 0, Math.Max(0, currentVisible - 1));
             int anchorSeriesIndex = currentStart + anchorSlot;
 
             _visibleCandles = Clamp(_visibleCandles - direction * 10, MinVisibleCandles, MaxVisibleCandles);
@@ -600,7 +738,7 @@ namespace RtdDolarNative.Charts
 
         private void ClampViewportOffset()
         {
-            int seriesCount = _bars.Count + (_snapshot != null && _snapshot.Ultimo.HasValue ? 1 : 0);
+            int seriesCount = SeriesForChart().Count;
             int visibleCount = Clamp(_visibleCandles, MinVisibleCandles, MaxVisibleCandles);
             int maxOffset = Math.Max(0, seriesCount - visibleCount);
             _viewOffsetFromEnd = Clamp(_viewOffsetFromEnd, -FuturePanLimit, maxOffset);
@@ -667,10 +805,33 @@ namespace RtdDolarNative.Charts
             return Math.Max(0.75d, normalized / 100d);
         }
 
+        private double EffectiveCandleBodyFactor()
+        {
+            double spacing = EffectiveCandleSpacingFactor();
+            return Clamp(0.85d - (spacing - 0.75d) * 0.44d, 0.42d, 0.85d);
+        }
+
         private double EffectiveCandleSlot(Rect plot, int slotCount)
         {
             double baseSlot = plot.Width / Math.Max(1, slotCount);
-            return baseSlot * EffectiveCandleSpacingFactor();
+            return Math.Max(1d, baseSlot);
+        }
+
+        private Rect InteractionPlot()
+        {
+            if (!_lastPlot.IsEmpty && _lastPlot.Width > 0d && _lastPlot.Height > 0d)
+            {
+                return _lastPlot;
+            }
+
+            double width = ActualWidth > 0d ? ActualWidth : 900d;
+            double height = ActualHeight > 0d ? ActualHeight : 420d;
+            return new Rect(54, 18, Math.Max(20d, width - 120d), Math.Max(20d, height - 48d));
+        }
+
+        private static Point CenterPoint(Rect rect)
+        {
+            return new Point(rect.Left + rect.Width / 2d, rect.Top + rect.Height / 2d);
         }
 
         private static decimal RoundUpToStep(decimal value, decimal step)
