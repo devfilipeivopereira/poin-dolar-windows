@@ -522,41 +522,33 @@ namespace RtdDolarNative.Charts
             }
 
             List<string> tokens = LevelSourceTokens(level.Source);
+            bool hasPercent = tokens.Any(IsPercentSource);
+            bool hasTechnical = tokens.Any(IsTechnicalSource);
+            bool hasProfile = tokens.Any(IsProfileSource);
+            bool hasMarket = tokens.Any(IsMarketSource);
+            bool hasRtd = tokens.Any(IsRtdSource);
+
+            bool visibleByCategory =
+                (hasPercent && _showPercentLevels) ||
+                (hasTechnical && _showTechnicalLevels) ||
+                (hasProfile && _showProfileLevels) ||
+                (hasMarket && _showMarketLevels) ||
+                (hasRtd && _showRtdLevels);
+
+            if (hasPercent || hasTechnical || hasProfile || hasMarket || hasRtd)
+            {
+                return visibleByCategory;
+            }
 
             if (tokens.Count == 0)
             {
                 return _showMarketLevels || _showRtdLevels;
             }
 
-            if (tokens.Any(IsPercentSource))
-            {
-                return _showPercentLevels;
-            }
-
-            if (tokens.Any(IsTechnicalSource))
-            {
-                return _showTechnicalLevels;
-            }
-
-            if (tokens.Any(IsProfileSource))
-            {
-                return _showProfileLevels;
-            }
-
-            if (tokens.Any(IsMarketSource))
-            {
-                return _showMarketLevels;
-            }
-
-            if (tokens.Any(IsRtdSource))
-            {
-                return _showRtdLevels;
-            }
-
-            return false;
+            return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels;
         }
 
-        private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '|', '/', '|' };
+        private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '/', '|' };
 
         private static List<string> LevelSourceTokens(string source)
         {
@@ -595,13 +587,9 @@ namespace RtdDolarNative.Charts
 
         private static bool IsTechnicalSource(string source)
         {
-            if (string.Equals(source, "Tecnico", StringComparison.OrdinalIgnoreCase) ||
-                source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return true;
-            }
-
-            return false;
+            return string.Equals(source, "Tecnico", StringComparison.OrdinalIgnoreCase) ||
+                source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                source.IndexOf("Gauss", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsProfileSource(string source)
@@ -612,6 +600,8 @@ namespace RtdDolarNative.Charts
                 string.Equals(source, "HVN", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "LVN", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "AVWAP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Vah", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Val", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "profile", StringComparison.OrdinalIgnoreCase);
         }
 
