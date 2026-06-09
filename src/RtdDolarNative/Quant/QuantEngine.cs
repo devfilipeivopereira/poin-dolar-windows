@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
@@ -11,8 +10,9 @@ namespace RtdDolarNative.Quant
     public static class QuantEngine
     {
         private static readonly double[] PercentVariations = new[] { 3d, 2.5d, 2d, 1.5d, 1d, 0.5d, 0d, -0.5d, -1d, -1.5d, -2d, -2.5d, -3d };
-        private static readonly decimal[] GaussPercents = new[] { 0.02m, 0.0175m, 0.015m, 0.0125m, 0.01m, 0.0075m, 0.005m, 0.0025m, -0.0025m, -0.005m, -0.0075m, -0.01m, -0.0125m, -0.015m, -0.0175m, -0.02m };
-        private const decimal GaussFixedPoints = 52m;
+        private const double GaussMadScale = 1.4826d;
+        private const double GaussWinsorMad = 3d;
+        private const double GaussRsCapPercentile = 0.90d;
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays)
         {
@@ -61,7 +61,7 @@ namespace RtdDolarNative.Quant
             result.YangZhang = CalcYangZhang(selectedWindow, windowDays);
             result.CloseToClose = CalcCloseToClose(selectedWindow, windowDays);
             result.StandardDeviation = CalcStandardDeviation(selectedWindow, windowDays, tickSize);
-            result.Gauss = CalcGauss(result.PreviousDay, windowDays);
+            result.Gauss = CalcGauss(selectedWindow, result.Intraday, result.YangZhang, windowDays, tickSize);
             result.Atr = CalcAtr(selectedWindow, windowDays, result.Bars);
             result.Metrics.Add(result.GarmanKlass);
             result.Metrics.Add(result.Parkinson);
@@ -86,7 +86,7 @@ namespace RtdDolarNative.Quant
             result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
             result.StandardDeviationLevels = StandardDeviationLevels(selectedWindow, standardDeviationReference, result.Intraday.Price, tickSize);
-            result.GaussLevels = GaussLevels(result.PreviousDay, result.Intraday.Price);
+            result.GaussLevels = GaussLevels(result.Intraday.Open, result.Gauss, result.Intraday.Price);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, windowDays);
@@ -247,10 +247,110 @@ namespace RtdDolarNative.Quant
             return PointMetric("Desvio padrao", window, stdev, price);
         }
 
-        private static VolatilityMetric CalcGauss(DailyBar previousDay, int window)
+        private static VolatilityMetric CalcGauss(List<DailyBar> bars, IntradayContext intraday, VolatilityMetric yangZhang, int window, decimal tickSize)
         {
-            decimal reference = previousDay == null ? 0m : previousDay.Close;
-            return PointMetric("Gauss", window, GaussFixedPoints, reference);
+            decimal reference = intraday != null && intraday.Open > 0m
+                ? intraday.Open
+                : bars != null && bars.Count > 0 ? bars[bars.Count - 1].Close : 0m;
+
+            if (bars == null || bars.Count < 2 || reference <= 0m)
+            {
+                return PointMetric("Gauss robusto", window, 0m, reference);
+            }
+
+            decimal robustYangZhang = CalcRobustYangZhangPoints(bars, reference);
+            decimal openCloseMad = CalcOpenCloseMadPoints(bars, reference);
+            decimal yangZhangPoints = yangZhang == null ? 0m : yangZhang.Points;
+            decimal sigma = robustYangZhang > 0m ? robustYangZhang : yangZhangPoints;
+
+            if (openCloseMad > 0m)
+            {
+                sigma = Math.Max(sigma, openCloseMad);
+
+                decimal upper = openCloseMad * 2.25m;
+                if (upper > 0m && sigma > upper)
+                {
+                    sigma = upper;
+                }
+            }
+
+            if (sigma <= 0m)
+            {
+                List<decimal> ranges = bars.Select(x => x.High - x.Low).Where(x => x > 0m).ToList();
+                sigma = ranges.Count == 0 ? 0m : ranges.Average() / 2m;
+            }
+
+            sigma = RoundToStep(sigma, tickSize);
+            return PointMetric("Gauss robusto", window, sigma, reference);
+        }
+
+        private static decimal CalcRobustYangZhangPoints(List<DailyBar> bars, decimal reference)
+        {
+            if (bars == null || bars.Count < 2 || reference <= 0m)
+            {
+                return 0m;
+            }
+
+            List<double> overnight = new List<double>();
+            List<double> openClose = new List<double>();
+            List<double> rs = new List<double>();
+
+            for (int i = 1; i < bars.Count; i++)
+            {
+                DailyBar prev = bars[i - 1];
+                DailyBar b = bars[i];
+
+                if (!IsValidPrice(prev.Close) || !IsValidPrice(b.Open) || !IsValidPrice(b.High) || !IsValidPrice(b.Low) || !IsValidPrice(b.Close))
+                {
+                    continue;
+                }
+
+                overnight.Add(Math.Log(D(b.Open) / D(prev.Close)));
+                openClose.Add(Math.Log(D(b.Close) / D(b.Open)));
+                double rsTerm = Math.Log(D(b.High) / D(b.Close)) * Math.Log(D(b.High) / D(b.Open)) +
+                                Math.Log(D(b.Low) / D(b.Close)) * Math.Log(D(b.Low) / D(b.Open));
+                rs.Add(Math.Max(0d, rsTerm));
+            }
+
+            if (overnight.Count < 2 || openClose.Count < 2 || rs.Count == 0)
+            {
+                return 0m;
+            }
+
+            List<double> robustOvernight = WinsorizeByMad(overnight, GaussWinsorMad);
+            List<double> robustOpenClose = WinsorizeByMad(openClose, GaussWinsorMad);
+            List<double> robustRs = WinsorizeUpper(rs, GaussRsCapPercentile);
+            double n = Math.Max(2d, bars.Count);
+            double k = 0.34d / (1.34d + (n + 1d) / (n - 1d));
+            double variance = Variance(robustOvernight) + k * Variance(robustOpenClose) + (1d - k) * Average(robustRs);
+            return Dec(Math.Sqrt(Math.Max(0d, variance)) * D(reference));
+        }
+
+        private static decimal CalcOpenCloseMadPoints(List<DailyBar> bars, decimal reference)
+        {
+            if (bars == null || bars.Count < 2 || reference <= 0m)
+            {
+                return 0m;
+            }
+
+            List<double> moves = new List<double>();
+
+            foreach (DailyBar bar in bars)
+            {
+                if (!IsValidPrice(bar.Open) || !IsValidPrice(bar.Close))
+                {
+                    continue;
+                }
+
+                moves.Add(Math.Log(D(bar.Close) / D(bar.Open)) * D(reference));
+            }
+
+            return Dec(RobustMadScale(moves));
+        }
+
+        private static bool IsValidPrice(decimal price)
+        {
+            return price > 0m;
         }
 
         private static VolatilityMetric CalcAtr(List<DailyBar> bars, int window, List<DailyBar> allBars)
@@ -554,28 +654,25 @@ namespace RtdDolarNative.Quant
             return levels;
         }
 
-        private static List<DeviationLevel> GaussLevels(DailyBar previousDay, decimal currentPrice)
+        private static List<DeviationLevel> GaussLevels(decimal reference, VolatilityMetric metric, decimal currentPrice)
         {
             List<DeviationLevel> levels = new List<DeviationLevel>();
 
-            if (previousDay == null || previousDay.Close <= 0m)
+            if (metric == null || metric.Points <= 0m || reference <= 0m)
             {
                 return levels;
             }
 
-            decimal reference = previousDay.Close;
-            levels.Add(Deviation("Venda", "sell", GaussFixedPoints, reference + GaussFixedPoints, reference, currentPrice, "GAUSS_VENDA +52 pts"));
+            decimal sigma = metric.Points;
 
-            foreach (decimal percent in GaussPercents)
+            for (int m = 1; m <= 4; m++)
             {
-                decimal price = reference + reference * percent;
-                string side = percent > 0m ? "Venda" : "Compra";
-                string direction = percent > 0m ? "sell" : "buy";
-                string label = "Gauss " + percent.ToString("+0.##%;-0.##%", CultureInfo.GetCultureInfo("pt-BR"));
-                levels.Add(Deviation(side, direction, percent, price, reference, currentPrice, label));
+                decimal sell = reference + m * sigma;
+                decimal buy = reference - m * sigma;
+                levels.Add(Deviation("Venda", "sell", m, sell, reference, currentPrice, "Ponto " + m + " | Gauss robusto +" + m + " desvio"));
+                levels.Add(Deviation("Compra", "buy", -m, buy, reference, currentPrice, "Ponto " + (m + 4) + " | Gauss robusto -" + m + " desvio"));
             }
 
-            levels.Add(Deviation("Compra", "buy", -GaussFixedPoints, reference - GaussFixedPoints, reference, currentPrice, "GAUSS_COMPRA -52 pts"));
             return levels;
         }
 
@@ -947,6 +1044,13 @@ namespace RtdDolarNative.Quant
             {
                 levels.Add(Level(r.Intraday.Vwap + m * sigma, "+" + m + " sigma", "Resistencia", "Sigma", 48d + D(m) * 3d, "VWAP"));
                 levels.Add(Level(r.Intraday.Vwap - m * sigma, "-" + m + " sigma", "Suporte", "Sigma", 48d + D(m) * 3d, "VWAP"));
+            }
+
+            foreach (DeviationLevel gauss in r.GaussLevels)
+            {
+                string type = string.Equals(gauss.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Resistencia" : "Suporte";
+                double sigmaScore = 64d + Math.Min(12d, Math.Abs(D(gauss.Sigma)) * 2d);
+                levels.Add(Level(gauss.Price, gauss.Label, type, "Gauss", sigmaScore, "Yang-Zhang winsorizado + MAD"));
             }
 
             foreach (ProfileBin bin in r.Profile.Hvn)
@@ -1644,6 +1748,76 @@ namespace RtdDolarNative.Quant
             }
 
             return 1m;
+        }
+
+        private static List<double> WinsorizeByMad(List<double> values, double madMultiplier)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return new List<double>();
+            }
+
+            double median = Median(values);
+            double robustScale = RobustMadScale(values);
+
+            if (robustScale <= 0d)
+            {
+                return values.ToList();
+            }
+
+            double lower = median - madMultiplier * robustScale;
+            double upper = median + madMultiplier * robustScale;
+            return values.Select(x => Clamp(x, lower, upper)).ToList();
+        }
+
+        private static List<double> WinsorizeUpper(List<double> values, double upperPercentile)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return new List<double>();
+            }
+
+            double upper = Percentile(values, upperPercentile);
+            return values.Select(x => Math.Min(x, upper)).ToList();
+        }
+
+        private static double RobustMadScale(List<double> values)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return 0d;
+            }
+
+            double median = Median(values);
+            List<double> deviations = values.Select(x => Math.Abs(x - median)).ToList();
+            return Median(deviations) * GaussMadScale;
+        }
+
+        private static double Median(List<double> values)
+        {
+            return Percentile(values, 0.5d);
+        }
+
+        private static double Percentile(List<double> values, double percentile)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return 0d;
+            }
+
+            List<double> sorted = values.OrderBy(x => x).ToList();
+            double clamped = Clamp(percentile, 0d, 1d);
+            double position = (sorted.Count - 1) * clamped;
+            int lower = (int)Math.Floor(position);
+            int upper = (int)Math.Ceiling(position);
+
+            if (lower == upper)
+            {
+                return sorted[lower];
+            }
+
+            double weight = position - lower;
+            return sorted[lower] + (sorted[upper] - sorted[lower]) * weight;
         }
 
         private static double Average(List<double> values)

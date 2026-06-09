@@ -7028,7 +7028,7 @@ namespace RtdDolarNative
 
             if (string.Equals(source, "Gauss", StringComparison.OrdinalIgnoreCase))
             {
-                return "Gauss (D-1 / 52 pts)";
+                return "Gauss robusto (YZ + MAD)";
             }
 
             if (string.Equals(source, "Abertura", StringComparison.OrdinalIgnoreCase))
@@ -7049,7 +7049,7 @@ namespace RtdDolarNative
             AddRow(rows, "Abertura", openPrice <= 0m ? "-" : openPrice.ToString("N2", _ptBr), "linha central do mapa");
 
             AddMetricSummaryRows(rows, "Garman-Klass", _result == null ? null : _result.GarmanKlass, _result == null ? null : _result.OpeningLevels, currentPrice, "base abertura");
-            AddMetricSummaryRows(rows, "Gauss", _result == null ? null : _result.Gauss, _result == null ? null : _result.GaussLevels, currentPrice, "base D-1");
+            AddMetricSummaryRows(rows, "Gauss", _result == null ? null : _result.Gauss, _result == null ? null : _result.GaussLevels, currentPrice, "base abertura");
             AddMetricSummaryRows(rows, "Desvio padrão", _result == null ? null : _result.StandardDeviation, _result == null ? null : _result.StandardDeviationLevels, currentPrice, "base abertura");
 
             AddRow(rows, "Faixa", OpeningBandText(openingRows), "amplitude entre a compra e a venda mais extremas");
@@ -8800,7 +8800,7 @@ namespace RtdDolarNative
 
             if (string.Equals(metricName, "Gauss", StringComparison.OrdinalIgnoreCase))
             {
-                return "Gauss (D-1 / 52 pts)";
+                return "Gauss robusto (YZ + MAD)";
             }
 
             if (string.Equals(metricName, "ATR", StringComparison.OrdinalIgnoreCase))

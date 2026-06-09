@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{945904D1-EF68-489A-8E3F-513F3A5A4E68}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>QuantEngineTests</RootNamespace>
+    <AssemblyName>QuantEngineTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="TestUiConfig.cs" />
+    <Compile Include="..\..\src\RtdDolarNative\Csv\DailyBar.cs">
+      <Link>Csv\DailyBar.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\MarketSnapshot.cs">
+      <Link>MarketData\MarketSnapshot.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\ValueParser.cs">
+      <Link>MarketData\ValueParser.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Quant\QuantModels.cs">
+      <Link>Quant\QuantModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Quant\QuantEngine.cs">
+      <Link>Quant\QuantEngine.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
