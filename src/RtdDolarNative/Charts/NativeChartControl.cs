@@ -521,34 +521,71 @@ namespace RtdDolarNative.Charts
                 return false;
             }
 
-            string source = level.Source ?? string.Empty;
+            List<string> tokens = LevelSourceTokens(level.Source);
 
-            if (IsPercentSource(source))
+            if (tokens.Count == 0)
+            {
+                return _showMarketLevels || _showRtdLevels;
+            }
+
+            if (tokens.Any(IsPercentSource))
             {
                 return _showPercentLevels;
             }
 
-            if (IsTechnicalSource(source))
+            if (tokens.Any(IsTechnicalSource))
             {
                 return _showTechnicalLevels;
             }
 
-            if (IsProfileSource(source))
+            if (tokens.Any(IsProfileSource))
             {
                 return _showProfileLevels;
             }
 
-            if (IsMarketSource(source))
+            if (tokens.Any(IsMarketSource))
             {
                 return _showMarketLevels;
             }
 
-            if (IsRtdSource(source))
+            if (tokens.Any(IsRtdSource))
             {
                 return _showRtdLevels;
             }
 
-            return _showRtdLevels || _showMarketLevels || _showTechnicalLevels || _showProfileLevels || _showPercentLevels;
+            return false;
+        }
+
+        private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '|', '/', '|' };
+
+        private static List<string> LevelSourceTokens(string source)
+        {
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return new List<string>();
+            }
+
+            List<string> tokens = source
+                .Split(LevelSourceSeparators, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !string.Equals(x, " ", StringComparison.Ordinal))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (tokens.Count == 0)
+            {
+                return tokens;
+            }
+
+            tokens.AddRange(source.Split('-')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Replace("(", string.Empty))
+                .Select(x => x.Replace(")", string.Empty))
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            return tokens.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         private static bool IsPercentSource(string source)
@@ -559,12 +596,12 @@ namespace RtdDolarNative.Charts
         private static bool IsTechnicalSource(string source)
         {
             if (string.Equals(source, "Tecnico", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(source, "RTD+Tecnico", StringComparison.OrdinalIgnoreCase))
+                source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;
             }
 
-            return source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0;
+            return false;
         }
 
         private static bool IsProfileSource(string source)
@@ -581,16 +618,25 @@ namespace RtdDolarNative.Charts
         private static bool IsMarketSource(string source)
         {
             return string.Equals(source, "D1", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(source, "csv", StringComparison.OrdinalIgnoreCase);
+                string.Equals(source, "csv", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Round", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "SR", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "grade", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "market", StringComparison.OrdinalIgnoreCase) ||
+                source.IndexOf("d-1", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsRtdSource(string source)
         {
             return string.Equals(source, "RTD", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "Open", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Abertura", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "VWAP", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "Sigma", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(source, "Atual", StringComparison.OrdinalIgnoreCase);
+                string.Equals(source, "Atual", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "MED", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Maxima", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "Minima", StringComparison.OrdinalIgnoreCase);
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
