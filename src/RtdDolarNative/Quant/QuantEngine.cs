@@ -21,6 +21,18 @@ namespace RtdDolarNative.Quant
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays, IEnumerable<TickEvent> ticks)
         {
+            return Build(allBars, snapshot, tickSize, calculationDays, ticks, null, null);
+        }
+
+        public static QuantResult Build(
+            List<DailyBar> allBars,
+            MarketSnapshot snapshot,
+            decimal tickSize,
+            int calculationDays,
+            IEnumerable<TickEvent> ticks,
+            List<IntradayBar> intradayBars,
+            GarchConfig garchConfig)
+        {
             QuantResult result = new QuantResult();
             result.Bars = allBars == null ? new List<DailyBar>() : allBars.OrderBy(x => x.Date).ToList();
             int windowDays = UiConfig.NormalizeCalculationDays(calculationDays);
@@ -87,7 +99,7 @@ namespace RtdDolarNative.Quant
             result.Profile = VolumeProfileProxy(selectedWindow);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
-            result.Garch = BuildGarch(result.Bars, result.Intraday, snapshot, ticks, tickSize);
+            result.Garch = BuildGarch(result.Bars, result.Intraday, snapshot, ticks, intradayBars, tickSize, garchConfig);
             result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
             result.StandardDeviationLevels = MetricLevels("Desvio padrao", result.Intraday.Open, result.StandardDeviation, result.Intraday.Price);
@@ -115,11 +127,15 @@ namespace RtdDolarNative.Quant
             return result;
         }
 
-        private static GarchSnapshot BuildGarch(List<DailyBar> bars, IntradayContext intraday, MarketSnapshot snapshot, IEnumerable<TickEvent> ticks, decimal tickSize)
+        private static GarchSnapshot BuildGarch(List<DailyBar> bars, IntradayContext intraday, MarketSnapshot snapshot, IEnumerable<TickEvent> ticks, List<IntradayBar> intradayBars, decimal tickSize, GarchConfig garchConfig)
         {
             try
             {
-                return GarchEngine.Build(bars, intraday, snapshot, ticks, tickSize);
+                if (intradayBars != null && intradayBars.Count > 0)
+                {
+                    return GarchEngine.Build(bars, intraday, snapshot, intradayBars, tickSize, garchConfig);
+                }
+                return GarchEngine.Build(bars, intraday, snapshot, ticks, tickSize, garchConfig);
             }
             catch (Exception ex)
             {

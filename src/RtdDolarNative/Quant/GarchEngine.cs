@@ -16,9 +16,51 @@ namespace RtdDolarNative.Quant
             IntradayContext intraday,
             MarketSnapshot snapshot,
             IEnumerable<TickEvent> ticks,
-            decimal tickSize)
+            decimal tickSize,
+            GarchConfig config = null)
         {
-            GarchConfig config = new GarchConfig();
+            if (config == null)
+            {
+                config = new GarchConfig();
+            }
+            config.Normalize();
+
+            List<IntradayBar> intradayBars = new List<IntradayBar>();
+            if (ticks != null)
+            {
+                string source;
+                List<DailyBar> tempBars = BuildIntradayBarsFromTicks(ticks, intraday, config, out source);
+                foreach (var b in tempBars)
+                {
+                    intradayBars.Add(new IntradayBar
+                    {
+                        Asset = snapshot != null ? snapshot.Asset : "",
+                        Start = new DateTimeOffset(b.Date),
+                        Seconds = config.IntradayTimeframeSeconds,
+                        Open = b.Open,
+                        High = b.High,
+                        Low = b.Low,
+                        Close = b.Close,
+                        Volume = b.Volume ?? 0m
+                    });
+                }
+            }
+
+            return Build(dailyBars, intraday, snapshot, intradayBars, tickSize, config);
+        }
+
+        public static GarchSnapshot Build(
+            List<DailyBar> dailyBars,
+            IntradayContext intraday,
+            MarketSnapshot snapshot,
+            List<IntradayBar> intradayBars,
+            decimal tickSize,
+            GarchConfig config)
+        {
+            if (config == null)
+            {
+                config = new GarchConfig();
+            }
             config.Normalize();
 
             GarchSnapshot result = new GarchSnapshot();
@@ -53,11 +95,18 @@ namespace RtdDolarNative.Quant
             decimal intradayReference = ResolveIntradayReference(snapshot, intraday, dailyBars, out intradaySource);
             result.IntradayReference = intradayReference;
             result.IntradayReferenceName = intradaySource;
-            string intradayBucketSource;
-            List<DailyBar> intradayBars = BuildIntradayBarsFromTicks(ticks, intraday, config, out intradayBucketSource);
-            result.Warnings.Add(intradayBucketSource == "Sem ticks intraday" ? "GARCH intraday aguardando ticks." : "GARCH intraday origem: " + intradayBucketSource);
 
-            List<double> intradayReturns = BuildDailyReturns(intradayBars);
+            List<DailyBar> convertedBars = ConvertIntradayToDailyBars(intradayBars);
+            if (convertedBars.Count == 0)
+            {
+                result.Warnings.Add("GARCH intraday aguardando ticks.");
+            }
+            else
+            {
+                result.Warnings.Add("GARCH intraday origem: Tick " + config.IntradayTimeframeSeconds.ToString() + "s");
+            }
+
+            List<double> intradayReturns = BuildDailyReturns(convertedBars);
             result.IntradayFit = EstimateScope("Intraday", intradayReturns, intradayReference, result.CurrentPrice, config.IntradayMinBars, config);
 
             if (!result.IntradayFit.Success)
@@ -85,6 +134,17 @@ namespace RtdDolarNative.Quant
             else
             {
                 result.CombinedRead = "Aguardando ajuste estatistico.";
+            }
+
+            // Build Signals and Backtests
+            result.Signals = BuildSignals(result, config, tickSize);
+            if (result.DailyFit.Success)
+            {
+                result.Backtest.AddRange(BuildBacktest(dailyBars, result.DailyFit, config, tickSize));
+            }
+            if (result.IntradayFit.Success && convertedBars.Count > 0)
+            {
+                result.Backtest.AddRange(BuildBacktest(convertedBars, result.IntradayFit, config, tickSize));
             }
 
             return result;
@@ -704,6 +764,22 @@ namespace RtdDolarNative.Quant
             return 0m;
         }
 
+        private static decimal Dec(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+            {
+                return 0m;
+            }
+            try
+            {
+                return Convert.ToDecimal(value);
+            }
+            catch
+            {
+                return 0m;
+            }
+        }
+
         private static double Double(decimal value)
         {
             return decimal.ToDouble(value);
@@ -714,14 +790,256 @@ namespace RtdDolarNative.Quant
             return value;
         }
 
-        private static decimal Dec(double value)
+        private static List<DailyBar> ConvertIntradayToDailyBars(List<IntradayBar> source)
         {
-            if (double.IsNaN(value) || double.IsInfinity(value))
+            List<DailyBar> list = new List<DailyBar>();
+            if (source == null) return list;
+            foreach (var b in source)
             {
-                return 0m;
+                list.Add(new DailyBar
+                {
+                    Date = b.Start.DateTime,
+                    Open = b.Open,
+                    High = b.High,
+                    Low = b.Low,
+                    Close = b.Close,
+                    Volume = b.Volume
+                });
+            }
+            return list;
+        }
+
+        private static List<GarchSignal> BuildSignals(GarchSnapshot garch, GarchConfig config, decimal tickSize)
+        {
+            List<GarchSignal> signals = new List<GarchSignal>();
+            if (garch == null || config == null || !config.Enabled)
+                return signals;
+
+            decimal price = garch.CurrentPrice;
+            if (price <= 0m)
+                return signals;
+
+            foreach (var band in garch.DailyBands)
+            {
+                decimal distTicks = Math.Abs(price - band.Price) / tickSize;
+                if (distTicks <= config.MaxEntryDistanceTicks)
+                {
+                    var signal = CreateSignal("Daily", band, price, garch.ZDaily, garch.ZIntraday, tickSize, config);
+                    if (signal != null)
+                        signals.Add(signal);
+                }
             }
 
-            return Convert.ToDecimal(value);
+            foreach (var band in garch.IntradayBands)
+            {
+                decimal distTicks = Math.Abs(price - band.Price) / tickSize;
+                if (distTicks <= config.MaxEntryDistanceTicks)
+                {
+                    var signal = CreateSignal("Intraday", band, price, garch.ZDaily, garch.ZIntraday, tickSize, config);
+                    if (signal != null)
+                        signals.Add(signal);
+                }
+            }
+
+            return signals;
+        }
+
+        private static GarchSignal CreateSignal(string scope, GarchBandLevel band, decimal currentPrice, double zDaily, double zIntraday, decimal tickSize, GarchConfig config)
+        {
+            if (band == null) return null;
+
+            string side = band.Side;
+            if (string.IsNullOrEmpty(side)) return null;
+
+            GarchSignal signal = new GarchSignal();
+            signal.Scope = scope;
+            signal.LevelName = band.Label;
+            signal.LevelPrice = band.Price;
+            signal.Price = currentPrice;
+            signal.ZDaily = zDaily;
+            signal.ZIntraday = zIntraday;
+
+            if (side == "Compra")
+            {
+                signal.Direction = "Buy";
+                signal.Setup = "GARCH Reversao Compra";
+                
+                decimal stopDistance = Math.Max(2m * tickSize, 0.25m * Math.Abs(band.DistanceReference));
+                signal.StopPrice = RoundToTick(band.Price - stopDistance, tickSize);
+                
+                signal.Target1 = RoundToTick(band.ReferencePrice, tickSize);
+                signal.Target2 = RoundToTick(band.ReferencePrice + Math.Abs(band.DistanceReference) * 0.5m, tickSize);
+            }
+            else
+            {
+                signal.Direction = "Sell";
+                signal.Setup = "GARCH Reversao Venda";
+
+                decimal stopDistance = Math.Max(2m * tickSize, 0.25m * Math.Abs(band.DistanceReference));
+                signal.StopPrice = RoundToTick(band.Price + stopDistance, tickSize);
+
+                signal.Target1 = RoundToTick(band.ReferencePrice, tickSize);
+                signal.Target2 = RoundToTick(band.ReferencePrice - Math.Abs(band.DistanceReference) * 0.5m, tickSize);
+            }
+
+            if (signal.StopPrice.HasValue && signal.Target1.HasValue)
+            {
+                signal.RiskPoints = Math.Abs(currentPrice - signal.StopPrice.Value);
+                signal.RewardPoints = Math.Abs(signal.Target1.Value - currentPrice);
+                if (signal.RiskPoints.Value > 0m)
+                {
+                    signal.RiskReward = Math.Round(signal.RewardPoints.Value / signal.RiskPoints.Value, 2);
+                }
+            }
+
+            int score = 45;
+            List<string> reasons = new List<string>();
+
+            double zDailyAbs = Math.Abs(zDaily);
+            double zIntradayAbs = Math.Abs(zIntraday);
+
+            if (zDailyAbs >= config.ReversionMinAbsZDaily)
+            {
+                score += 6;
+                reasons.Add("zD-1 relevante (" + zDaily.ToString("F2", CultureInfo.InvariantCulture) + ")");
+            }
+            if (zDailyAbs >= 1.0)
+            {
+                score += 8;
+                reasons.Add("zD-1 extremo");
+            }
+            if (zIntradayAbs >= config.ReversionMinAbsZIntraday)
+            {
+                score += 10;
+                reasons.Add("zIntraday relevante (" + zIntraday.ToString("F2", CultureInfo.InvariantCulture) + ")");
+            }
+            if (zIntradayAbs >= config.ExtremeAbsZIntraday)
+            {
+                score += 10;
+                reasons.Add("zIntraday extremo");
+            }
+
+            decimal distTicks = Math.Abs(currentPrice - band.Price) / tickSize;
+            if (distTicks <= 2m)
+            {
+                score += 6;
+                reasons.Add("Preço colado na banda (" + distTicks.ToString("F1", CultureInfo.InvariantCulture) + " ticks)");
+            }
+
+            signal.Score = Math.Min(95, score);
+            signal.Reasons = string.Join("; ", reasons);
+            signal.Robustness = signal.Score >= 85 ? "Robusto" : (signal.Score >= 75 ? "Acionavel" : "Monitorar");
+            signal.Confirmation = "Rejeição na banda e fluxo virando";
+            signal.Gate = "Aguardando gatilho de rejeição";
+
+            return signal;
+        }
+
+        private static List<GarchBacktestRow> BuildBacktest(List<DailyBar> bars, GarchFitResult fit, GarchConfig config, decimal tickSize)
+        {
+            List<GarchBacktestRow> rows = new List<GarchBacktestRow>();
+            if (bars == null || bars.Count < 60 || fit == null || !fit.Success)
+                return rows;
+
+            double[] multipliers = new[] { 1.0, 1.5, 2.0 };
+            string scope = fit.Scope;
+
+            foreach (double mult in multipliers)
+            {
+                foreach (string direction in new[] { "Buy", "Sell" })
+                {
+                    GarchBacktestRow row = new GarchBacktestRow
+                    {
+                        Scope = scope,
+                        Direction = direction,
+                        Sigma = direction == "Buy" ? -mult : mult,
+                        Samples = bars.Count
+                    };
+
+                    int touches = 0;
+                    int reversals = 0;
+                    int continuations = 0;
+                    double sumMfe = 0;
+                    double sumMae = 0;
+
+                    double[] returns = BuildDailyReturns(bars).ToArray();
+                    double mu = fit.Mu;
+                    double omega = fit.Omega;
+                    double alpha = fit.Alpha;
+                    double beta = fit.Beta;
+                    double sigma2 = Variance(returns.ToList());
+
+                    for (int i = 0; i < returns.Length; i++)
+                    {
+                        double eps = returns[i] - mu;
+                        sigma2 = omega + alpha * eps * eps + beta * sigma2;
+                        sigma2 = Math.Max(MinimumVariance, sigma2);
+
+                        if (i + 1 >= bars.Count) break;
+                        DailyBar targetBar = bars[i + 1];
+                        decimal reference = bars[i].Close;
+
+                        if (reference <= 0m || targetBar.Low <= 0m) continue;
+
+                        double nextSigma = Math.Sqrt(sigma2);
+                        decimal upperBand = reference * Dec(Math.Exp(mult * nextSigma));
+                        decimal lowerBand = reference / Dec(Math.Exp(mult * nextSigma));
+
+                        upperBand = RoundToTick(upperBand, tickSize);
+                        lowerBand = RoundToTick(lowerBand, tickSize);
+
+                        if (direction == "Buy")
+                        {
+                            if (targetBar.Low <= lowerBand)
+                            {
+                                touches++;
+                                double mfe = Double(targetBar.High - lowerBand);
+                                double mae = Double(lowerBand - targetBar.Low);
+                                sumMfe += mfe;
+                                sumMae += mae;
+
+                                if (targetBar.Close > lowerBand)
+                                    reversals++;
+                                else
+                                    continuations++;
+                            }
+                        }
+                        else
+                        {
+                            if (targetBar.High >= upperBand)
+                            {
+                                touches++;
+                                double mfe = Double(upperBand - targetBar.Low);
+                                double mae = Double(targetBar.High - upperBand);
+                                sumMfe += mfe;
+                                sumMae += mae;
+
+                                if (targetBar.Close < upperBand)
+                                    reversals++;
+                                else
+                                    continuations++;
+                            }
+                        }
+                    }
+
+                    row.Touches = touches;
+                    row.Reversals = reversals;
+                    row.Continuations = continuations;
+                    row.ReversalRate = touches > 0 ? (double)reversals / touches : 0d;
+                    row.AverageMfePoints = touches > 0 ? Dec(sumMfe / touches) : 0m;
+                    row.AverageMaePoints = touches > 0 ? Dec(sumMae / touches) : 0m;
+                    row.ExpectancyPoints = touches > 0 ? Dec((sumMfe - sumMae) / touches) : 0m;
+                    row.ProfitFactor = sumMae > 0 ? sumMfe / sumMae : (sumMfe > 0 ? 9.9d : 0d);
+                    row.Confidence = touches > 10 ? 0.8d : (touches > 0 ? 0.5d : 0d);
+                    row.RiskReward = row.AverageMaePoints > 0 ? row.AverageMfePoints / row.AverageMaePoints : 0m;
+                    row.EdgeScore = row.ReversalRate * Double(row.ExpectancyPoints);
+                    row.Read = touches > 0 ? string.Format("{0} toques | {1} rev", touches, reversals) : "Sem amostras";
+
+                    rows.Add(row);
+                }
+            }
+
+            return rows;
         }
     }
 }

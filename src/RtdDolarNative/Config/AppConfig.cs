@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Web.Script.Serialization;
 using RtdDolarNative.Rtd;
+using RtdDolarNative.Quant;
 
 namespace RtdDolarNative.Config
 {
@@ -16,6 +17,7 @@ namespace RtdDolarNative.Config
             Storage = new StorageConfig();
             Diagnostics = new DiagnosticsConfig();
             Flow = new FlowConfig();
+            Garch = new GarchConfig();
         }
 
         public RtdConfig Rtd { get; set; }
@@ -23,6 +25,7 @@ namespace RtdDolarNative.Config
         public StorageConfig Storage { get; set; }
         public DiagnosticsConfig Diagnostics { get; set; }
         public FlowConfig Flow { get; set; }
+        public GarchConfig Garch { get; set; }
 
         public static AppConfig Load(string path)
         {
@@ -46,12 +49,14 @@ namespace RtdDolarNative.Config
             config.Storage = config.Storage ?? new StorageConfig();
             config.Diagnostics = config.Diagnostics ?? new DiagnosticsConfig();
             config.Flow = config.Flow ?? new FlowConfig();
+            config.Garch = config.Garch ?? new GarchConfig();
             config.Rtd.NormalizeAssets();
             config.Rtd.NormalizeSources();
             config.Rtd.Fields = Normalize(config.Rtd.Fields, RtdFieldCatalog.DefaultLiveFields);
             config.Rtd.ProbeFields = Normalize(config.Rtd.ProbeFields, new[] { "HOR", "ULT", "VOL" });
             config.Ui.Normalize();
             config.Flow.Normalize();
+            config.Garch.Normalize();
 
             if (!HasToken(json, "ShowChartCandles"))
             {
@@ -143,10 +148,12 @@ namespace RtdDolarNative.Config
             Storage = Storage ?? new StorageConfig();
             Diagnostics = Diagnostics ?? new DiagnosticsConfig();
             Flow = Flow ?? new FlowConfig();
+            Garch = Garch ?? new GarchConfig();
             Rtd.NormalizeAssets();
             Rtd.NormalizeSources();
             Ui.Normalize();
             Flow.Normalize();
+            Garch.Normalize();
 
             string directory = Path.GetDirectoryName(path);
 

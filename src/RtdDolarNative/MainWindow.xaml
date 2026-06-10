@@ -964,6 +964,7 @@
                 <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Indicadores" InputGestureText="Ctrl+Shift+I" Tag="20" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="GARCH" InputGestureText="Ctrl+Shift+G" Tag="23" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Controle">
@@ -998,6 +999,7 @@
                 <MenuItem Header="Oportunidades" InputGestureText="F2" Tag="16" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Indicadores" InputGestureText="Ctrl+Shift+I" Tag="20" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Niveis" InputGestureText="Ctrl+8" Tag="8" Click="NavigateMenuItem_Click" />
+                <MenuItem Header="GARCH" InputGestureText="Ctrl+Shift+G" Tag="23" Click="NavigateMenuItem_Click" />
                 <MenuItem Header="Backtest" Tag="10" Click="NavigateMenuItem_Click" />
                 <Separator />
                 <MenuItem Header="Risco operacional" InputGestureText="F9" Tag="11" Click="NavigateMenuItem_Click" />
@@ -1288,6 +1290,7 @@
                                     <Button Content="Oportun." ToolTip="Oportunidades" Tag="16" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="78" />
                                     <Button Content="Indic." ToolTip="Indicadores Quant" Tag="20" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="62" />
                                     <Button Content="Niveis" ToolTip="Niveis e confluencias" Tag="8" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
+                                    <Button Content="GARCH" ToolTip="GARCH Volatilidade Condicional" Tag="23" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="54" />
                                     <Button Content="Back" ToolTip="Backtest" Tag="10" Click="TopNavButton_Click" Style="{StaticResource TopNavButtonStyle}" />
                                 </StackPanel>
                             </StackPanel>
@@ -3871,6 +3874,190 @@
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="GARCH">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="1"
+                            Padding="12"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="GARCH(1,1) Volatilidade Condicional" FontSize="16" FontWeight="Bold" />
+                                <TextBlock x:Name="GarchStateText"
+                                           Text="Aguardando dados..."
+                                           Foreground="{StaticResource Muted}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <UniformGrid Grid.Column="1" Columns="6" Margin="20,0,12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Ativo" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchAssetText" Text="-" FontWeight="Bold" FontSize="14" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="σ Diario" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchDailySigmaText" Text="-" FontWeight="Bold" FontSize="14" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="z Diario" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchZDailyText" Text="-" FontWeight="Bold" FontSize="14" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="σ Intraday" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchIntradaySigmaText" Text="-" FontWeight="Bold" FontSize="14" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="z Intraday" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchZIntradayText" Text="-" FontWeight="Bold" FontSize="14" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Sinal GARCH" Foreground="{StaticResource Muted}" FontSize="10" />
+                                    <TextBlock x:Name="GarchSignalText" Text="-" FontWeight="Bold" FontSize="14" Foreground="{StaticResource DeepWarn}" />
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Recalcular" Click="RefreshGarchButton_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="0,0,5,5">
+                            <DockPanel>
+                                <TextBlock Text="Bandas GARCH Diario (D-1)" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,6" />
+                                <DataGrid x:Name="GarchDailyBandsGrid" AutoGenerateColumns="False" CanUserSortColumns="True" RowHeight="24">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="80" />
+                                        <DataGridTextColumn Header="Sigma" Binding="{Binding Sigma}" Width="70" />
+                                        <DataGridTextColumn Header="Preço" Binding="{Binding Price}" Width="100" />
+                                        <DataGridTextColumn Header="Dist. Atual" Binding="{Binding DistanceCurrent}" Width="100" />
+                                        <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="5,0,0,5">
+                            <DockPanel>
+                                <TextBlock Text="Bandas GARCH Intraday" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,6" />
+                                <DataGrid x:Name="GarchIntradayBandsGrid" AutoGenerateColumns="False" CanUserSortColumns="True" RowHeight="24">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Lado" Binding="{Binding Side}" Width="80" />
+                                        <DataGridTextColumn Header="Sigma" Binding="{Binding Sigma}" Width="70" />
+                                        <DataGridTextColumn Header="Preço" Binding="{Binding Price}" Width="100" />
+                                        <DataGridTextColumn Header="Dist. Atual" Binding="{Binding DistanceCurrent}" Width="100" />
+                                        <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Row="1"
+                                Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="0,5,5,0">
+                            <DockPanel>
+                                <TextBlock Text="Parametros e Ajustes" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,6" />
+                                <TabControl Style="{StaticResource {x:Type TabControl}}" ItemContainerStyle="{StaticResource {x:Type TabItem}}">
+                                    <TabItem Header="Ajuste Diário">
+                                        <DataGrid x:Name="GarchParametersGrid" AutoGenerateColumns="False" RowHeight="24">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Parâmetro" Binding="{Binding Parameter}" Width="130" />
+                                                <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </TabItem>
+                                    <TabItem Header="Auditoria">
+                                        <DataGrid x:Name="GarchAuditGrid" AutoGenerateColumns="False" RowHeight="24">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Item" Binding="{Binding Item}" Width="180" />
+                                                <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </TabItem>
+                                </TabControl>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Row="1"
+                                Grid.Column="1"
+                                Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="5,5,0,0">
+                            <DockPanel>
+                                <TextBlock Text="Sinais e Backtest" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,6" />
+                                <TabControl Style="{StaticResource {x:Type TabControl}}" ItemContainerStyle="{StaticResource {x:Type TabItem}}">
+                                    <TabItem Header="Sinais GARCH">
+                                        <DataGrid x:Name="GarchSignalsGrid" AutoGenerateColumns="False" RowHeight="24">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Setup" Binding="{Binding Setup}" Width="160" />
+                                                <DataGridTextColumn Header="Direção" Binding="{Binding Direction}" Width="70" />
+                                                <DataGridTextColumn Header="Preço" Binding="{Binding Price}" Width="80" />
+                                                <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="60" />
+                                                <DataGridTextColumn Header="Stop" Binding="{Binding StopPrice}" Width="80" />
+                                                <DataGridTextColumn Header="Alvo 1" Binding="{Binding Target1}" Width="80" />
+                                                <DataGridTextColumn Header="R/R" Binding="{Binding RiskReward}" Width="60" />
+                                                <DataGridTextColumn Header="Motivos" Binding="{Binding Reasons}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </TabItem>
+                                    <TabItem Header="Estatísticas">
+                                        <DataGrid x:Name="GarchBacktestGrid" AutoGenerateColumns="False" RowHeight="24">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Escopo" Binding="{Binding Scope}" Width="70" />
+                                                <DataGridTextColumn Header="Direção" Binding="{Binding Direction}" Width="70" />
+                                                <DataGridTextColumn Header="Sigma" Binding="{Binding Sigma}" Width="60" />
+                                                <DataGridTextColumn Header="Toques" Binding="{Binding Touches}" Width="60" />
+                                                <DataGridTextColumn Header="Rev" Binding="{Binding Reversals}" Width="60" />
+                                                <DataGridTextColumn Header="Taxa Rev" Binding="{Binding ReversalRateText}" Width="80" />
+                                                <DataGridTextColumn Header="Edge" Binding="{Binding EdgeText}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </TabItem>
+                                </TabControl>
+                            </DockPanel>
+                        </Border>
+
                     </Grid>
                 </Grid>
             </TabItem>

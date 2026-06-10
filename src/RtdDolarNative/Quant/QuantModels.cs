@@ -444,6 +444,8 @@ namespace RtdDolarNative.Quant
         {
             DailyBands = new List<GarchBandLevel>();
             IntradayBands = new List<GarchBandLevel>();
+            Signals = new List<GarchSignal>();
+            Backtest = new List<GarchBacktestRow>();
             DailyFit = new GarchFitResult();
             IntradayFit = new GarchFitResult();
             Warnings = new List<string>();
@@ -465,6 +467,51 @@ namespace RtdDolarNative.Quant
         public string CombinedRead { get; set; }
         public List<GarchBandLevel> DailyBands { get; set; }
         public List<GarchBandLevel> IntradayBands { get; set; }
+        public List<GarchSignal> Signals { get; set; }
+        public List<GarchBacktestRow> Backtest { get; set; }
         public List<string> Warnings { get; set; }
+    }
+
+    public sealed class GarchSignal
+    {
+        public string Scope { get; set; }
+        public string Setup { get; set; }
+        public string Direction { get; set; }
+        public decimal Price { get; set; }
+        public int Score { get; set; }
+        public string Robustness { get; set; }
+        public string LevelName { get; set; }
+        public decimal? LevelPrice { get; set; }
+        public double ZDaily { get; set; }
+        public double ZIntraday { get; set; }
+        public decimal? StopPrice { get; set; }
+        public decimal? Target1 { get; set; }
+        public decimal? Target2 { get; set; }
+        public decimal? RiskPoints { get; set; }
+        public decimal? RewardPoints { get; set; }
+        public decimal? RiskReward { get; set; }
+        public string Confirmation { get; set; }
+        public string Gate { get; set; }
+        public string Reasons { get; set; }
+    }
+
+    public sealed class GarchBacktestRow
+    {
+        public string Scope { get; set; }
+        public string Direction { get; set; }
+        public double Sigma { get; set; }
+        public int Samples { get; set; }
+        public int Touches { get; set; }
+        public int Reversals { get; set; }
+        public int Continuations { get; set; }
+        public double ReversalRate { get; set; }
+        public decimal AverageMfePoints { get; set; }
+        public decimal AverageMaePoints { get; set; }
+        public decimal ExpectancyPoints { get; set; }
+        public double ProfitFactor { get; set; }
+        public double Confidence { get; set; }
+        public decimal RiskReward { get; set; }
+        public double EdgeScore { get; set; }
+        public string Read { get; set; }
     }
 }

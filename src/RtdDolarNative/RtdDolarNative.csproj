@@ -118,6 +118,7 @@
     <Compile Include="Flow\FlowProcessor.cs" />
     <Compile Include="Flow\SetupDetector.cs" />
     <Compile Include="Flow\VolumeProfileEngine.cs" />
+
     <Compile Include="Heatmap\HeatmapModels.cs" />
     <Compile Include="Heatmap\HeatmapProcessor.cs" />
     <Compile Include="Heatmap\MarketHeatmapSqliteStore.cs" />
@@ -128,6 +129,8 @@
     <Compile Include="MarketData\MarketState.cs" />
     <Compile Include="MarketData\TickEvent.cs" />
     <Compile Include="MarketData\ValueParser.cs" />
+    <Compile Include="MarketData\IntradayBar.cs" />
+    <Compile Include="MarketData\IntradayBarAggregator.cs" />
     <Compile Include="Quant\QuantEngine.cs" />
     <Compile Include="Quant\QuantModels.cs" />
     <Compile Include="Quant\GarchEngine.cs" />

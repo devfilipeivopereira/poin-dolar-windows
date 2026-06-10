@@ -65,11 +65,23 @@
     <Compile Include="..\..\src\RtdDolarNative\MarketData\ValueParser.cs">
       <Link>MarketData\ValueParser.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\TickEvent.cs">
+      <Link>MarketData\TickEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\IntradayBar.cs">
+      <Link>MarketData\IntradayBar.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\IntradayBarAggregator.cs">
+      <Link>MarketData\IntradayBarAggregator.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Quant\QuantModels.cs">
       <Link>Quant\QuantModels.cs</Link>
     </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Quant\QuantEngine.cs">
       <Link>Quant\QuantEngine.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Quant\GarchEngine.cs">
+      <Link>Quant\GarchEngine.cs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

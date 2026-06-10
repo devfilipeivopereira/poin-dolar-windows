@@ -24,7 +24,8 @@ namespace QuantEngineTests
                 ReferenceMapsBuildDirectionalLadders,
                 PtaxHistoryStoreUpsertsAndLoads,
                 ChartCommandsAdjustViewportPredictably,
-                ChartResetPreservesDisplaySettings
+                ChartResetPreservesDisplaySettings,
+                GarchEngineFitsParametersAndCalculatesBands
             };
 
             int failed = 0;
@@ -326,6 +327,70 @@ namespace QuantEngineTests
             if (Math.Abs(expected - actual) > 0.000001d)
             {
                 throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
+            }
+        }
+
+        private static void GarchEngineFitsParametersAndCalculatesBands()
+        {
+            List<DailyBar> bars = new List<DailyBar>();
+            DateTime start = new DateTime(2025, 1, 2);
+            double dailyVolatility = 0.015d;
+            double currentPrice = 5000.0d;
+            Random rand = new Random(42);
+
+            for (int i = 0; i < 200; i++)
+            {
+                double u1 = 1.0 - rand.NextDouble();
+                double u2 = 1.0 - rand.NextDouble();
+                double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2);
+                double dailyReturn = randStdNormal * dailyVolatility;
+                double nextPrice = currentPrice * Math.Exp(dailyReturn);
+
+                bars.Add(new DailyBar
+                {
+                    Asset = "WDOFUT_F_0",
+                    Date = start.AddDays(i),
+                    Open = (decimal)currentPrice,
+                    High = (decimal)(Math.Max(currentPrice, nextPrice) + 10.0),
+                    Low = (decimal)(Math.Min(currentPrice, nextPrice) - 10.0),
+                    Close = (decimal)nextPrice,
+                    Volume = 50000m
+                });
+
+                currentPrice = nextPrice;
+            }
+
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Asset = "WDOFUT_F_0";
+            snapshot.Rtd["ULT"] = (decimal)currentPrice;
+            snapshot.Rtd["AJA"] = (decimal)currentPrice;
+
+            GarchConfig config = new GarchConfig
+            {
+                Enabled = true,
+                DailyWindowDays = 252,
+                DailyMinSamples = 126,
+                IntradayTimeframeSeconds = 60,
+                IntradayMinBars = 90,
+                MaxIntradayBars = 1200,
+                StationarityCap = 0.995,
+                MaxIterations = 100,
+                Tolerance = 1e-6,
+                BandMultipliers = new double[] { 0.5, 1.0, 1.5, 2.0, 2.5 }
+            };
+
+            IntradayContext intraday = new IntradayContext { Open = (decimal)currentPrice, Price = (decimal)currentPrice };
+            GarchSnapshot garch = GarchEngine.Build(bars, intraday, snapshot, new List<TickEvent>(), 0.5m, config);
+
+            Assert(garch.DailyFit != null, "Garch daily fit result should be generated.");
+            Assert(garch.DailyFit.Success, "Garch daily fit should succeed with sufficient data: " + garch.DailyFit.Status);
+            Assert(garch.DailyFit.Persistence < 1.0, "Estimated Garch persistence should be stationary (< 1.0).");
+            Assert(garch.DailyBands != null && garch.DailyBands.Count > 0, "Garch daily bands should be generated.");
+
+            foreach (var band in garch.DailyBands)
+            {
+                decimal remainder = band.Price % 0.5m;
+                Assert(remainder == 0m, "Band price " + band.Price + " should be rounded to the tick size (0.5). Remainder: " + remainder);
             }
         }
 
