@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RtdDolarNative.Csv;
 
 namespace RtdDolarNative.Quant
@@ -265,6 +266,7 @@ namespace RtdDolarNative.Quant
             QuantSignals = new List<QuantSignal>();
             Bars = new List<DailyBar>();
             Technicals = new TechnicalIndicatorSnapshot();
+            Garch = new GarchSnapshot();
         }
 
         public List<string> Warnings { get; set; }
@@ -298,5 +300,171 @@ namespace RtdDolarNative.Quant
         public List<QuantSignal> QuantSignals { get; set; }
         public string Regime { get; set; }
         public int CalculationDays { get; set; }
+        public GarchSnapshot Garch { get; set; }
+    }
+
+    public sealed class GarchConfig
+    {
+        public bool Enabled { get; set; }
+        public int DailyWindowDays { get; set; }
+        public int DailyMinSamples { get; set; }
+        public int IntradayTimeframeSeconds { get; set; }
+        public int IntradayMinBars { get; set; }
+        public int MaxIntradayBars { get; set; }
+        public double[] BandMultipliers { get; set; }
+        public double ReversionMinAbsZDaily { get; set; }
+        public double ReversionMinAbsZIntraday { get; set; }
+        public double ExtremeAbsZIntraday { get; set; }
+        public int MaxEntryDistanceTicks { get; set; }
+        public int MaxIterations { get; set; }
+        public double Tolerance { get; set; }
+        public double StationarityCap { get; set; }
+
+        public GarchConfig()
+        {
+            Enabled = true;
+            DailyWindowDays = 252;
+            DailyMinSamples = 126;
+            IntradayTimeframeSeconds = 60;
+            IntradayMinBars = 90;
+            MaxIntradayBars = 1200;
+            BandMultipliers = new[] { 0.5d, 1.0d, 1.5d, 2.0d, 2.5d };
+            ReversionMinAbsZDaily = 0.75d;
+            ReversionMinAbsZIntraday = 1.5d;
+            ExtremeAbsZIntraday = 2.0d;
+            MaxEntryDistanceTicks = 6;
+            MaxIterations = 120;
+            Tolerance = 0.00000001d;
+            StationarityCap = 0.995d;
+        }
+
+        public void Normalize()
+        {
+            DailyWindowDays = Clamp(DailyWindowDays, 63, 1000);
+            DailyMinSamples = Clamp(DailyMinSamples, 63, Math.Max(DailyWindowDays, 63));
+            IntradayTimeframeSeconds = NormalizeIntradayTimeframe(IntradayTimeframeSeconds);
+            IntradayMinBars = Clamp(IntradayMinBars, 45, Math.Max(90, MaxIntradayBars));
+            MaxIntradayBars = Math.Max(300, MaxIntradayBars);
+            StationarityCap = Clamp(StationarityCap, 0.90d, 0.999d);
+            ReversionMinAbsZDaily = Math.Max(0d, ReversionMinAbsZDaily);
+            ReversionMinAbsZIntraday = Math.Max(0d, ReversionMinAbsZIntraday);
+            ExtremeAbsZIntraday = Math.Max(0d, ExtremeAbsZIntraday);
+            MaxEntryDistanceTicks = Clamp(MaxEntryDistanceTicks, 1, 30);
+            MaxIterations = Clamp(MaxIterations, 20, 500);
+            Tolerance = Math.Max(1e-12d, Tolerance);
+
+            if (BandMultipliers == null || BandMultipliers.Length == 0)
+            {
+                BandMultipliers = new[] { 0.5d, 1.0d, 1.5d, 2.0d, 2.5d };
+            }
+
+            BandMultipliers = BandMultipliers
+                .Where(x => x > 0d)
+                .Select(Math.Abs)
+                .OrderBy(x => x)
+                .Distinct()
+                .ToArray();
+
+            if (BandMultipliers.Length == 0)
+            {
+                BandMultipliers = new[] { 0.5d, 1.0d, 1.5d, 2.0d, 2.5d };
+            }
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            return Math.Max(min, Math.Min(max, value));
+        }
+
+        private static double Clamp(double value, double min, double max)
+        {
+            return Math.Max(min, Math.Min(max, value));
+        }
+
+        private static int NormalizeIntradayTimeframe(int timeframeSeconds)
+        {
+            if (timeframeSeconds == 300 || timeframeSeconds == 900)
+            {
+                return timeframeSeconds;
+            }
+
+            return 60;
+        }
+    }
+
+    public sealed class GarchFitResult
+    {
+        public bool Success { get; set; }
+        public string Status { get; set; }
+        public string Scope { get; set; }
+        public int Samples { get; set; }
+        public double Mu { get; set; }
+        public double Omega { get; set; }
+        public double Alpha { get; set; }
+        public double Beta { get; set; }
+        public double Persistence { get; set; }
+        public double HalfLifePeriods { get; set; }
+        public double LongRunVariance { get; set; }
+        public double LongRunSigma { get; set; }
+        public double LastVariance { get; set; }
+        public double NextVariance { get; set; }
+        public double NextSigma { get; set; }
+        public double NegativeLogLikelihood { get; set; }
+        public int Iterations { get; set; }
+        public DateTimeOffset CalculatedAt { get; set; }
+        public string Warning { get; set; }
+    }
+
+    public sealed class GarchBandLevel
+    {
+        public GarchBandLevel()
+        {
+            Source = "GARCH";
+            Side = string.Empty;
+            Label = string.Empty;
+        }
+
+        public string Scope { get; set; }
+        public string ReferenceName { get; set; }
+        public decimal ReferencePrice { get; set; }
+        public double Sigma { get; set; }
+        public decimal Price { get; set; }
+        public decimal DistanceCurrent { get; set; }
+        public decimal DistanceReference { get; set; }
+        public string Side { get; set; }
+        public string Label { get; set; }
+        public string Source { get; set; }
+        public string Read { get; set; }
+        public int ScoreHint { get; set; }
+    }
+
+    public sealed class GarchSnapshot
+    {
+        public GarchSnapshot()
+        {
+            DailyBands = new List<GarchBandLevel>();
+            IntradayBands = new List<GarchBandLevel>();
+            DailyFit = new GarchFitResult();
+            IntradayFit = new GarchFitResult();
+            Warnings = new List<string>();
+        }
+
+        public GarchFitResult DailyFit { get; set; }
+        public GarchFitResult IntradayFit { get; set; }
+        public decimal DailyReference { get; set; }
+        public string DailyReferenceName { get; set; }
+        public decimal IntradayReference { get; set; }
+        public string IntradayReferenceName { get; set; }
+        public decimal CurrentPrice { get; set; }
+        public double ZDaily { get; set; }
+        public double ZIntraday { get; set; }
+        public decimal DailySigmaPoints { get; set; }
+        public decimal IntradaySigmaPoints { get; set; }
+        public string DailyRegime { get; set; }
+        public string IntradayRegime { get; set; }
+        public string CombinedRead { get; set; }
+        public List<GarchBandLevel> DailyBands { get; set; }
+        public List<GarchBandLevel> IntradayBands { get; set; }
+        public List<string> Warnings { get; set; }
     }
 }

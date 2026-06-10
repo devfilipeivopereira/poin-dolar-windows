@@ -50,6 +50,7 @@ namespace RtdDolarNative.Charts
         private bool _showTechnicalLevels = true;
         private bool _showMarketLevels = true;
         private bool _showPercentLevels = true;
+        private bool _showGarchLevels = true;
 
         public NativeChartControl()
         {
@@ -288,6 +289,21 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public bool ShowGarchLevels
+        {
+            get { return _showGarchLevels; }
+            set
+            {
+                if (_showGarchLevels == value)
+                {
+                    return;
+                }
+
+                _showGarchLevels = value;
+                InvalidateVisual();
+            }
+        }
+
         public int ViewOffsetFromEndForDiagnostics
         {
             get { return _viewOffsetFromEnd; }
@@ -434,6 +450,11 @@ namespace RtdDolarNative.Charts
                 {
                     levels.AddRange(_result.Confluence.Take(12));
                 }
+
+                if (_showGarchLevels)
+                {
+                    levels.AddRange(BuildGarchLevels(_result.Garch));
+                }
             }
 
             foreach (KeyLevel level in levels)
@@ -527,25 +548,27 @@ namespace RtdDolarNative.Charts
             bool hasProfile = tokens.Any(IsProfileSource);
             bool hasMarket = tokens.Any(IsMarketSource);
             bool hasRtd = tokens.Any(IsRtdSource);
+            bool hasGarch = tokens.Any(IsGarchSource);
 
             bool visibleByCategory =
                 (hasPercent && _showPercentLevels) ||
                 (hasTechnical && _showTechnicalLevels) ||
                 (hasProfile && _showProfileLevels) ||
                 (hasMarket && _showMarketLevels) ||
-                (hasRtd && _showRtdLevels);
+                (hasRtd && _showRtdLevels) ||
+                (hasGarch && _showGarchLevels);
 
-            if (hasPercent || hasTechnical || hasProfile || hasMarket || hasRtd)
+            if (hasPercent || hasTechnical || hasProfile || hasMarket || hasRtd || hasGarch)
             {
                 return visibleByCategory;
             }
 
             if (tokens.Count == 0)
             {
-                return _showMarketLevels || _showRtdLevels;
+                return _showMarketLevels || _showRtdLevels || _showGarchLevels;
             }
 
-            return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels;
+            return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels || _showGarchLevels;
         }
 
         private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '/', '|' };
@@ -627,6 +650,57 @@ namespace RtdDolarNative.Charts
                 string.Equals(source, "MED", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "Maxima", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(source, "Minima", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsGarchSource(string source)
+        {
+            return !string.IsNullOrWhiteSpace(source) &&
+                   source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static List<KeyLevel> BuildGarchLevels(GarchSnapshot garch)
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (garch == null)
+            {
+                return levels;
+            }
+
+            foreach (GarchBandLevel band in garch.DailyBands ?? Enumerable.Empty<GarchBandLevel>())
+            {
+                levels.Add(ToKeyLevel(band, "GARCH-Diario"));
+            }
+
+            foreach (GarchBandLevel band in garch.IntradayBands ?? Enumerable.Empty<GarchBandLevel>())
+            {
+                levels.Add(ToKeyLevel(band, "GARCH-Intraday"));
+            }
+
+            return levels
+                .Where(x => x != null && x.Price > 0m)
+                .OrderBy(x => x.Score)
+                .ToList();
+        }
+
+        private static KeyLevel ToKeyLevel(GarchBandLevel band, string sourcePrefix)
+        {
+            if (band == null)
+            {
+                return null;
+            }
+
+            return new KeyLevel
+            {
+                Price = band.Price,
+                Label = band.Label,
+                Type = band.Side,
+                Source = string.IsNullOrWhiteSpace(band.Source) ? sourcePrefix : band.Source,
+                Score = band.ScoreHint,
+                Distance = band.DistanceCurrent,
+                Evidence = band.Read,
+                Layer = sourcePrefix
+            };
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -1190,6 +1264,14 @@ namespace RtdDolarNative.Charts
 
         private Brush LevelBrush(KeyLevel level)
         {
+            if (!string.IsNullOrWhiteSpace(level.Source) &&
+                level.Source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return string.Equals(level.Type, "Venda", StringComparison.OrdinalIgnoreCase)
+                    ? new SolidColorBrush(Color.FromRgb(255, 82, 82))
+                    : new SolidColorBrush(Color.FromRgb(18, 184, 134));
+            }
+
             if (level.Type == "Suporte")
             {
                 return new SolidColorBrush(Color.FromRgb(59, 201, 219));

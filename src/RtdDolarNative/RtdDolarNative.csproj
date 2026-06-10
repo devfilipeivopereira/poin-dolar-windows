@@ -130,6 +130,7 @@
     <Compile Include="MarketData\ValueParser.cs" />
     <Compile Include="Quant\QuantEngine.cs" />
     <Compile Include="Quant\QuantModels.cs" />
+    <Compile Include="Quant\GarchEngine.cs" />
     <Compile Include="Rtd\IRTDUpdateEvent.cs" />
     <Compile Include="Rtd\IRtdServer.cs" />
     <Compile Include="Rtd\RtdCompleteFieldCatalog.cs" />

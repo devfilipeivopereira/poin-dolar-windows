@@ -103,6 +103,11 @@ namespace RtdDolarNative.Config
                 config.Ui.ShowChartPercentLevels = true;
             }
 
+            if (!HasToken(json, "ShowChartGarchLevels"))
+            {
+                config.Ui.ShowChartGarchLevels = true;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -893,6 +898,7 @@ namespace RtdDolarNative.Config
             ShowChartTechnicalLevels = true;
             ShowChartMarketLevels = true;
             ShowChartPercentLevels = true;
+            ShowChartGarchLevels = true;
         }
 
         public int FastIntervalMs { get; set; }
@@ -914,6 +920,7 @@ namespace RtdDolarNative.Config
         public bool ShowChartTechnicalLevels { get; set; }
         public bool ShowChartMarketLevels { get; set; }
         public bool ShowChartPercentLevels { get; set; }
+        public bool ShowChartGarchLevels { get; set; }
 
         public void Normalize()
         {

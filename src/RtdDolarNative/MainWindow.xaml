@@ -42,6 +42,7 @@
         <SolidColorBrush x:Key="ChartLineTechnicalBrush" Color="#FF79C6" />
         <SolidColorBrush x:Key="ChartLineMarketBrush" Color="#50FA7B" />
         <SolidColorBrush x:Key="ChartLinePercentBrush" Color="#F8F8F2" />
+        <SolidColorBrush x:Key="ChartLineGarchBrush" Color="#BD4DFF" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#003B24" />
@@ -1382,13 +1383,16 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border x:Name="ChartLineControlsDock" Style="{StaticResource TopNavGroupBorderStyle}" BorderThickness="0">
+                                <Border x:Name="ChartLineControlsDock"
+                                        Style="{StaticResource TopNavGroupBorderStyle}"
+                                        BorderThickness="0"
+                                        Panel.ZIndex="12000">
                                     <StackPanel Orientation="Vertical">
                                         <TextBlock Text="Linhas" Style="{StaticResource TopNavGroupStyle}" />
                                         <ScrollViewer Margin="0,2,0,0"
                                                       Background="{StaticResource Bg}"
                                                       MinHeight="30"
-                                                      Height="30"
+                                                      Height="34"
                                                       HorizontalScrollBarVisibility="Auto"
                                                       VerticalScrollBarVisibility="Disabled"
                                                       CanContentScroll="False"
@@ -1471,6 +1475,14 @@
                                                           Content="%"
                                                           Tag="{StaticResource ChartLinePercentBrush}"
                                                           Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                          VerticalContentAlignment="Center"
+                                                          Checked="ChartLineVisibility_Checked"
+                                                          Unchecked="ChartLineVisibility_Checked" />
+                                                <CheckBox x:Name="ChartShowGarchLevelsCheckBox"
+                                                          Content="Garch"
+                                                          Tag="{StaticResource ChartLineGarchBrush}"
+                                                          Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                          Margin="0,0,8,0"
                                                           VerticalContentAlignment="Center"
                                                           Checked="ChartLineVisibility_Checked"
                                                           Unchecked="ChartLineVisibility_Checked" />

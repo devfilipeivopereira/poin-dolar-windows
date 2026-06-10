@@ -1046,7 +1046,8 @@ namespace RtdDolarNative
                 ChartShowProfileLevelsCheckBox == null ||
                 ChartShowTechnicalLevelsCheckBox == null ||
                 ChartShowMarketLevelsCheckBox == null ||
-                ChartShowPercentLevelsCheckBox == null)
+                ChartShowPercentLevelsCheckBox == null ||
+                ChartShowGarchLevelsCheckBox == null)
             {
                 return;
             }
@@ -1065,6 +1066,7 @@ namespace RtdDolarNative
                 ChartShowTechnicalLevelsCheckBox.IsChecked = _config.Ui.ShowChartTechnicalLevels;
                 ChartShowMarketLevelsCheckBox.IsChecked = _config.Ui.ShowChartMarketLevels;
                 ChartShowPercentLevelsCheckBox.IsChecked = _config.Ui.ShowChartPercentLevels;
+                ChartShowGarchLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarchLevels;
             }
             finally
             {
@@ -1091,6 +1093,7 @@ namespace RtdDolarNative
             bool showTechnicalLevels = ChartShowTechnicalLevelsCheckBox != null && ChartShowTechnicalLevelsCheckBox.IsChecked == true;
             bool showMarketLevels = ChartShowMarketLevelsCheckBox != null && ChartShowMarketLevelsCheckBox.IsChecked == true;
             bool showPercentLevels = ChartShowPercentLevelsCheckBox != null && ChartShowPercentLevelsCheckBox.IsChecked == true;
+            bool showGarchLevels = ChartShowGarchLevelsCheckBox != null && ChartShowGarchLevelsCheckBox.IsChecked == true;
 
             if (_config.Ui.ShowChartCandles != showCandles ||
                 _config.Ui.ShowChartPriceGrid != showPriceGrid ||
@@ -1101,7 +1104,8 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartProfileLevels != showProfileLevels ||
                 _config.Ui.ShowChartTechnicalLevels != showTechnicalLevels ||
                 _config.Ui.ShowChartMarketLevels != showMarketLevels ||
-                _config.Ui.ShowChartPercentLevels != showPercentLevels)
+                _config.Ui.ShowChartPercentLevels != showPercentLevels ||
+                _config.Ui.ShowChartGarchLevels != showGarchLevels)
             {
                 _config.Ui.ShowChartCandles = showCandles;
                 _config.Ui.ShowChartPriceGrid = showPriceGrid;
@@ -1113,6 +1117,7 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartTechnicalLevels = showTechnicalLevels;
                 _config.Ui.ShowChartMarketLevels = showMarketLevels;
                 _config.Ui.ShowChartPercentLevels = showPercentLevels;
+                _config.Ui.ShowChartGarchLevels = showGarchLevels;
                 SaveRuntimeConfig();
                 AddHistory("App", "Exibicao grafico", "Configuracao de linhas atualizada.");
             }
@@ -6416,6 +6421,7 @@ namespace RtdDolarNative
             bool showTechnicalLevels = _config.Ui.ShowChartTechnicalLevels;
             bool showMarketLevels = _config.Ui.ShowChartMarketLevels;
             bool showPercentLevels = _config.Ui.ShowChartPercentLevels;
+            bool showGarchLevels = _config.Ui.ShowChartGarchLevels;
 
             if (DashboardChartControl != null)
             {
@@ -6433,6 +6439,7 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowTechnicalLevels = showTechnicalLevels;
                 DashboardChartControl.ShowMarketLevels = showMarketLevels;
                 DashboardChartControl.ShowPercentLevels = showPercentLevels;
+                DashboardChartControl.ShowGarchLevels = showGarchLevels;
                 DashboardChartControl.InvalidateVisual();
             }
 
@@ -6452,6 +6459,7 @@ namespace RtdDolarNative
                 ChartControl.ShowTechnicalLevels = showTechnicalLevels;
                 ChartControl.ShowMarketLevels = showMarketLevels;
                 ChartControl.ShowPercentLevels = showPercentLevels;
+                ChartControl.ShowGarchLevels = showGarchLevels;
                 ChartControl.InvalidateVisual();
             }
         }
@@ -7180,7 +7188,8 @@ namespace RtdDolarNative
             try
             {
                 MarketSnapshot calcSnapshot = CurrentSnapshotForCalc();
-                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize, SelectedCalculationDays());
+                IEnumerable<TickEvent> focusedTicks = FilterFocusedTicks(FocusedAsset());
+                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize, SelectedCalculationDays(), focusedTicks);
                 _lastQuantVersion = _lastVersion;
                 RenderResult(calcSnapshot);
             }
@@ -7188,6 +7197,18 @@ namespace RtdDolarNative
             {
                 LastErrorText.Text = ex.GetType().Name + ": " + ex.Message;
             }
+        }
+
+        private IEnumerable<TickEvent> FilterFocusedTicks(string focusedAsset)
+        {
+            IEnumerable<TickEvent> ticks = _ticks.SnapshotNewestFirst();
+
+            if (string.IsNullOrWhiteSpace(focusedAsset))
+            {
+                return ticks;
+            }
+
+            return ticks.Where(x => string.Equals(x.Asset, focusedAsset, StringComparison.OrdinalIgnoreCase));
         }
 
         private MarketSnapshot CurrentSnapshotForCalc()

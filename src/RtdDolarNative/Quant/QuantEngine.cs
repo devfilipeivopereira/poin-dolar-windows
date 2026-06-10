@@ -16,6 +16,11 @@ namespace RtdDolarNative.Quant
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays)
         {
+            return Build(allBars, snapshot, tickSize, calculationDays, null);
+        }
+
+        public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays, IEnumerable<TickEvent> ticks)
+        {
             QuantResult result = new QuantResult();
             result.Bars = allBars == null ? new List<DailyBar>() : allBars.OrderBy(x => x.Date).ToList();
             int windowDays = UiConfig.NormalizeCalculationDays(calculationDays);
@@ -82,6 +87,7 @@ namespace RtdDolarNative.Quant
             result.Profile = VolumeProfileProxy(selectedWindow);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
+            result.Garch = BuildGarch(result.Bars, result.Intraday, snapshot, ticks, tickSize);
             result.OpeningLevels = ReferenceDeviationLevels("Abertura", result.Intraday.Open, result.GarmanKlass.Points, result.Intraday.Price);
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
             result.StandardDeviationLevels = MetricLevels("Desvio padrao", result.Intraday.Open, result.StandardDeviation, result.Intraday.Price);
@@ -107,6 +113,20 @@ namespace RtdDolarNative.Quant
             }
 
             return result;
+        }
+
+        private static GarchSnapshot BuildGarch(List<DailyBar> bars, IntradayContext intraday, MarketSnapshot snapshot, IEnumerable<TickEvent> ticks, decimal tickSize)
+        {
+            try
+            {
+                return GarchEngine.Build(bars, intraday, snapshot, ticks, tickSize);
+            }
+            catch (Exception ex)
+            {
+                GarchSnapshot error = new GarchSnapshot();
+                error.Warnings.Add("GARCH indisponivel no momento: " + ex.GetType().Name + " - " + ex.Message);
+                return error;
+            }
         }
 
         private static IntradayContext BuildIntraday(MarketSnapshot snapshot, DailyBar previousDay)
