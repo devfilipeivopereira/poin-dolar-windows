@@ -2589,6 +2589,7 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Pts" Binding="{Binding DistanceReference}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>

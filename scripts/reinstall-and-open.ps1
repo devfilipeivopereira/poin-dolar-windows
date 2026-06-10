@@ -134,7 +134,7 @@ if (-not $OpenOnly) {
     }
 
     Write-Host "Reinstalando em: $installDir"
-    & $distSetup @args
+    & $distSetup @args`n    Start-Sleep -Seconds 2
 }
 
 if (Test-Path $appExe) {
