@@ -3246,7 +3246,7 @@ namespace RtdDolarNative
                     Sigma = r.Sigma.ToString("N1", _ptBr) + "σ",
                     Touches = r.Touches.ToString(_ptBr),
                     Reversals = r.Reversals.ToString(_ptBr),
-                    ReversalRateText = r.ReversalRate.ToString("N1", _ptBr) + "%",
+                    ReversalRateText = r.ReversalRate.ToString("P1", _ptBr),
                     EdgeText = "Exp: " + r.ExpectancyPoints.ToString("N1", _ptBr) + " pts | PF: " + r.ProfitFactor.ToString("N2", _ptBr)
                 });
             }

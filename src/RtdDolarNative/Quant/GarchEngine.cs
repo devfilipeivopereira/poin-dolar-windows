@@ -241,10 +241,7 @@ namespace RtdDolarNative.Quant
             fit.LongRunVariance = fit.Omega / Math.Max(MinimumVariance, 1d - fit.Persistence);
             fit.LongRunSigma = Math.Sqrt(fit.LongRunVariance);
 
-            double nextDistance = Math.Max(1d, Math.Abs(mean));
-            fit.LastVariance = Math.Max(MinimumVariance, fit.Omega + fit.Alpha * ReturnsPower(centered, 2) * nextDistance + fit.Beta * fit.LongRunVariance);
-            fit.NextVariance = Math.Max(MinimumVariance, fit.Omega + fit.Alpha * ReturnsPower(centered, 1) + fit.Beta * fit.LastVariance);
-            fit.NextSigma = Math.Sqrt(Math.Max(MinimumVariance, fit.NextVariance));
+
 
             if (fit.NextSigma > 0d)
             {
@@ -279,7 +276,7 @@ namespace RtdDolarNative.Quant
             double bestAlpha = 0.08d;
             double bestBeta = 0.88d;
             double bestLastVariance = sampleVariance;
-            double bestNextVariance = sampleVariance;
+            double bestLastError = 0d;
 
             for (double alpha = 0.01d; alpha <= 0.20d; alpha += 0.01d)
             {
@@ -320,7 +317,7 @@ namespace RtdDolarNative.Quant
                         bestAlpha = alpha;
                         bestBeta = beta;
                         bestLastVariance = lastVariance;
-                        bestNextVariance = sampleVariance;
+                        bestLastError = lastError;
                     }
                 }
             }
@@ -341,9 +338,9 @@ namespace RtdDolarNative.Quant
             fit.Success = true;
             fit.Warning = string.Empty;
             fit.Iterations = Math.Max(1, 1);
-            fit.LastVariance = Math.Max(MinimumVariance, fit.Omega + fit.Alpha * bestLastVariance + fit.Beta * bestLastVariance);
-            fit.NextVariance = Math.Max(MinimumVariance, fit.Omega + fit.Alpha * bestLastVariance + fit.Beta * fit.LastVariance);
-            fit.NextSigma = Math.Sqrt(Math.Max(MinimumVariance, fit.NextVariance));
+            fit.LastVariance = Math.Max(MinimumVariance, bestLastVariance);
+            fit.NextVariance = Math.Max(MinimumVariance, fit.Omega + fit.Alpha * bestLastError * bestLastError + fit.Beta * bestLastVariance);
+            fit.NextSigma = Math.Sqrt(fit.NextVariance);
         }
 
         private static double EvaluateLogLikelihood(List<double> returns, GarchFitResult candidate, out double lastVariance, out double lastError, out int usedSamples)
