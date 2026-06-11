@@ -535,6 +535,10 @@ namespace RtdDolarNative.Charts
                 levels.AddRange(BuildMaxMin7Levels());
             }
 
+            levels = levels
+                .Where(x => !IsPocLevel(x))
+                .ToList();
+
             foreach (KeyLevel level in levels)
             {
                 if (level.Price > 0m)
@@ -681,10 +685,31 @@ namespace RtdDolarNative.Charts
                    level.Source.IndexOf("MaxMin7", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        private static bool IsPocLevel(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            return ContainsPoc(level.Source) ||
+                   ContainsPoc(level.Label) ||
+                   ContainsPoc(level.Evidence) ||
+                   ContainsPoc(level.Layer) ||
+                   ContainsPoc(level.Tags);
+        }
+
+        private static bool ContainsPoc(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.IndexOf("POC", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static List<KeyLevel> SelectVisibleChartLevels(IEnumerable<KeyLevel> levels)
         {
             List<KeyLevel> valid = (levels ?? Enumerable.Empty<KeyLevel>())
                 .Where(x => x != null && x.Price > 0m)
+                .Where(x => !IsPocLevel(x))
                 .GroupBy(x => LevelIdentity(x), StringComparer.OrdinalIgnoreCase)
                 .Select(x => x.OrderByDescending(y => y.Score).First())
                 .ToList();
