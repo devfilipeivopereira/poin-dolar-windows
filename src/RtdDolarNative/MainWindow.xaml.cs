@@ -1055,7 +1055,8 @@ namespace RtdDolarNative
                 ChartShowGarmanLevelsCheckBox == null ||
                 ChartShowGaussLevelsCheckBox == null ||
                 ChartShowStdDevLevelsCheckBox == null ||
-                ChartShowGarchLevelsCheckBox == null)
+                ChartShowGarchLevelsCheckBox == null ||
+                ChartShowMaxMin7LevelsCheckBox == null)
             {
                 return;
             }
@@ -1074,6 +1075,7 @@ namespace RtdDolarNative
                 ChartShowGaussLevelsCheckBox.IsChecked = _config.Ui.ShowChartGaussLevels;
                 ChartShowStdDevLevelsCheckBox.IsChecked = _config.Ui.ShowChartStdDevLevels;
                 ChartShowGarchLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarchLevels;
+                ChartShowMaxMin7LevelsCheckBox.IsChecked = _config.Ui.ShowChartMaxMin7Levels;
             }
             finally
             {
@@ -1104,6 +1106,7 @@ namespace RtdDolarNative
             bool showGaussLevels = ChartShowGaussLevelsCheckBox != null && ChartShowGaussLevelsCheckBox.IsChecked == true;
             bool showStdDevLevels = ChartShowStdDevLevelsCheckBox != null && ChartShowStdDevLevelsCheckBox.IsChecked == true;
             bool showGarchLevels = ChartShowGarchLevelsCheckBox != null && ChartShowGarchLevelsCheckBox.IsChecked == true;
+            bool showMaxMin7Levels = ChartShowMaxMin7LevelsCheckBox != null && ChartShowMaxMin7LevelsCheckBox.IsChecked == true;
 
             if (_config.Ui.ShowChartCandles != showCandles ||
                 _config.Ui.ShowChartPriceGrid != showPriceGrid ||
@@ -1118,7 +1121,8 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartGarmanLevels != showGarmanLevels ||
                 _config.Ui.ShowChartGaussLevels != showGaussLevels ||
                 _config.Ui.ShowChartStdDevLevels != showStdDevLevels ||
-                _config.Ui.ShowChartGarchLevels != showGarchLevels)
+                _config.Ui.ShowChartGarchLevels != showGarchLevels ||
+                _config.Ui.ShowChartMaxMin7Levels != showMaxMin7Levels)
             {
                 _config.Ui.ShowChartCandles = showCandles;
                 _config.Ui.ShowChartPriceGrid = showPriceGrid;
@@ -1134,6 +1138,7 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartGaussLevels = showGaussLevels;
                 _config.Ui.ShowChartStdDevLevels = showStdDevLevels;
                 _config.Ui.ShowChartGarchLevels = showGarchLevels;
+                _config.Ui.ShowChartMaxMin7Levels = showMaxMin7Levels;
                 SaveRuntimeConfig();
                 AddHistory("App", "Exibicao grafico", "Configuracao de linhas atualizada.");
             }
@@ -6829,6 +6834,7 @@ namespace RtdDolarNative
             bool showGaussLevels = _config.Ui.ShowChartGaussLevels;
             bool showStdDevLevels = _config.Ui.ShowChartStdDevLevels;
             bool showGarchLevels = _config.Ui.ShowChartGarchLevels;
+            bool showMaxMin7Levels = _config.Ui.ShowChartMaxMin7Levels;
 
             if (DashboardChartControl != null)
             {
@@ -6850,6 +6856,7 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowGaussLevels = showGaussLevels;
                 DashboardChartControl.ShowStdDevLevels = showStdDevLevels;
                 DashboardChartControl.ShowGarchLevels = showGarchLevels;
+                DashboardChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
                 DashboardChartControl.InvalidateVisual();
             }
 
@@ -6873,6 +6880,7 @@ namespace RtdDolarNative
                 ChartControl.ShowGaussLevels = showGaussLevels;
                 ChartControl.ShowStdDevLevels = showStdDevLevels;
                 ChartControl.ShowGarchLevels = showGarchLevels;
+                ChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
                 ChartControl.InvalidateVisual();
             }
         }

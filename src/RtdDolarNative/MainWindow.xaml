@@ -46,6 +46,7 @@
         <SolidColorBrush x:Key="ChartLineGarmanBrush" Color="#FFD166" />
         <SolidColorBrush x:Key="ChartLineGaussBrush" Color="#6CB6FF" />
         <SolidColorBrush x:Key="ChartLineStdDevBrush" Color="#F8F8F2" />
+        <SolidColorBrush x:Key="ChartLineMaxMin7Brush" Color="#FFB86C" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#0B0C0A" />
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#003B24" />
@@ -1490,6 +1491,15 @@
                                                           Content="%"
                                                           Tag="{StaticResource ChartLinePercentBrush}"
                                                           Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                          Margin="0,0,8,0"
+                                                          VerticalContentAlignment="Center"
+                                                          Checked="ChartLineVisibility_Checked"
+                                                          Unchecked="ChartLineVisibility_Checked" />
+                                                <CheckBox x:Name="ChartShowMaxMin7LevelsCheckBox"
+                                                          Content="MaxMin7"
+                                                          Tag="{StaticResource ChartLineMaxMin7Brush}"
+                                                          Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                                          ToolTip="Maxima e minima dos ultimos 7 pregoes"
                                                           VerticalContentAlignment="Center"
                                                           Checked="ChartLineVisibility_Checked"
                                                           Unchecked="ChartLineVisibility_Checked" />

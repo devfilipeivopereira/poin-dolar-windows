@@ -54,6 +54,7 @@ namespace RtdDolarNative.Charts
         private bool _showGarmanLevels = true;
         private bool _showGaussLevels = true;
         private bool _showStdDevLevels = true;
+        private bool _showMaxMin7Levels = true;
 
         public NativeChartControl()
         {
@@ -352,6 +353,21 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public bool ShowMaxMin7Levels
+        {
+            get { return _showMaxMin7Levels; }
+            set
+            {
+                if (_showMaxMin7Levels == value)
+                {
+                    return;
+                }
+
+                _showMaxMin7Levels = value;
+                InvalidateVisual();
+            }
+        }
+
         public int ViewOffsetFromEndForDiagnostics
         {
             get { return _viewOffsetFromEnd; }
@@ -514,6 +530,11 @@ namespace RtdDolarNative.Charts
                 }
             }
 
+            if (_showMaxMin7Levels)
+            {
+                levels.AddRange(BuildMaxMin7Levels());
+            }
+
             foreach (KeyLevel level in levels)
             {
                 if (level.Price > 0m)
@@ -649,6 +670,17 @@ namespace RtdDolarNative.Charts
             return LevelSourceTokens(level.Source).Any(IsPercentSource);
         }
 
+        private static bool IsMaxMin7Level(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(level.Source) &&
+                   level.Source.IndexOf("MaxMin7", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static List<KeyLevel> SelectVisibleChartLevels(IEnumerable<KeyLevel> levels)
         {
             List<KeyLevel> valid = (levels ?? Enumerable.Empty<KeyLevel>())
@@ -658,7 +690,7 @@ namespace RtdDolarNative.Charts
                 .ToList();
 
             List<KeyLevel> nonPercent = valid
-                .Where(x => !IsPercentLevel(x))
+                .Where(x => !IsPercentLevel(x) && !IsMaxMin7Level(x))
                 .OrderByDescending(x => x.Score)
                 .Take(40)
                 .ToList();
@@ -669,6 +701,7 @@ namespace RtdDolarNative.Charts
                 .ToList();
 
             nonPercent.AddRange(percent);
+            nonPercent.AddRange(valid.Where(IsMaxMin7Level).OrderByDescending(x => x.Price));
             return nonPercent;
         }
 
@@ -777,6 +810,51 @@ namespace RtdDolarNative.Charts
         {
             return !string.IsNullOrWhiteSpace(source) &&
                    source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private List<KeyLevel> BuildMaxMin7Levels()
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+            List<DailyBar> lastSeven = (_bars ?? new List<DailyBar>())
+                .Where(x => x != null && x.High > 0m && x.Low > 0m)
+                .OrderByDescending(x => x.Date)
+                .Take(7)
+                .ToList();
+
+            if (lastSeven.Count == 0)
+            {
+                return levels;
+            }
+
+            decimal max = lastSeven.Max(x => x.High);
+            decimal min = lastSeven.Min(x => x.Low);
+            DateTime start = lastSeven.Min(x => x.Date);
+            DateTime end = lastSeven.Max(x => x.Date);
+            string evidence = lastSeven.Count.ToString(PtBrCulture) + " pregoes | " + start.ToString("dd/MM/yyyy", PtBrCulture) + " - " + end.ToString("dd/MM/yyyy", PtBrCulture);
+
+            levels.Add(new KeyLevel
+            {
+                Price = max,
+                Label = "MaxMin7 Max",
+                Type = "Resistencia",
+                Source = "MaxMin7",
+                Score = 96d,
+                Evidence = evidence,
+                Layer = "MaxMin7"
+            });
+
+            levels.Add(new KeyLevel
+            {
+                Price = min,
+                Label = "MaxMin7 Min",
+                Type = "Suporte",
+                Source = "MaxMin7",
+                Score = 96d,
+                Evidence = evidence,
+                Layer = "MaxMin7"
+            });
+
+            return levels;
         }
 
         private List<KeyLevel> BuildReferenceMetricLevels(QuantResult result)
@@ -1497,6 +1575,14 @@ namespace RtdDolarNative.Charts
 
         private Brush LevelBrush(KeyLevel level)
         {
+            if (!string.IsNullOrWhiteSpace(level.Source) &&
+                level.Source.IndexOf("MaxMin7", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return string.Equals(level.Type, "Resistencia", StringComparison.OrdinalIgnoreCase)
+                    ? new SolidColorBrush(Color.FromRgb(255, 82, 82))
+                    : new SolidColorBrush(Color.FromRgb(18, 184, 134));
+            }
+
             if (!string.IsNullOrWhiteSpace(level.Source) &&
                 IsGarmanSource(level.Source))
             {

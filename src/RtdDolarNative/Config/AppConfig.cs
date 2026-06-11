@@ -128,6 +128,11 @@ namespace RtdDolarNative.Config
                 config.Ui.ShowChartStdDevLevels = true;
             }
 
+            if (!HasToken(json, "ShowChartMaxMin7Levels"))
+            {
+                config.Ui.ShowChartMaxMin7Levels = true;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -924,6 +929,7 @@ namespace RtdDolarNative.Config
             ShowChartGarmanLevels = true;
             ShowChartGaussLevels = true;
             ShowChartStdDevLevels = true;
+            ShowChartMaxMin7Levels = true;
         }
 
         public int FastIntervalMs { get; set; }
@@ -949,6 +955,7 @@ namespace RtdDolarNative.Config
         public bool ShowChartGarmanLevels { get; set; }
         public bool ShowChartGaussLevels { get; set; }
         public bool ShowChartStdDevLevels { get; set; }
+        public bool ShowChartMaxMin7Levels { get; set; }
 
         public void Normalize()
         {
