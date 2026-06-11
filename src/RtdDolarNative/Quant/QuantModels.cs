@@ -248,6 +248,50 @@ namespace RtdDolarNative.Quant
         public string RobustnessGate { get; set; }
     }
 
+    public sealed class MarketBiasFactor
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Category { get; set; }
+        public double Score { get; set; }
+        public double Confidence { get; set; }
+        public string Value { get; set; }
+        public string Note { get; set; }
+        public bool Available { get; set; }
+    }
+
+    public sealed class MarketBiasCategory
+    {
+        public string Key { get; set; }
+        public string Label { get; set; }
+        public double Weight { get; set; }
+        public double? Score { get; set; }
+        public double Contribution { get; set; }
+        public double Confidence { get; set; }
+        public int ActiveFactors { get; set; }
+    }
+
+    public sealed class MarketBiasSnapshot
+    {
+        public MarketBiasSnapshot()
+        {
+            Direction = "Neutro";
+            Read = "sem fatores ativos";
+            Factors = new List<MarketBiasFactor>();
+            Categories = new List<MarketBiasCategory>();
+            TopFactors = new List<MarketBiasFactor>();
+        }
+
+        public double Score { get; set; }
+        public string Direction { get; set; }
+        public double ConfidencePct { get; set; }
+        public double CoveragePct { get; set; }
+        public string Read { get; set; }
+        public List<MarketBiasFactor> Factors { get; set; }
+        public List<MarketBiasCategory> Categories { get; set; }
+        public List<MarketBiasFactor> TopFactors { get; set; }
+    }
+
     public sealed class QuantResult
     {
         public QuantResult()
@@ -271,6 +315,7 @@ namespace RtdDolarNative.Quant
             Bars = new List<DailyBar>();
             Technicals = new TechnicalIndicatorSnapshot();
             Garch = new GarchSnapshot();
+            MarketBias = new MarketBiasSnapshot();
         }
 
         public List<string> Warnings { get; set; }
@@ -305,6 +350,7 @@ namespace RtdDolarNative.Quant
         public string Regime { get; set; }
         public int CalculationDays { get; set; }
         public GarchSnapshot Garch { get; set; }
+        public MarketBiasSnapshot MarketBias { get; set; }
     }
 
     public sealed class GarchConfig

@@ -2777,6 +2777,7 @@ namespace RtdDolarNative
             }
 
             UpdateDashboardProfile(snapshot, metrics);
+            UpdateDashboardMarketBias();
             RefreshDashboardHeavyGrids(snapshot, asset);
 
             RefreshDashboardChart(snapshot);
@@ -5437,6 +5438,60 @@ namespace RtdDolarNative
 
             DashboardProfileText.Text = "POC -";
             DashboardProfileDetailText.Text = "VAH / VAL -";
+        }
+
+        private void UpdateDashboardMarketBias()
+        {
+            if (DashboardBiasText == null || DashboardBiasScoreText == null || DashboardBiasDetailText == null)
+            {
+                return;
+            }
+
+            MarketBiasSnapshot bias = _result == null ? null : _result.MarketBias;
+
+            if (bias == null || bias.Factors == null || bias.Factors.Count == 0)
+            {
+                DashboardBiasText.Text = "Neutro";
+                DashboardBiasText.Foreground = FindResource("Muted") as Brush;
+                DashboardBiasScoreText.Text = "Score - | Conf - | Cobertura -";
+                DashboardBiasDetailText.Text = "Fatores insuficientes";
+                return;
+            }
+
+            DashboardBiasText.Text = EmptyToDash(bias.Direction);
+            DashboardBiasText.Foreground = MarketBiasBrush(bias.Direction);
+            DashboardBiasScoreText.Text = "Score " + (bias.Score * 100d).ToString("+0;-0;0", _ptBr) +
+                                          " | Conf " + bias.ConfidencePct.ToString("N0", _ptBr) + "%" +
+                                          " | Cob " + bias.CoveragePct.ToString("N0", _ptBr) + "%";
+            DashboardBiasDetailText.Text = MarketBiasTopFactorsText(bias);
+        }
+
+        private Brush MarketBiasBrush(string direction)
+        {
+            if (string.Equals(direction, "Compra", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Accent") as Brush;
+            }
+
+            if (string.Equals(direction, "Venda", StringComparison.OrdinalIgnoreCase))
+            {
+                return FindResource("Danger") as Brush;
+            }
+
+            return FindResource("Muted") as Brush;
+        }
+
+        private string MarketBiasTopFactorsText(MarketBiasSnapshot bias)
+        {
+            if (bias == null || bias.TopFactors == null || bias.TopFactors.Count == 0)
+            {
+                return "Fatores -";
+            }
+
+            return string.Join(" | ", bias.TopFactors
+                .Take(3)
+                .Select(x => x.Name + " " + (x.Score * 100d).ToString("+0;-0;0", _ptBr))
+                .ToArray());
         }
 
         private List<KeyLevel> BuildDashboardLevels(MarketSnapshot snapshot)
@@ -9082,6 +9137,19 @@ namespace RtdDolarNative
                           " | " + EmptyToDash(result.Technicals.ReversionState) +
                           " | amostra " + result.Technicals.SampleSize.ToString(_ptBr) +
                           " | janela " + calculationDays.ToString(_ptBr) + "d");
+            }
+
+            if (result.MarketBias != null)
+            {
+                lines.Add("Vies multifator: " + EmptyToDash(result.MarketBias.Direction) +
+                          " | score " + (result.MarketBias.Score * 100d).ToString("+0;-0;0", _ptBr) +
+                          " | conf " + result.MarketBias.ConfidencePct.ToString("N0", _ptBr) + "%" +
+                          " | cobertura " + result.MarketBias.CoveragePct.ToString("N0", _ptBr) + "%");
+
+                if (result.MarketBias.TopFactors != null && result.MarketBias.TopFactors.Count > 0)
+                {
+                    lines.Add("Fatores vies: " + MarketBiasTopFactorsText(result.MarketBias));
+                }
             }
 
             if (result.QuantSignals != null && result.QuantSignals.Count > 0)

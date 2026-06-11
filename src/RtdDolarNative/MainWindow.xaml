@@ -1606,7 +1606,7 @@
                         </Button>
                     </UniformGrid>
 
-                    <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,10">
+                    <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,10">
                         <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
                             <StackPanel>
                                 <TextBlock Text="Resumo Mercado" Foreground="{StaticResource Muted}" />
@@ -1652,12 +1652,21 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0">
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0,0,10,0">
                             <StackPanel>
                                 <TextBlock Text="Volume Profile" Foreground="{StaticResource Muted}" />
                                 <TextBlock x:Name="DashboardProfileText" Text="POC -" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock x:Name="DashboardProfileDetailText" Text="VAH / VAL -" Foreground="{StaticResource Muted}" Margin="0,6,0,0" />
                                 <TextBlock x:Name="DashboardCsvText" Text="CSV -" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="12" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="Vies Multifator" Foreground="{StaticResource Muted}" />
+                                <TextBlock x:Name="DashboardBiasText" Text="Neutro" FontSize="18" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock x:Name="DashboardBiasScoreText" Text="Score -" Foreground="{StaticResource Muted}" Margin="0,6,0,0" />
+                                <TextBlock x:Name="DashboardBiasDetailText" Text="Fatores -" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                         </Border>
                     </UniformGrid>

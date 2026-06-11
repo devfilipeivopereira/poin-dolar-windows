@@ -26,6 +26,8 @@ namespace QuantEngineTests
                 ReferenceMapClosingUsesCsvWhenRtdCloseMatchesOpening,
                 ReferenceMapsBuildDirectionalLadders,
                 PtaxHistoryStoreUpsertsAndLoads,
+                MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
+                MarketBiasStaysNeutralWhenCsvIsMissing,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartMetricLinesUseOnlySelectedReferenceMode,
                 ChartMetricBuySellLinesUseDirectionalColors,
@@ -202,6 +204,40 @@ namespace QuantEngineTests
             {
                 TryDelete(folder);
             }
+        }
+
+        private static void MarketBiasFavoursBuyWhenTrendAndMomentumAlign()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 5408m;
+            snapshot.Rtd["ABE"] = 5372m;
+            snapshot.Rtd["MAX"] = 5412m;
+            snapshot.Rtd["MIN"] = 5368m;
+            snapshot.Rtd["FEC"] = 5386m;
+            snapshot.Rtd["MED"] = 5392m;
+            snapshot.Rtd["VOL"] = 150000m;
+
+            QuantResult result = QuantEngine.Build(BuildTrendingBars(true), snapshot, 0.5m, 45);
+
+            Assert(result.MarketBias != null, "Market bias should be calculated.");
+            Assert(result.MarketBias.Score > 0.15d, "Aligned trend and momentum should produce a positive market-bias score.");
+            AssertEqual("Compra", result.MarketBias.Direction, "Positive market-bias score should be labelled as Compra.");
+            Assert(result.MarketBias.ConfidencePct > 25d, "Market bias should expose a usable confidence percentage.");
+            Assert(result.MarketBias.CoveragePct > 40d, "Market bias should report factor coverage.");
+            Assert(result.MarketBias.TopFactors.Any(x => x.Name.IndexOf("EMA", StringComparison.OrdinalIgnoreCase) >= 0), "EMA alignment should be one of the top explanatory factors.");
+        }
+
+        private static void MarketBiasStaysNeutralWhenCsvIsMissing()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 5200m;
+
+            QuantResult result = QuantEngine.Build(new List<DailyBar>(), snapshot, 0.5m, 45);
+
+            Assert(result.MarketBias != null, "Market bias should exist even when data is missing.");
+            AssertEqual("Neutro", result.MarketBias.Direction, "Missing CSV should not fabricate a directional market bias.");
+            AssertEqual(0d, result.MarketBias.CoveragePct, "Missing CSV should produce zero factor coverage.");
+            AssertEqual(0, result.MarketBias.Factors.Count, "Missing CSV should produce no active market-bias factors.");
         }
 
         private static void ChartReferenceLineModeFiltersOpeningAndClosingMaps()
@@ -426,6 +462,37 @@ namespace QuantEngineTests
                     Close = close,
                     Volume = 1000m + i
                 });
+            }
+
+            return bars;
+        }
+
+        private static List<DailyBar> BuildTrendingBars(bool bullish)
+        {
+            List<DailyBar> bars = new List<DailyBar>();
+            DateTime start = new DateTime(2025, 10, 1);
+            decimal price = bullish ? 5000m : 5400m;
+            decimal step = bullish ? 3.6m : -3.6m;
+
+            for (int i = 0; i < 95; i++)
+            {
+                decimal open = price;
+                decimal close = open + step + (i % 3) * (bullish ? 0.5m : -0.5m);
+                decimal high = Math.Max(open, close) + 8m + (i % 4);
+                decimal low = Math.Min(open, close) - 7m - (i % 3);
+
+                bars.Add(new DailyBar
+                {
+                    Asset = "WDOFUT_F_0",
+                    Date = start.AddDays(i),
+                    Open = open,
+                    High = high,
+                    Low = low,
+                    Close = close,
+                    Volume = 1500m + i * 4m
+                });
+
+                price = close;
             }
 
             return bars;

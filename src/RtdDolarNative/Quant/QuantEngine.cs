@@ -43,6 +43,7 @@ namespace RtdDolarNative.Quant
                 result.Warnings.Add("Carregue um CSV diario para calcular os niveis.");
                 result.Intraday = BuildIntraday(snapshot, null);
                 result.Technicals = BuildTechnicalIndicators(result.Bars, result.Intraday, null, windowDays);
+                result.MarketBias = BuildMarketBias(result);
                 return result;
             }
 
@@ -113,6 +114,7 @@ namespace RtdDolarNative.Quant
             result.Confluence = MergeInterestLevels(result.KeyLevels, result.Intraday.Price, tickSize);
             result.Regime = DetectRegime(result.Atr, result.CloseToClose, result.Intraday, result.PreviousDay);
             result.QuantSignals = BuildQuantSignals(result, tickSize);
+            result.MarketBias = BuildMarketBias(result);
 
             if (result.Intraday.VwapIsProxy)
             {
@@ -1561,6 +1563,314 @@ namespace RtdDolarNative.Quant
             }
 
             return "neutro";
+        }
+
+        private static MarketBiasSnapshot BuildMarketBias(QuantResult result)
+        {
+            MarketBiasSnapshot bias = new MarketBiasSnapshot();
+
+            if (result == null || result.Bars == null || result.Bars.Count == 0 || result.Intraday == null || result.Intraday.Price <= 0m)
+            {
+                return bias;
+            }
+
+            AddTechnicalBiasFactors(bias.Factors, result);
+            AddLevelBiasFactors(bias.Factors, result);
+            AddPriceBiasFactors(bias.Factors, result);
+            AddVolatilityBiasFactors(bias.Factors, result);
+
+            List<MarketBiasFactor> active = bias.Factors
+                .Where(x => x != null && x.Available && x.Confidence > 0d)
+                .ToList();
+
+            if (active.Count == 0)
+            {
+                return bias;
+            }
+
+            AddMarketBiasCategory(bias, "tecnico", "Tecnico", 0.38d, active);
+            AddMarketBiasCategory(bias, "niveis", "Niveis", 0.24d, active);
+            AddMarketBiasCategory(bias, "preco", "Preco/VWAP", 0.18d, active);
+            AddMarketBiasCategory(bias, "volatilidade", "Volatilidade", 0.20d, active);
+
+            double weighted = 0d;
+            double weightSum = 0d;
+
+            foreach (MarketBiasCategory category in bias.Categories)
+            {
+                if (!category.Score.HasValue || category.ActiveFactors == 0)
+                {
+                    continue;
+                }
+
+                weighted += category.Score.Value * category.Weight;
+                weightSum += category.Weight;
+            }
+
+            if (weightSum <= 0d)
+            {
+                return bias;
+            }
+
+            double raw = weighted / weightSum;
+            bias.Score = Clamp(Math.Tanh(raw * 1.6d), -1d, 1d);
+            bias.CoveragePct = Clamp(weightSum, 0d, 1d) * 100d;
+
+            double agreement = Math.Abs(active.Sum(x => Math.Sign(x.Score))) / Math.Max(1d, active.Count);
+            double avgConfidence = active.Average(x => x.Confidence);
+            bias.ConfidencePct = Clamp(Math.Abs(bias.Score) * 0.45d + agreement * 0.25d + avgConfidence * 0.20d + (bias.CoveragePct / 100d) * 0.10d, 0d, 1d) * 100d;
+            bias.Direction = MarketBiasDirection(bias.Score);
+            bias.TopFactors = active
+                .OrderByDescending(x => Math.Abs(x.Score * x.Confidence))
+                .ThenByDescending(x => x.Confidence)
+                .Take(5)
+                .ToList();
+            bias.Read = MarketBiasRead(bias);
+            return bias;
+        }
+
+        private static void AddTechnicalBiasFactors(List<MarketBiasFactor> factors, QuantResult result)
+        {
+            TechnicalIndicatorSnapshot t = result == null ? null : result.Technicals;
+            IntradayContext intraday = result == null ? null : result.Intraday;
+
+            if (factors == null || t == null || intraday == null)
+            {
+                return;
+            }
+
+            if (t.Ema9.HasValue && t.Ema21.HasValue && t.Ema50.HasValue)
+            {
+                double score = 0d;
+                string value = "mista";
+                string note = "medias sem alinhamento claro";
+
+                if (t.Ema9.Value > t.Ema21.Value && t.Ema21.Value > t.Ema50.Value && intraday.Price >= t.Ema21.Value)
+                {
+                    score = 0.72d;
+                    value = "compradora";
+                    note = "EMA9 > EMA21 > EMA50 e preco acima da EMA21";
+                }
+                else if (t.Ema9.Value < t.Ema21.Value && t.Ema21.Value < t.Ema50.Value && intraday.Price <= t.Ema21.Value)
+                {
+                    score = -0.72d;
+                    value = "vendedora";
+                    note = "EMA9 < EMA21 < EMA50 e preco abaixo da EMA21";
+                }
+                else if (t.Ema21.Value > t.Ema50.Value)
+                {
+                    score = 0.24d;
+                    value = "leve compra";
+                    note = "EMA21 acima da EMA50, sem pilha completa";
+                }
+                else if (t.Ema21.Value < t.Ema50.Value)
+                {
+                    score = -0.24d;
+                    value = "leve venda";
+                    note = "EMA21 abaixo da EMA50, sem pilha completa";
+                }
+
+                AddMarketBiasFactor(factors, "ema", "EMA alinhamento", "tecnico", score, 0.78d, value, note);
+            }
+
+            if (t.MacdHistogram.HasValue && intraday.Price > 0m)
+            {
+                double score = Clamp(D(t.MacdHistogram.Value) / Math.Max(1d, D(intraday.Price) * 0.0012d), -1d, 1d);
+                AddMarketBiasFactor(factors, "macd", "MACD histograma", "tecnico", score, 0.58d, t.MacdHistogram.Value.ToString("0.##"), score >= 0d ? "momentum positivo" : "momentum negativo");
+            }
+
+            if (t.Rsi14.HasValue)
+            {
+                decimal rsi = t.Rsi14.Value;
+                double score;
+                string note;
+
+                if (rsi >= 80m)
+                {
+                    score = -0.25d;
+                    note = "sobrecompra extrema reduz assimetria";
+                }
+                else if (rsi <= 20m)
+                {
+                    score = 0.25d;
+                    note = "sobrevenda extrema aumenta chance de alivio";
+                }
+                else
+                {
+                    score = Clamp(D(rsi - 50m) / 30d, -1d, 1d);
+                    note = rsi >= 55m ? "momentum comprador" : rsi <= 45m ? "momentum vendedor" : "momentum neutro";
+                }
+
+                AddMarketBiasFactor(factors, "rsi", "RSI14", "tecnico", score, 0.46d, rsi.ToString("0.0"), note);
+            }
+
+            if (t.ZScore20.HasValue)
+            {
+                double z = D(t.ZScore20.Value);
+                double score = Clamp(-z / 2.8d, -0.55d, 0.55d);
+                AddMarketBiasFactor(factors, "z20", "ZScore20 reversao", "tecnico", score, 0.34d, z.ToString("0.00"), z > 0d ? "preco esticado acima da media" : "preco descontado contra a media");
+            }
+        }
+
+        private static void AddLevelBiasFactors(List<MarketBiasFactor> factors, QuantResult result)
+        {
+            if (factors == null || result == null || result.Intraday == null)
+            {
+                return;
+            }
+
+            decimal price = result.Intraday.Price;
+            decimal atr = result.Atr == null || result.Atr.Points <= 0m ? Math.Max(1m, price * 0.002m) : result.Atr.Points;
+            List<KeyLevel> levels = result.Confluence ?? new List<KeyLevel>();
+            KeyLevel support = levels
+                .Where(x => x != null && x.Price <= price && string.Equals(x.Direction, "Compra", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => price - x.Price)
+                .ThenByDescending(x => x.Score)
+                .FirstOrDefault();
+            KeyLevel resistance = levels
+                .Where(x => x != null && x.Price >= price && string.Equals(x.Direction, "Venda", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Price - price)
+                .ThenByDescending(x => x.Score)
+                .FirstOrDefault();
+
+            if (support != null || resistance != null)
+            {
+                decimal distSupport = support == null ? atr * 4m : price - support.Price;
+                decimal distResistance = resistance == null ? atr * 4m : resistance.Price - price;
+                double score = Clamp(D(distResistance - distSupport) / Math.Max(1d, D(atr) * 6d), -0.65d, 0.65d);
+                string note = "dist suporte " + distSupport.ToString("0.##") + " / resistencia " + distResistance.ToString("0.##");
+
+                if (support != null && distSupport <= atr * 1.2m)
+                {
+                    score = Math.Max(score, 0.45d);
+                    note = "preco proximo de suporte relevante";
+                }
+
+                if (resistance != null && distResistance <= atr * 1.2m)
+                {
+                    score = Math.Min(score, -0.45d);
+                    note = "preco proximo de resistencia relevante";
+                }
+
+                string value = (support == null ? "-" : support.Price.ToString("0.##")) + " / " + (resistance == null ? "-" : resistance.Price.ToString("0.##"));
+                AddMarketBiasFactor(factors, "sr", "Suporte x resistencia", "niveis", score, 0.56d, value, note);
+            }
+
+            if (result.Profile != null && result.Profile.Poc != null && result.Profile.Poc.Price > 0m)
+            {
+                double pocScore = Clamp(D(price - result.Profile.Poc.Price) / Math.Max(1d, D(atr) * 3d), -0.55d, 0.55d);
+                AddMarketBiasFactor(factors, "poc", "Preco x POC", "niveis", pocScore, 0.38d, result.Profile.Poc.Price.ToString("0.##"), price >= result.Profile.Poc.Price ? "preco acima da zona de valor" : "preco abaixo da zona de valor");
+            }
+        }
+
+        private static void AddPriceBiasFactors(List<MarketBiasFactor> factors, QuantResult result)
+        {
+            if (factors == null || result == null || result.Intraday == null)
+            {
+                return;
+            }
+
+            if (result.Technicals != null && result.Technicals.AtrVwapDistance.HasValue)
+            {
+                double dist = D(result.Technicals.AtrVwapDistance.Value);
+                AddMarketBiasFactor(factors, "vwap", "Distancia VWAP", "preco", Clamp(dist / 2.2d, -0.65d, 0.65d), 0.48d, dist.ToString("0.00") + " ATR", dist >= 0d ? "preco acima da VWAP/MED" : "preco abaixo da VWAP/MED");
+            }
+
+            if (result.PreviousDay != null && result.PreviousDay.Close > 0m)
+            {
+                decimal atr = result.Atr == null || result.Atr.Points <= 0m ? Math.Max(1m, result.PreviousDay.Close * 0.002m) : result.Atr.Points;
+                decimal move = result.Intraday.Price - result.PreviousDay.Close;
+                AddMarketBiasFactor(factors, "d1move", "Atual x fechamento D-1", "preco", Clamp(D(move) / Math.Max(1d, D(atr) * 2.4d), -0.70d, 0.70d), 0.42d, move.ToString("+0.##;-0.##;0"), move >= 0m ? "preco sustenta acima do fechamento anterior" : "preco abaixo do fechamento anterior");
+            }
+        }
+
+        private static void AddVolatilityBiasFactors(List<MarketBiasFactor> factors, QuantResult result)
+        {
+            if (factors == null || result == null)
+            {
+                return;
+            }
+
+            if (result.Garch != null && Math.Abs(result.Garch.ZDaily) > 0.05d)
+            {
+                double z = result.Garch.ZDaily;
+                double score = Clamp(-z / 3.0d, -0.55d, 0.55d);
+                AddMarketBiasFactor(factors, "garchz", "GARCH z diario", "volatilidade", score, 0.42d, z.ToString("0.00"), z > 0d ? "preco acima da referencia GARCH" : "preco abaixo da referencia GARCH");
+            }
+
+            if (result.Atr != null && result.Atr.Points > 0m)
+            {
+                double score = result.Atr.Percentile >= 80d ? -0.10d : result.Atr.Percentile <= 25d ? 0.10d : 0d;
+                AddMarketBiasFactor(factors, "atrpct", "ATR percentil", "volatilidade", score, 0.28d, result.Atr.Percentile.ToString("0") + "%", result.Atr.Percentile >= 80d ? "volatilidade alta pede confirmacao" : result.Atr.Percentile <= 25d ? "volatilidade baixa favorece expansao" : "volatilidade normal");
+            }
+        }
+
+        private static void AddMarketBiasCategory(MarketBiasSnapshot bias, string key, string label, double weight, List<MarketBiasFactor> activeFactors)
+        {
+            List<MarketBiasFactor> factors = activeFactors
+                .Where(x => string.Equals(x.Category, key, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            MarketBiasCategory category = new MarketBiasCategory();
+            category.Key = key;
+            category.Label = label;
+            category.Weight = weight;
+            category.ActiveFactors = factors.Count;
+
+            if (factors.Count > 0)
+            {
+                double confidenceSum = factors.Sum(x => x.Confidence);
+                category.Score = confidenceSum <= 0d ? 0d : Clamp(factors.Sum(x => x.Score * x.Confidence) / confidenceSum, -1d, 1d);
+                category.Confidence = confidenceSum / factors.Count;
+                category.Contribution = category.Score.Value * weight;
+            }
+
+            bias.Categories.Add(category);
+        }
+
+        private static void AddMarketBiasFactor(List<MarketBiasFactor> factors, string id, string name, string category, double score, double confidence, string value, string note)
+        {
+            if (factors == null)
+            {
+                return;
+            }
+
+            MarketBiasFactor factor = new MarketBiasFactor();
+            factor.Id = id;
+            factor.Name = name;
+            factor.Category = category;
+            factor.Score = Clamp(score, -1d, 1d);
+            factor.Confidence = Clamp(confidence, 0d, 1d);
+            factor.Value = string.IsNullOrWhiteSpace(value) ? "-" : value;
+            factor.Note = string.IsNullOrWhiteSpace(note) ? "-" : note;
+            factor.Available = true;
+            factors.Add(factor);
+        }
+
+        private static string MarketBiasDirection(double score)
+        {
+            if (score >= 0.10d)
+            {
+                return "Compra";
+            }
+
+            if (score <= -0.10d)
+            {
+                return "Venda";
+            }
+
+            return "Neutro";
+        }
+
+        private static string MarketBiasRead(MarketBiasSnapshot bias)
+        {
+            if (bias == null || bias.TopFactors == null || bias.TopFactors.Count == 0)
+            {
+                return "sem fatores ativos";
+            }
+
+            string top = string.Join("; ", bias.TopFactors.Take(3).Select(x => x.Name + " " + (x.Score >= 0d ? "+" : string.Empty) + (x.Score * 100d).ToString("0")).ToArray());
+            return bias.Direction + " | score " + (bias.Score * 100d).ToString("0") + " | " + top;
         }
 
         private static bool IsBullTrend(TechnicalIndicatorSnapshot t)
