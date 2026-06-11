@@ -423,6 +423,12 @@ namespace RtdDolarNative.Charts
             return BuildChartLevels(result);
         }
 
+        public string ChartLevelColorForDiagnostics(KeyLevel level)
+        {
+            SolidColorBrush brush = LevelBrush(level) as SolidColorBrush;
+            return brush == null ? string.Empty : brush.Color.ToString();
+        }
+
         public void PanHorizontalCandles(int candles)
         {
             _viewOffsetFromEnd += candles;
@@ -1046,7 +1052,7 @@ namespace RtdDolarNative.Charts
 
             decimal sigma = Math.Abs(level.Sigma);
             double score = baseScore - Math.Min(16d, Convert.ToDouble(sigma) * 3d);
-            string side = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Resistencia" : "Suporte";
+            string side = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : "Compra";
             string label = EmptyChartText(map.ReferenceLabel) + " " + shortMetric + " " + EmptyChartText(level.Side) + " " + SigmaLabel(level.Sigma);
 
             return new KeyLevel
@@ -1694,6 +1700,16 @@ namespace RtdDolarNative.Charts
 
         private Brush LevelBrush(KeyLevel level)
         {
+            if (IsSellLine(level))
+            {
+                return new SolidColorBrush(Color.FromRgb(255, 82, 82));
+            }
+
+            if (IsBuyLine(level))
+            {
+                return new SolidColorBrush(Color.FromRgb(18, 184, 134));
+            }
+
             if (!string.IsNullOrWhiteSpace(level.Source) &&
                 level.Source.IndexOf("MaxMin7", StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -1749,6 +1765,26 @@ namespace RtdDolarNative.Charts
             }
 
             return new SolidColorBrush(Color.FromRgb(18, 184, 134));
+        }
+
+        private static bool IsSellLine(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            return string.Equals(level.Type, "Venda", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsBuyLine(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            return string.Equals(level.Type, "Compra", StringComparison.OrdinalIgnoreCase);
         }
 
         private void DrawText(DrawingContext dc, string text, double x, double y, Brush brush, double size)

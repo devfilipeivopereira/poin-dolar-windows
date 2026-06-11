@@ -25,6 +25,7 @@ namespace QuantEngineTests
                 PtaxHistoryStoreUpsertsAndLoads,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartMetricLinesUseOnlySelectedReferenceMode,
+                ChartMetricBuySellLinesUseDirectionalColors,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
                 GarchEngineFitsParametersAndCalculatesBands
@@ -224,6 +225,22 @@ namespace QuantEngineTests
             Assert(!indicatorLevels.Any(x => !string.IsNullOrWhiteSpace(x.Source) && x.Source.IndexOf("GARCH-", StringComparison.OrdinalIgnoreCase) >= 0), "Standalone GARCH bands should not be added on top of reference metric lines.");
         }
 
+        private static void ChartMetricBuySellLinesUseDirectionalColors()
+        {
+            QuantResult result = BuildResult();
+            NativeChartControl chart = new NativeChartControl();
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Opening;
+
+            List<KeyLevel> levels = chart.ReferenceMetricLevelsForDiagnostics(result);
+            KeyLevel sell = levels.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Label) && x.Label.IndexOf("Venda", StringComparison.OrdinalIgnoreCase) >= 0);
+            KeyLevel buy = levels.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Label) && x.Label.IndexOf("Compra", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            Assert(sell != null, "Reference metrics should include sell lines.");
+            Assert(buy != null, "Reference metrics should include buy lines.");
+            AssertEqual("#FFFF5252", chart.ChartLevelColorForDiagnostics(sell), "Sell lines should be red.");
+            AssertEqual("#FF12B886", chart.ChartLevelColorForDiagnostics(buy), "Buy lines should be green.");
+        }
+
         private static void ChartCommandsAdjustViewportPredictably()
         {
             NativeChartControl chart = new NativeChartControl();
@@ -381,6 +398,14 @@ namespace QuantEngineTests
         private static void AssertEqual(double expected, double actual, string message)
         {
             if (Math.Abs(expected - actual) > 0.000001d)
+            {
+                throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
+            }
+        }
+
+        private static void AssertEqual(string expected, string actual, string message)
+        {
+            if (!string.Equals(expected, actual, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
             }
