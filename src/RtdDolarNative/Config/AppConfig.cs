@@ -113,6 +113,21 @@ namespace RtdDolarNative.Config
                 config.Ui.ShowChartGarchLevels = true;
             }
 
+            if (!HasToken(json, "ShowChartGarmanLevels"))
+            {
+                config.Ui.ShowChartGarmanLevels = true;
+            }
+
+            if (!HasToken(json, "ShowChartGaussLevels"))
+            {
+                config.Ui.ShowChartGaussLevels = true;
+            }
+
+            if (!HasToken(json, "ShowChartStdDevLevels"))
+            {
+                config.Ui.ShowChartStdDevLevels = true;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -906,6 +921,9 @@ namespace RtdDolarNative.Config
             ShowChartMarketLevels = true;
             ShowChartPercentLevels = true;
             ShowChartGarchLevels = true;
+            ShowChartGarmanLevels = true;
+            ShowChartGaussLevels = true;
+            ShowChartStdDevLevels = true;
         }
 
         public int FastIntervalMs { get; set; }
@@ -928,6 +946,9 @@ namespace RtdDolarNative.Config
         public bool ShowChartMarketLevels { get; set; }
         public bool ShowChartPercentLevels { get; set; }
         public bool ShowChartGarchLevels { get; set; }
+        public bool ShowChartGarmanLevels { get; set; }
+        public bool ShowChartGaussLevels { get; set; }
+        public bool ShowChartStdDevLevels { get; set; }
 
         public void Normalize()
         {

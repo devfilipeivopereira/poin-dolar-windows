@@ -1056,6 +1056,9 @@ namespace RtdDolarNative
                 ChartShowTechnicalLevelsCheckBox == null ||
                 ChartShowMarketLevelsCheckBox == null ||
                 ChartShowPercentLevelsCheckBox == null ||
+                ChartShowGarmanLevelsCheckBox == null ||
+                ChartShowGaussLevelsCheckBox == null ||
+                ChartShowStdDevLevelsCheckBox == null ||
                 ChartShowGarchLevelsCheckBox == null)
             {
                 return;
@@ -1075,6 +1078,9 @@ namespace RtdDolarNative
                 ChartShowTechnicalLevelsCheckBox.IsChecked = _config.Ui.ShowChartTechnicalLevels;
                 ChartShowMarketLevelsCheckBox.IsChecked = _config.Ui.ShowChartMarketLevels;
                 ChartShowPercentLevelsCheckBox.IsChecked = _config.Ui.ShowChartPercentLevels;
+                ChartShowGarmanLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarmanLevels;
+                ChartShowGaussLevelsCheckBox.IsChecked = _config.Ui.ShowChartGaussLevels;
+                ChartShowStdDevLevelsCheckBox.IsChecked = _config.Ui.ShowChartStdDevLevels;
                 ChartShowGarchLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarchLevels;
             }
             finally
@@ -1102,6 +1108,9 @@ namespace RtdDolarNative
             bool showTechnicalLevels = ChartShowTechnicalLevelsCheckBox != null && ChartShowTechnicalLevelsCheckBox.IsChecked == true;
             bool showMarketLevels = ChartShowMarketLevelsCheckBox != null && ChartShowMarketLevelsCheckBox.IsChecked == true;
             bool showPercentLevels = ChartShowPercentLevelsCheckBox != null && ChartShowPercentLevelsCheckBox.IsChecked == true;
+            bool showGarmanLevels = ChartShowGarmanLevelsCheckBox != null && ChartShowGarmanLevelsCheckBox.IsChecked == true;
+            bool showGaussLevels = ChartShowGaussLevelsCheckBox != null && ChartShowGaussLevelsCheckBox.IsChecked == true;
+            bool showStdDevLevels = ChartShowStdDevLevelsCheckBox != null && ChartShowStdDevLevelsCheckBox.IsChecked == true;
             bool showGarchLevels = ChartShowGarchLevelsCheckBox != null && ChartShowGarchLevelsCheckBox.IsChecked == true;
 
             if (_config.Ui.ShowChartCandles != showCandles ||
@@ -1114,6 +1123,9 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartTechnicalLevels != showTechnicalLevels ||
                 _config.Ui.ShowChartMarketLevels != showMarketLevels ||
                 _config.Ui.ShowChartPercentLevels != showPercentLevels ||
+                _config.Ui.ShowChartGarmanLevels != showGarmanLevels ||
+                _config.Ui.ShowChartGaussLevels != showGaussLevels ||
+                _config.Ui.ShowChartStdDevLevels != showStdDevLevels ||
                 _config.Ui.ShowChartGarchLevels != showGarchLevels)
             {
                 _config.Ui.ShowChartCandles = showCandles;
@@ -1126,6 +1138,9 @@ namespace RtdDolarNative
                 _config.Ui.ShowChartTechnicalLevels = showTechnicalLevels;
                 _config.Ui.ShowChartMarketLevels = showMarketLevels;
                 _config.Ui.ShowChartPercentLevels = showPercentLevels;
+                _config.Ui.ShowChartGarmanLevels = showGarmanLevels;
+                _config.Ui.ShowChartGaussLevels = showGaussLevels;
+                _config.Ui.ShowChartStdDevLevels = showStdDevLevels;
                 _config.Ui.ShowChartGarchLevels = showGarchLevels;
                 SaveRuntimeConfig();
                 AddHistory("App", "Exibicao grafico", "Configuracao de linhas atualizada.");
@@ -6818,6 +6833,9 @@ namespace RtdDolarNative
             bool showTechnicalLevels = _config.Ui.ShowChartTechnicalLevels;
             bool showMarketLevels = _config.Ui.ShowChartMarketLevels;
             bool showPercentLevels = _config.Ui.ShowChartPercentLevels;
+            bool showGarmanLevels = _config.Ui.ShowChartGarmanLevels;
+            bool showGaussLevels = _config.Ui.ShowChartGaussLevels;
+            bool showStdDevLevels = _config.Ui.ShowChartStdDevLevels;
             bool showGarchLevels = _config.Ui.ShowChartGarchLevels;
 
             if (DashboardChartControl != null)
@@ -6836,6 +6854,9 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowTechnicalLevels = showTechnicalLevels;
                 DashboardChartControl.ShowMarketLevels = showMarketLevels;
                 DashboardChartControl.ShowPercentLevels = showPercentLevels;
+                DashboardChartControl.ShowGarmanLevels = showGarmanLevels;
+                DashboardChartControl.ShowGaussLevels = showGaussLevels;
+                DashboardChartControl.ShowStdDevLevels = showStdDevLevels;
                 DashboardChartControl.ShowGarchLevels = showGarchLevels;
                 DashboardChartControl.InvalidateVisual();
             }
@@ -6856,6 +6877,9 @@ namespace RtdDolarNative
                 ChartControl.ShowTechnicalLevels = showTechnicalLevels;
                 ChartControl.ShowMarketLevels = showMarketLevels;
                 ChartControl.ShowPercentLevels = showPercentLevels;
+                ChartControl.ShowGarmanLevels = showGarmanLevels;
+                ChartControl.ShowGaussLevels = showGaussLevels;
+                ChartControl.ShowStdDevLevels = showStdDevLevels;
                 ChartControl.ShowGarchLevels = showGarchLevels;
                 ChartControl.InvalidateVisual();
             }

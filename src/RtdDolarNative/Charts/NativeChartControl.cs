@@ -51,6 +51,9 @@ namespace RtdDolarNative.Charts
         private bool _showMarketLevels = true;
         private bool _showPercentLevels = true;
         private bool _showGarchLevels = true;
+        private bool _showGarmanLevels = true;
+        private bool _showGaussLevels = true;
+        private bool _showStdDevLevels = true;
 
         public NativeChartControl()
         {
@@ -304,6 +307,51 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public bool ShowGarmanLevels
+        {
+            get { return _showGarmanLevels; }
+            set
+            {
+                if (_showGarmanLevels == value)
+                {
+                    return;
+                }
+
+                _showGarmanLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowGaussLevels
+        {
+            get { return _showGaussLevels; }
+            set
+            {
+                if (_showGaussLevels == value)
+                {
+                    return;
+                }
+
+                _showGaussLevels = value;
+                InvalidateVisual();
+            }
+        }
+
+        public bool ShowStdDevLevels
+        {
+            get { return _showStdDevLevels; }
+            set
+            {
+                if (_showStdDevLevels == value)
+                {
+                    return;
+                }
+
+                _showStdDevLevels = value;
+                InvalidateVisual();
+            }
+        }
+
         public int ViewOffsetFromEndForDiagnostics
         {
             get { return _viewOffsetFromEnd; }
@@ -446,6 +494,8 @@ namespace RtdDolarNative.Charts
                     levels.AddRange(_result.KeyLevels.Where(IsLevelCategoryEnabled));
                 }
 
+                levels.AddRange(BuildReferenceMetricLevels(_result));
+
                 if (_showConfluenceLevels)
                 {
                     levels.AddRange(_result.Confluence.Take(12));
@@ -543,12 +593,23 @@ namespace RtdDolarNative.Charts
             }
 
             List<string> tokens = LevelSourceTokens(level.Source);
+            bool hasGarman = tokens.Any(IsGarmanSource);
+            bool hasGauss = tokens.Any(IsGaussSource);
+            bool hasStdDev = tokens.Any(IsStdDevSource);
             bool hasPercent = tokens.Any(IsPercentSource);
             bool hasTechnical = tokens.Any(IsTechnicalSource);
             bool hasProfile = tokens.Any(IsProfileSource);
             bool hasMarket = tokens.Any(IsMarketSource);
             bool hasRtd = tokens.Any(IsRtdSource);
             bool hasGarch = tokens.Any(IsGarchSource);
+
+            if (hasGarman || hasGauss || hasStdDev || hasGarch)
+            {
+                return (hasGarman && _showGarmanLevels) ||
+                       (hasGauss && _showGaussLevels) ||
+                       (hasStdDev && _showStdDevLevels) ||
+                       (hasGarch && _showGarchLevels);
+            }
 
             bool visibleByCategory =
                 (hasPercent && _showPercentLevels) ||
@@ -565,10 +626,10 @@ namespace RtdDolarNative.Charts
 
             if (tokens.Count == 0)
             {
-                return _showMarketLevels || _showRtdLevels || _showGarchLevels;
+                return _showMarketLevels || _showRtdLevels || _showGarchLevels || _showGarmanLevels || _showGaussLevels || _showStdDevLevels;
             }
 
-            return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels || _showGarchLevels;
+            return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels || _showGarchLevels || _showGarmanLevels || _showGaussLevels || _showStdDevLevels;
         }
 
         private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '/', '|' };
@@ -608,11 +669,31 @@ namespace RtdDolarNative.Charts
             return string.Equals(source, "Percent", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsGarmanSource(string source)
+        {
+            return !string.IsNullOrWhiteSpace(source) &&
+                   (source.IndexOf("Garman", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    source.IndexOf("GK", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private static bool IsGaussSource(string source)
+        {
+            return !string.IsNullOrWhiteSpace(source) &&
+                   source.IndexOf("Gauss", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsStdDevSource(string source)
+        {
+            return !string.IsNullOrWhiteSpace(source) &&
+                   (source.IndexOf("Desvio", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    source.IndexOf("StdDev", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    source.IndexOf("StandardDeviation", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
         private static bool IsTechnicalSource(string source)
         {
             return string.Equals(source, "Tecnico", StringComparison.OrdinalIgnoreCase) ||
-                source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                source.IndexOf("Gauss", StringComparison.OrdinalIgnoreCase) >= 0;
+                source.IndexOf("Tecnico", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsProfileSource(string source)
@@ -656,6 +737,118 @@ namespace RtdDolarNative.Charts
         {
             return !string.IsNullOrWhiteSpace(source) &&
                    source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private List<KeyLevel> BuildReferenceMetricLevels(QuantResult result)
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (result == null || result.ReferenceMaps == null)
+            {
+                return levels;
+            }
+
+            foreach (ReferenceMapResult map in result.ReferenceMaps)
+            {
+                if (map == null || map.ReferencePrice <= 0m)
+                {
+                    continue;
+                }
+
+                if (_showGarmanLevels)
+                {
+                    AddReferenceMetricLevels(levels, map, map.GarmanLevels, "GK", "Garman-Klass", 74d);
+                }
+
+                if (_showGaussLevels)
+                {
+                    AddReferenceMetricLevels(levels, map, map.GaussLevels, "Gauss", "Gauss", 72d);
+                }
+
+                if (_showStdDevLevels)
+                {
+                    AddReferenceMetricLevels(levels, map, map.StdDevLevels, "Desvio", "Desvio padrao", 70d);
+                }
+
+                if (_showGarchLevels)
+                {
+                    AddReferenceMetricLevels(levels, map, map.GarchLevels, "GARCH", "GARCH", 76d);
+                }
+            }
+
+            return levels
+                .Where(x => x != null && x.Price > 0m)
+                .GroupBy(x => LevelIdentity(x), StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.OrderByDescending(y => y.Score).First())
+                .ToList();
+        }
+
+        private static void AddReferenceMetricLevels(List<KeyLevel> target, ReferenceMapResult map, IEnumerable<DeviationLevel> source, string shortMetric, string sourceName, double baseScore)
+        {
+            if (target == null || map == null || source == null)
+            {
+                return;
+            }
+
+            foreach (DeviationLevel level in source)
+            {
+                KeyLevel keyLevel = ToReferenceMetricKeyLevel(map, level, shortMetric, sourceName, baseScore);
+                if (keyLevel != null)
+                {
+                    target.Add(keyLevel);
+                }
+            }
+        }
+
+        private static KeyLevel ToReferenceMetricKeyLevel(ReferenceMapResult map, DeviationLevel level, string shortMetric, string sourceName, double baseScore)
+        {
+            if (map == null || level == null || level.Price <= 0m)
+            {
+                return null;
+            }
+
+            decimal sigma = Math.Abs(level.Sigma);
+            double score = baseScore - Math.Min(16d, Convert.ToDouble(sigma) * 3d);
+            string side = string.Equals(level.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "Resistencia" : "Suporte";
+            string label = EmptyChartText(map.ReferenceLabel) + " " + shortMetric + " " + EmptyChartText(level.Side) + " " + SigmaLabel(level.Sigma);
+
+            return new KeyLevel
+            {
+                Price = level.Price,
+                Label = label,
+                Type = side,
+                Source = sourceName,
+                Score = score,
+                Distance = level.DistanceCurrent,
+                Evidence = EmptyChartText(map.ReferenceSource) + " | " + EmptyChartText(level.Label),
+                Layer = "Niveis-" + sourceName,
+                Tags = EmptyChartText(map.ReferenceKey)
+            };
+        }
+
+        private static string LevelIdentity(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return string.Empty;
+            }
+
+            return level.Source + "|" + level.Price.ToString("0.##", CultureInfo.InvariantCulture) + "|" + level.Type;
+        }
+
+        private static string EmptyChartText(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        private static string SigmaLabel(decimal sigma)
+        {
+            if (sigma == 0m)
+            {
+                return "ref";
+            }
+
+            return sigma.ToString("+0.##;-0.##;0", CultureInfo.InvariantCulture);
         }
 
         private static List<KeyLevel> BuildGarchLevels(GarchSnapshot garch)
@@ -1264,6 +1457,24 @@ namespace RtdDolarNative.Charts
 
         private Brush LevelBrush(KeyLevel level)
         {
+            if (!string.IsNullOrWhiteSpace(level.Source) &&
+                IsGarmanSource(level.Source))
+            {
+                return new SolidColorBrush(Color.FromRgb(255, 209, 102));
+            }
+
+            if (!string.IsNullOrWhiteSpace(level.Source) &&
+                IsGaussSource(level.Source))
+            {
+                return new SolidColorBrush(Color.FromRgb(108, 182, 255));
+            }
+
+            if (!string.IsNullOrWhiteSpace(level.Source) &&
+                IsStdDevSource(level.Source))
+            {
+                return new SolidColorBrush(Color.FromRgb(248, 248, 242));
+            }
+
             if (!string.IsNullOrWhiteSpace(level.Source) &&
                 level.Source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0)
             {
