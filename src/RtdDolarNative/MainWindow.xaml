@@ -3896,32 +3896,27 @@
             <TabItem Header="GARCH">
                 <TabItem.Resources>
                     <Style x:Key="GarchCard" TargetType="Border">
-                        <Setter Property="Background" Value="#0F1115" />
-                        <Setter Property="BorderBrush" Value="#1D2229" />
+                        <Setter Property="Background" Value="{StaticResource Panel}" />
+                        <Setter Property="BorderBrush" Value="{StaticResource Border}" />
                         <Setter Property="BorderThickness" Value="1" />
                         <Setter Property="CornerRadius" Value="4" />
-                        <Setter Property="Padding" Value="16" />
-                        <Setter Property="Margin" Value="6" />
-                        <Setter Property="Effect">
-                            <Setter.Value>
-                                <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="2" Opacity="0.6" />
-                            </Setter.Value>
-                        </Setter>
+                        <Setter Property="Padding" Value="12" />
+                        <Setter Property="Margin" Value="0,0,10,10" />
                     </Style>
                     <Style x:Key="GarchLabel" TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="#6A737D" />
+                        <Setter Property="Foreground" Value="{StaticResource Muted}" />
                         <Setter Property="FontSize" Value="11" />
                         <Setter Property="FontWeight" Value="SemiBold" />
                         <Setter Property="Margin" Value="0,0,0,4" />
                     </Style>
                     <Style x:Key="GarchValue" TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="#E6EDF3" />
-                        <Setter Property="FontSize" Value="24" />
-                        <Setter Property="FontWeight" Value="Light" />
+                        <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        <Setter Property="FontSize" Value="18" />
+                        <Setter Property="FontWeight" Value="Bold" />
                     </Style>
                     <Style x:Key="GarchSubValue" TargetType="TextBlock">
                         <Setter Property="Foreground" Value="{StaticResource ChartLineGarchBrush}" />
-                        <Setter Property="FontSize" Value="16" />
+                        <Setter Property="FontSize" Value="13" />
                         <Setter Property="FontWeight" Value="Bold" />
                         <Setter Property="Margin" Value="0,2,0,0" />
                     </Style>
@@ -3958,18 +3953,18 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="GARCH" Foreground="{StaticResource ChartLineGarchBrush}" FontSize="32" FontWeight="Black" Margin="0,0,12,0" />
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="VOLATILITY ENGINE" Foreground="#8B949E" FontSize="12" FontWeight="Bold" />
+                                <TextBlock Text="Volatilidade condicional e bandas" Foreground="{StaticResource Muted}" FontSize="12" FontWeight="Bold" />
                                 <TextBlock x:Name="GarchStateText" Text="Aguardando dados..." Foreground="{StaticResource ChartLineCandlesBrush}" FontSize="11" />
                             </StackPanel>
                         </StackPanel>
 
-                        <Button Grid.Column="1" Content="FORCE RECALCULATE" Click="RefreshGarchButton_Click" Background="#1D2229" Foreground="#C9D1D9" BorderThickness="0" Padding="15,8" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand" />
+                        <Button Grid.Column="1" Content="Recalcular" Click="RefreshGarchButton_Click" Style="{StaticResource TopNavButtonStyle}" MinWidth="92" VerticalAlignment="Center" />
                     </Grid>
 
                     <!-- DASHBOARD CONTENT -->
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="280" />
+                            <ColumnDefinition Width="320" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
@@ -3978,52 +3973,95 @@
                             <!-- SIGNAL HERO CARD -->
                             <Border Style="{StaticResource GarchCard}" BorderBrush="{StaticResource ChartLineGarchBrush}">
                                 <StackPanel>
-                                    <TextBlock Text="LIVE SIGNAL" Style="{StaticResource GarchLabel}" />
-                                    <TextBlock x:Name="GarchSignalText" Text="-" FontSize="32" FontWeight="Black" Foreground="{StaticResource ChartLineCandlesBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="Leitura operacional" Style="{StaticResource GarchLabel}" />
+                                    <TextBlock x:Name="GarchSignalText" Text="-" FontSize="18" FontWeight="Bold" Foreground="{StaticResource ChartLineCandlesBrush}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="GarchReadingText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
                                 </StackPanel>
                             </Border>
 
                             <!-- DAILY CARD -->
                             <Border Style="{StaticResource GarchCard}">
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="90" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Î£ DAILY" Style="{StaticResource GarchLabel}" />
-                                        <TextBlock x:Name="GarchDailySigmaText" Text="-" Style="{StaticResource GarchValue}" />
+                                        <TextBlock Text="Sigma diario" Style="{StaticResource GarchLabel}" />
+                                        <TextBlock x:Name="GarchDailySigmaText" Text="-" Style="{StaticResource GarchValue}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Z-SCORE" Style="{StaticResource GarchLabel}" />
+                                        <TextBlock Text="Z-score" Style="{StaticResource GarchLabel}" />
                                         <TextBlock x:Name="GarchZDailyText" Text="-" Style="{StaticResource GarchSubValue}" />
                                     </StackPanel>
+                                    <TextBlock x:Name="GarchDailyReferenceText"
+                                               Grid.Row="1"
+                                               Grid.ColumnSpan="2"
+                                               Margin="0,8,0,0"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="GarchDailyDistanceText"
+                                               Grid.Row="2"
+                                               Grid.ColumnSpan="2"
+                                               Margin="0,2,0,0"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap" />
                                 </Grid>
                             </Border>
 
                             <!-- INTRADAY CARD -->
                             <Border Style="{StaticResource GarchCard}">
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="90" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Î£ INTRA" Style="{StaticResource GarchLabel}" />
-                                        <TextBlock x:Name="GarchIntradaySigmaText" Text="-" Style="{StaticResource GarchValue}" />
+                                        <TextBlock Text="Sigma intraday" Style="{StaticResource GarchLabel}" />
+                                        <TextBlock x:Name="GarchIntradaySigmaText" Text="-" Style="{StaticResource GarchValue}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Z-SCORE" Style="{StaticResource GarchLabel}" />
+                                        <TextBlock Text="Z-score" Style="{StaticResource GarchLabel}" />
                                         <TextBlock x:Name="GarchZIntradayText" Text="-" Style="{StaticResource GarchSubValue}" />
                                     </StackPanel>
+                                    <TextBlock x:Name="GarchIntradayReferenceText"
+                                               Grid.Row="1"
+                                               Grid.ColumnSpan="2"
+                                               Margin="0,8,0,0"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="GarchIntradayDistanceText"
+                                               Grid.Row="2"
+                                               Grid.ColumnSpan="2"
+                                               Margin="0,2,0,0"
+                                               Text="-"
+                                               Foreground="{StaticResource Muted}"
+                                               TextWrapping="Wrap" />
                                 </Grid>
                             </Border>
 
                             <!-- ASSET INFO -->
                             <Border Style="{StaticResource GarchCard}">
                                 <StackPanel>
-                                    <TextBlock Text="ACTIVE ASSET" Style="{StaticResource GarchLabel}" />
+                                    <TextBlock Text="Ativo e preco" Style="{StaticResource GarchLabel}" />
                                     <TextBlock x:Name="GarchAssetText" Text="-" Style="{StaticResource GarchSubValue}" Foreground="#E6EDF3" />
+                                    <TextBlock x:Name="GarchCurrentPriceText" Text="-" Style="{StaticResource GarchValue}" Margin="0,8,0,0" />
+                                    <TextBlock x:Name="GarchSetupRiskText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <TextBlock x:Name="GarchFlowText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock x:Name="GarchConfigText" Text="-" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -4044,15 +4082,15 @@
                                 <!-- DAILY BANDS -->
                                 <Border Grid.Column="0" Style="{StaticResource GarchCard}">
                                     <DockPanel>
-                                        <TextBlock Text="DAILY BANDS (D-1)" Style="{StaticResource GarchLabel}" DockPanel.Dock="Top" Margin="0,0,0,10" Foreground="{StaticResource ChartLineGarchBrush}" />
+                                        <TextBlock Text="Bandas diarias (D-1)" Style="{StaticResource GarchLabel}" DockPanel.Dock="Top" Margin="0,0,0,10" Foreground="{StaticResource ChartLineGarchBrush}" />
                                         <DataGrid x:Name="GarchDailyBandsGrid" Style="{StaticResource SeamlessDataGrid}">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Header="SIDE" Binding="{Binding Side}" Width="60" />
+                                                <DataGridTextColumn Header="LADO" Binding="{Binding Side}" Width="60" />
                                                 <DataGridTextColumn Header="SIGMA" Binding="{Binding Sigma}" Width="60" />
-                                                <DataGridTextColumn Header="PRICE" Binding="{Binding Price}" Width="80" />
+                                                <DataGridTextColumn Header="PRECO" Binding="{Binding Price}" Width="80" />
                                                 <DataGridTextColumn Header="DIST" Binding="{Binding DistanceCurrent}" Width="80" />
                                                 <DataGridTextColumn Header="SCORE" Binding="{Binding Score}" Width="60" />
-                                                <DataGridTextColumn Header="READ" Binding="{Binding Read}" Width="*" />
+                                                <DataGridTextColumn Header="LEITURA" Binding="{Binding Read}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </DockPanel>
@@ -4061,52 +4099,63 @@
                                 <!-- INTRADAY BANDS -->
                                 <Border Grid.Column="1" Style="{StaticResource GarchCard}">
                                     <DockPanel>
-                                        <TextBlock Text="INTRADAY BANDS" Style="{StaticResource GarchLabel}" DockPanel.Dock="Top" Margin="0,0,0,10" Foreground="{StaticResource ChartLineGarchBrush}" />
+                                        <TextBlock Text="Bandas intraday" Style="{StaticResource GarchLabel}" DockPanel.Dock="Top" Margin="0,0,0,10" Foreground="{StaticResource ChartLineGarchBrush}" />
                                         <DataGrid x:Name="GarchIntradayBandsGrid" Style="{StaticResource SeamlessDataGrid}">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Header="SIDE" Binding="{Binding Side}" Width="60" />
+                                                <DataGridTextColumn Header="LADO" Binding="{Binding Side}" Width="60" />
                                                 <DataGridTextColumn Header="SIGMA" Binding="{Binding Sigma}" Width="60" />
-                                                <DataGridTextColumn Header="PRICE" Binding="{Binding Price}" Width="80" />
+                                                <DataGridTextColumn Header="PRECO" Binding="{Binding Price}" Width="80" />
                                                 <DataGridTextColumn Header="DIST" Binding="{Binding DistanceCurrent}" Width="80" />
                                                 <DataGridTextColumn Header="SCORE" Binding="{Binding Score}" Width="60" />
-                                                <DataGridTextColumn Header="READ" Binding="{Binding Read}" Width="*" />
+                                                <DataGridTextColumn Header="LEITURA" Binding="{Binding Read}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </DockPanel>
                                 </Border>
                             </Grid>
 
-                            <!-- BOTTOM SECTIONS: SIGNALS, BACKTEST, PARAMS -->
+                            <!-- BOTTOM SECTIONS: SIGNALS, FORECAST, BACKTEST, PARAMS -->
                             <Border Grid.Row="1" Style="{StaticResource GarchCard}">
                                 <TabControl Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource {x:Type TabItem}}">
-                                    <TabItem Header="SIGNALS">
+                                    <TabItem Header="Sinais">
                                         <DataGrid x:Name="GarchSignalsGrid" Style="{StaticResource SeamlessDataGrid}" Margin="0,10,0,0">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="SETUP" Binding="{Binding Setup}" Width="160" />
                                                 <DataGridTextColumn Header="DIR" Binding="{Binding Direction}" Width="60" />
-                                                <DataGridTextColumn Header="PRICE" Binding="{Binding Price}" Width="70" />
+                                                <DataGridTextColumn Header="PRECO" Binding="{Binding Price}" Width="70" />
                                                 <DataGridTextColumn Header="SCORE" Binding="{Binding Score}" Width="60" />
                                                 <DataGridTextColumn Header="STOP" Binding="{Binding StopPrice}" Width="70" />
-                                                <DataGridTextColumn Header="TARGET" Binding="{Binding Target1}" Width="70" />
+                                                <DataGridTextColumn Header="ALVO" Binding="{Binding Target1}" Width="70" />
                                                 <DataGridTextColumn Header="R/R" Binding="{Binding RiskReward}" Width="60" />
-                                                <DataGridTextColumn Header="REASONS" Binding="{Binding Reasons}" Width="*" />
+                                                <DataGridTextColumn Header="LEITURA" Binding="{Binding Reasons}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </TabItem>
-                                    <TabItem Header="BACKTEST">
+                                    <TabItem Header="Forecast">
+                                        <DataGrid x:Name="GarchForecastGrid" Style="{StaticResource SeamlessDataGrid}" Margin="0,10,0,0">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="CONTEXTO" Binding="{Binding Scope}" Width="82" />
+                                                <DataGridTextColumn Header="HORIZONTE" Binding="{Binding Horizon}" Width="92" />
+                                                <DataGridTextColumn Header="VOL %" Binding="{Binding SigmaPercent}" Width="72" />
+                                                <DataGridTextColumn Header="PONTOS" Binding="{Binding Points}" Width="78" />
+                                                <DataGridTextColumn Header="LEITURA" Binding="{Binding Read}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </TabItem>
+                                    <TabItem Header="Backtest">
                                         <DataGrid x:Name="GarchBacktestGrid" Style="{StaticResource SeamlessDataGrid}" Margin="0,10,0,0">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Header="SCOPE" Binding="{Binding Scope}" Width="70" />
+                                                <DataGridTextColumn Header="CTX" Binding="{Binding Scope}" Width="70" />
                                                 <DataGridTextColumn Header="DIR" Binding="{Binding Direction}" Width="60" />
                                                 <DataGridTextColumn Header="SIGMA" Binding="{Binding Sigma}" Width="60" />
-                                                <DataGridTextColumn Header="TOUCHES" Binding="{Binding Touches}" Width="70" />
+                                                <DataGridTextColumn Header="TOQUES" Binding="{Binding Touches}" Width="70" />
                                                 <DataGridTextColumn Header="REV" Binding="{Binding Reversals}" Width="50" />
-                                                <DataGridTextColumn Header="RATE" Binding="{Binding ReversalRateText}" Width="80" />
-                                                <DataGridTextColumn Header="EDGE" Binding="{Binding EdgeText}" Width="*" />
+                                                <DataGridTextColumn Header="TAXA" Binding="{Binding ReversalRateText}" Width="80" />
+                                                <DataGridTextColumn Header="LEITURA" Binding="{Binding EdgeText}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </TabItem>
-                                    <TabItem Header="PARAMS">
+                                    <TabItem Header="Parametros">
                                         <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -4114,14 +4163,14 @@
                                             </Grid.ColumnDefinitions>
                                             <DataGrid Grid.Column="0" x:Name="GarchParametersGrid" Style="{StaticResource SeamlessDataGrid}" Margin="0,0,10,0">
                                                 <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="PARAMETER" Binding="{Binding Parameter}" Width="150" />
-                                                    <DataGridTextColumn Header="VALUE" Binding="{Binding Value}" Width="*" />
+                                                    <DataGridTextColumn Header="PARAMETRO" Binding="{Binding Parameter}" Width="150" />
+                                                    <DataGridTextColumn Header="VALOR" Binding="{Binding Value}" Width="*" />
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <DataGrid Grid.Column="1" x:Name="GarchAuditGrid" Style="{StaticResource SeamlessDataGrid}">
                                                 <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="AUDIT ITEM" Binding="{Binding Item}" Width="180" />
-                                                    <DataGridTextColumn Header="VALUE" Binding="{Binding Value}" Width="*" />
+                                                    <DataGridTextColumn Header="AUDITORIA" Binding="{Binding Item}" Width="180" />
+                                                    <DataGridTextColumn Header="VALOR" Binding="{Binding Value}" Width="*" />
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                         </Grid>

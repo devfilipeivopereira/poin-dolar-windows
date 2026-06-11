@@ -3119,16 +3119,26 @@ namespace RtdDolarNative
         {
             if (GarchStateText == null ||
                 GarchAssetText == null ||
+                GarchCurrentPriceText == null ||
                 GarchDailySigmaText == null ||
                 GarchZDailyText == null ||
+                GarchDailyReferenceText == null ||
+                GarchDailyDistanceText == null ||
                 GarchIntradaySigmaText == null ||
                 GarchZIntradayText == null ||
+                GarchIntradayReferenceText == null ||
+                GarchIntradayDistanceText == null ||
                 GarchSignalText == null ||
+                GarchReadingText == null ||
+                GarchSetupRiskText == null ||
+                GarchFlowText == null ||
+                GarchConfigText == null ||
                 GarchDailyBandsGrid == null ||
                 GarchIntradayBandsGrid == null ||
                 GarchParametersGrid == null ||
                 GarchAuditGrid == null ||
                 GarchSignalsGrid == null ||
+                GarchForecastGrid == null ||
                 GarchBacktestGrid == null)
             {
                 return;
@@ -3138,45 +3148,64 @@ namespace RtdDolarNative
             {
                 GarchStateText.Text = "Aguardando processamento quant/GARCH.";
                 GarchAssetText.Text = "-";
+                GarchCurrentPriceText.Text = "-";
                 GarchDailySigmaText.Text = "-";
                 GarchZDailyText.Text = "-";
+                GarchDailyReferenceText.Text = "-";
+                GarchDailyDistanceText.Text = "-";
                 GarchIntradaySigmaText.Text = "-";
                 GarchZIntradayText.Text = "-";
+                GarchIntradayReferenceText.Text = "-";
+                GarchIntradayDistanceText.Text = "-";
                 GarchSignalText.Text = "-";
+                GarchReadingText.Text = "-";
+                GarchSetupRiskText.Text = "-";
+                GarchFlowText.Text = "-";
+                GarchConfigText.Text = "-";
                 GarchDailyBandsGrid.ItemsSource = null;
                 GarchIntradayBandsGrid.ItemsSource = null;
                 GarchParametersGrid.ItemsSource = null;
                 GarchAuditGrid.ItemsSource = null;
                 GarchSignalsGrid.ItemsSource = null;
+                GarchForecastGrid.ItemsSource = null;
                 GarchBacktestGrid.ItemsSource = null;
                 return;
             }
 
             GarchSnapshot garch = _result.Garch;
             MarketSnapshot effective = snapshot ?? CurrentSnapshotForCalc();
+            decimal currentPrice = garch.CurrentPrice > 0m ? garch.CurrentPrice : ResolveLevelsCurrentPrice(effective);
+            List<GarchSignal> signals = garch.Signals ?? new List<GarchSignal>();
+            FlowMetrics garchFlow = _flowProcessor.GetMetrics(FocusedAsset());
 
-            GarchStateText.Text = garch.Warnings.Count > 0 ? string.Join(" | ", garch.Warnings) : "GARCH(1,1) Ativo e Otimizado.";
+            GarchStateText.Text = garch.Warnings != null && garch.Warnings.Count > 0 ? string.Join(" | ", garch.Warnings) : "GARCH(1,1) ativo e recalculando em tempo real.";
             GarchAssetText.Text = effective != null ? effective.Asset : "-";
+            GarchCurrentPriceText.Text = currentPrice > 0m ? currentPrice.ToString("N2", _ptBr) : "-";
 
-            GarchDailySigmaText.Text = garch.DailyFit.Success 
-                ? (garch.DailyFit.NextSigma * 100d).ToString("N3", _ptBr) + "% (" + garch.DailySigmaPoints.ToString("N2", _ptBr) + " pts)"
-                : "-";
-            GarchZDailyText.Text = garch.DailyFit.Success ? garch.ZDaily.ToString("N2", _ptBr) : "-";
+            GarchDailySigmaText.Text = FormatGarchSigma(garch.DailyFit, garch.DailySigmaPoints);
+            GarchZDailyText.Text = garch.DailyFit != null && garch.DailyFit.Success ? "z " + garch.ZDaily.ToString("N2", _ptBr) : "-";
+            GarchDailyReferenceText.Text = BuildGarchReferenceText("Ref diaria", garch.DailyReference, garch.DailyReferenceName);
+            GarchDailyDistanceText.Text = BuildGarchReferenceDistanceText(currentPrice, garch.DailyReference);
 
-            GarchIntradaySigmaText.Text = garch.IntradayFit.Success 
-                ? (garch.IntradayFit.NextSigma * 100d).ToString("N3", _ptBr) + "% (" + garch.IntradaySigmaPoints.ToString("N2", _ptBr) + " pts)"
-                : "-";
-            GarchZIntradayText.Text = garch.IntradayFit.Success ? garch.ZIntraday.ToString("N2", _ptBr) : "-";
+            GarchIntradaySigmaText.Text = FormatGarchSigma(garch.IntradayFit, garch.IntradaySigmaPoints);
+            GarchZIntradayText.Text = garch.IntradayFit != null && garch.IntradayFit.Success ? "z " + garch.ZIntraday.ToString("N2", _ptBr) : "-";
+            GarchIntradayReferenceText.Text = BuildGarchReferenceText("Ref intraday", garch.IntradayReference, garch.IntradayReferenceName);
+            GarchIntradayDistanceText.Text = BuildGarchReferenceDistanceText(currentPrice, garch.IntradayReference);
+            GarchReadingText.Text = EmptyToDash(garch.CombinedRead);
 
-            if (garch.Signals.Count > 0)
+            if (signals.Count > 0)
             {
-                var topSignal = garch.Signals.OrderByDescending(s => s.Score).First();
+                var topSignal = signals.OrderByDescending(s => s.Score).First();
                 GarchSignalText.Text = topSignal.Setup + " " + topSignal.Direction + " (Score " + topSignal.Score + ")";
             }
             else
             {
                 GarchSignalText.Text = "Nenhum setup ativo";
             }
+
+            GarchSetupRiskText.Text = BuildGarchRiskText(garch, currentPrice);
+            GarchFlowText.Text = BuildGarchFlowText(garchFlow);
+            GarchConfigText.Text = BuildGarchConfigText();
 
             List<GarchBandViewRow> dailyBands = new List<GarchBandViewRow>();
             foreach (var b in garch.DailyBands)
@@ -3236,7 +3265,8 @@ namespace RtdDolarNative
             }
             GarchAuditGrid.ItemsSource = audit;
 
-            GarchSignalsGrid.ItemsSource = garch.Signals;
+            GarchSignalsGrid.ItemsSource = signals;
+            GarchForecastGrid.ItemsSource = BuildGarchForecastRows(garch);
 
             List<GarchBacktestViewRow> backtestRows = new List<GarchBacktestViewRow>();
             foreach (var r in garch.Backtest)
@@ -3253,6 +3283,192 @@ namespace RtdDolarNative
                 });
             }
             GarchBacktestGrid.ItemsSource = backtestRows;
+        }
+
+        private string FormatGarchSigma(GarchFitResult fit, decimal points)
+        {
+            if (fit == null || !fit.Success)
+            {
+                return "-";
+            }
+
+            return (fit.NextSigma * 100d).ToString("N3", _ptBr) + "% | " + points.ToString("N2", _ptBr) + " pts";
+        }
+
+        private string BuildGarchReferenceText(string label, decimal reference, string source)
+        {
+            if (reference <= 0m)
+            {
+                return label + " indisponivel";
+            }
+
+            return label + " " + reference.ToString("N2", _ptBr) + " | " + EmptyToDash(source);
+        }
+
+        private string BuildGarchReferenceDistanceText(decimal currentPrice, decimal reference)
+        {
+            if (currentPrice <= 0m || reference <= 0m)
+            {
+                return "Atual x ref -";
+            }
+
+            return "Atual x ref " + FormatPoints(currentPrice - reference);
+        }
+
+        private string BuildGarchRiskText(GarchSnapshot garch, decimal currentPrice)
+        {
+            if (garch == null)
+            {
+                return "-";
+            }
+
+            List<GarchSignal> signals = garch.Signals ?? new List<GarchSignal>();
+            if (signals.Count > 0)
+            {
+                GarchSignal signal = signals.OrderByDescending(s => s.Score).First();
+                string rr = signal.RiskReward.HasValue ? signal.RiskReward.Value.ToString("N2", _ptBr) : "-";
+                string stop = signal.StopPrice.HasValue ? signal.StopPrice.Value.ToString("N2", _ptBr) : "-";
+                string target = signal.Target1.HasValue ? signal.Target1.Value.ToString("N2", _ptBr) : "-";
+                string robustness = EmptyToDash(signal.Robustness);
+
+                return "Risco: stop " + stop + " | alvo " + target + " | R/R " + rr + " | " + robustness;
+            }
+
+            List<GarchBandLevel> bands = new List<GarchBandLevel>();
+            if (garch.DailyBands != null)
+            {
+                bands.AddRange(garch.DailyBands);
+            }
+            if (garch.IntradayBands != null)
+            {
+                bands.AddRange(garch.IntradayBands);
+            }
+
+            if (bands.Count == 0)
+            {
+                return "Setup aguardando bandas validas.";
+            }
+
+            GarchBandLevel nearest = bands
+                .OrderBy(b => Math.Abs(b.DistanceCurrent))
+                .FirstOrDefault();
+
+            if (nearest == null)
+            {
+                return "Setup aguardando bandas validas.";
+            }
+
+            decimal distance = currentPrice > 0m ? nearest.Price - currentPrice : nearest.DistanceCurrent;
+            return "Proxima banda: " + EmptyToDash(nearest.Scope) + " " + EmptyToDash(nearest.Side) +
+                   " " + nearest.Price.ToString("N2", _ptBr) +
+                   " | dist " + FormatPoints(distance) +
+                   " | score " + nearest.ScoreHint.ToString("N0", _ptBr);
+        }
+
+        private string BuildGarchFlowText(FlowMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return "Fluxo aguardando book/times.";
+            }
+
+            return "Fluxo: CD " + metrics.CumulativeDelta.ToString("N0", _ptBr) +
+                   " | imb " + FormatDecimal(metrics.TopBookImbalance, "N3") +
+                   " | micro " + FormatDecimal(metrics.MicroBias, "N3") +
+                   " | VWAP " + FormatDecimal(metrics.VwapDistance, "N2");
+        }
+
+        private string BuildGarchConfigText()
+        {
+            if (_config == null || _config.Garch == null)
+            {
+                return "Config GARCH indisponivel.";
+            }
+
+            GarchConfig config = _config.Garch;
+            return "Config: " + config.DailyWindowDays.ToString(_ptBr) + "d / min " +
+                   config.DailyMinSamples.ToString(_ptBr) +
+                   " | intra " + config.IntradayTimeframeSeconds.ToString(_ptBr) + "s / min " +
+                   config.IntradayMinBars.ToString(_ptBr) +
+                   " | bandas " + BuildGarchMultiplierText(config.BandMultipliers);
+        }
+
+        private string BuildGarchMultiplierText(double[] multipliers)
+        {
+            if (multipliers == null || multipliers.Length == 0)
+            {
+                return "-";
+            }
+
+            return string.Join(", ", multipliers.Select(x => x.ToString("N1", _ptBr) + "s").ToArray());
+        }
+
+        private List<GarchForecastViewRow> BuildGarchForecastRows(GarchSnapshot garch)
+        {
+            List<GarchForecastViewRow> rows = new List<GarchForecastViewRow>();
+            if (garch == null)
+            {
+                return rows;
+            }
+
+            AddGarchForecastRow(rows, "Diario", "1 pregao", garch.DailyFit, garch.DailyReference, 1);
+            AddGarchForecastRow(rows, "Diario", "2 pregoes", garch.DailyFit, garch.DailyReference, 2);
+            AddGarchForecastRow(rows, "Diario", "5 pregoes", garch.DailyFit, garch.DailyReference, 5);
+
+            int frame = _config == null || _config.Garch == null ? 60 : Math.Max(1, _config.Garch.IntradayTimeframeSeconds);
+            AddGarchForecastRow(rows, "Intraday", "1 barra (" + frame.ToString(_ptBr) + "s)", garch.IntradayFit, garch.IntradayReference, 1);
+            AddGarchForecastRow(rows, "Intraday", "5 barras", garch.IntradayFit, garch.IntradayReference, 5);
+            AddGarchForecastRow(rows, "Intraday", "15 barras", garch.IntradayFit, garch.IntradayReference, 15);
+
+            if (rows.Count == 0)
+            {
+                rows.Add(new GarchForecastViewRow
+                {
+                    Scope = "GARCH",
+                    Horizon = "-",
+                    SigmaPercent = "-",
+                    Points = "-",
+                    Read = "Forecast aguardando fit valido e referencia positiva."
+                });
+            }
+
+            return rows;
+        }
+
+        private void AddGarchForecastRow(List<GarchForecastViewRow> rows, string scope, string horizon, GarchFitResult fit, decimal reference, int periods)
+        {
+            if (rows == null || fit == null || !fit.Success || reference <= 0m)
+            {
+                return;
+            }
+
+            double variance = fit.NextVariance;
+            if (periods > 1 && fit.LongRunVariance > 0d)
+            {
+                double persistence = Math.Max(0d, Math.Min(0.999999d, fit.Persistence));
+                variance = fit.LongRunVariance + Math.Pow(persistence, Math.Max(0, periods - 1)) * (fit.NextVariance - fit.LongRunVariance);
+            }
+
+            if (variance <= 0d || double.IsNaN(variance) || double.IsInfinity(variance))
+            {
+                return;
+            }
+
+            double sigma = Math.Sqrt(variance);
+            if (double.IsNaN(sigma) || double.IsInfinity(sigma))
+            {
+                return;
+            }
+
+            decimal points = Convert.ToDecimal(Math.Abs(sigma * decimal.ToDouble(reference)));
+            rows.Add(new GarchForecastViewRow
+            {
+                Scope = scope,
+                Horizon = horizon,
+                SigmaPercent = (sigma * 100d).ToString("N3", _ptBr) + "%",
+                Points = points.ToString("N2", _ptBr) + " pts",
+                Read = "Ref " + reference.ToString("N2", _ptBr) + " | vol cond. h-step"
+            });
         }
 
         private void RenderIndicators(MarketSnapshot snapshot)
@@ -10001,6 +10217,15 @@ namespace RtdDolarNative
             public string Reversals { get; set; }
             public string ReversalRateText { get; set; }
             public string EdgeText { get; set; }
+        }
+
+        private sealed class GarchForecastViewRow
+        {
+            public string Scope { get; set; }
+            public string Horizon { get; set; }
+            public string SigmaPercent { get; set; }
+            public string Points { get; set; }
+            public string Read { get; set; }
         }
 
         private sealed class MetricAuditRow
