@@ -676,10 +676,22 @@ namespace RtdDolarNative.Quant
                 : result.Intraday.Open;
             maps.Add(BuildReferenceMap(result, "opening", "Abertura", snapshot != null && snapshot.Abertura.HasValue ? "RTD" : "Intraday", openingReference, tickSize));
 
-            decimal closingReference = snapshot != null && snapshot.FechamentoAnterior.HasValue && snapshot.FechamentoAnterior.Value > 0m
-                ? snapshot.FechamentoAnterior.Value
-                : (result.PreviousDay == null ? 0m : result.PreviousDay.Close);
-            maps.Add(BuildReferenceMap(result, "closing", "Fechamento", snapshot != null && snapshot.FechamentoAnterior.HasValue ? "RTD" : "CSV D-1", closingReference, tickSize));
+            decimal csvPreviousClose = result.PreviousDay == null ? 0m : result.PreviousDay.Close;
+            bool hasRtdClose = snapshot != null && snapshot.FechamentoAnterior.HasValue && snapshot.FechamentoAnterior.Value > 0m;
+            decimal closingReference = hasRtdClose ? snapshot.FechamentoAnterior.Value : csvPreviousClose;
+            string closingSource = hasRtdClose ? "RTD" : "CSV D-1";
+
+            if (hasRtdClose &&
+                csvPreviousClose > 0m &&
+                csvPreviousClose != closingReference &&
+                openingReference > 0m &&
+                closingReference == openingReference)
+            {
+                closingReference = csvPreviousClose;
+                closingSource = "CSV D-1";
+            }
+
+            maps.Add(BuildReferenceMap(result, "closing", "Fechamento", closingSource, closingReference, tickSize));
 
             decimal pocReference = result.Profile == null || result.Profile.Poc == null ? 0m : result.Profile.Poc.Price;
             maps.Add(BuildReferenceMap(result, "poc", "POC", "Profile CSV", pocReference, tickSize));

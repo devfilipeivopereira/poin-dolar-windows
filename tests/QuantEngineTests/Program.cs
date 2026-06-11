@@ -21,6 +21,7 @@ namespace QuantEngineTests
                 GaussLevelsFeedConfluenceMap,
                 ReferenceMapsResolvePrimarySources,
                 ReferenceMapsFallbackWhenSnapshotFieldsAreMissing,
+                ReferenceMapClosingUsesCsvWhenRtdCloseMatchesOpening,
                 ReferenceMapsBuildDirectionalLadders,
                 PtaxHistoryStoreUpsertsAndLoads,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
@@ -129,6 +130,30 @@ namespace QuantEngineTests
             AssertEqual(5188m, adjustment.ReferencePrice, "Adjustment fallback should use AJA when AJU is unavailable.");
             AssertEqual(0m, ptax.ReferencePrice, "PTAX should stay unavailable when there is no saved value.");
             Assert(ptax.GarmanLevels.Count == 0 && ptax.GaussLevels.Count == 0 && ptax.StdDevLevels.Count == 0, "PTAX map should not fabricate levels without a valid reference.");
+        }
+
+        private static void ReferenceMapClosingUsesCsvWhenRtdCloseMatchesOpening()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 5223.5m;
+            snapshot.Rtd["ABE"] = 5180m;
+            snapshot.Rtd["FEC"] = 5180m;
+            snapshot.Rtd["MAX"] = 5232.5m;
+            snapshot.Rtd["MIN"] = 5162m;
+            snapshot.Rtd["AJU"] = 5192m;
+            snapshot.Rtd["MED"] = 5204m;
+            snapshot.Rtd["VOL"] = 100000m;
+
+            QuantResult result = QuantEngine.Build(BuildBars(), snapshot, 0.5m, 45);
+            ReferenceMapResult opening = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "opening");
+            ReferenceMapResult closing = result.ReferenceMaps.FirstOrDefault(x => x.ReferenceKey == "closing");
+
+            Assert(opening != null, "Opening reference map should exist.");
+            Assert(closing != null, "Closing reference map should exist.");
+            AssertEqual(5180m, opening.ReferencePrice, "Opening reference should keep RTD abertura.");
+            AssertEqual(result.PreviousDay.Close, closing.ReferencePrice, "Closing reference should fall back to CSV D-1 when RTD FEC equals abertura.");
+            Assert(opening.GarmanLevels.First(x => x.Side == "Venda" && x.Sigma == 1m).Price != closing.GarmanLevels.First(x => x.Side == "Venda" && x.Sigma == 1m).Price,
+                "Opening and closing chart levels should move when their references differ.");
         }
 
         private static void ReferenceMapsBuildDirectionalLadders()
