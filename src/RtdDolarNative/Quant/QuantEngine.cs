@@ -9,7 +9,7 @@ namespace RtdDolarNative.Quant
 {
     public static class QuantEngine
     {
-        private static readonly double[] PercentVariations = new[] { 3d, 2.5d, 2d, 1.5d, 1d, 0.5d, 0d, -0.5d, -1d, -1.5d, -2d, -2.5d, -3d };
+        private static readonly double[] PercentVariations = new[] { 1d, 2d, 3d, -1d, -2d, -3d };
         private const double GaussMadScale = 1.4826d;
         private const double GaussWinsorMad = 3d;
         private const double GaussRsCapPercentile = 0.90d;
@@ -882,9 +882,7 @@ namespace RtdDolarNative.Quant
         private static List<PercentMap> PercentVariationMaps(DailyBar previousDay, IntradayContext intraday, VolumeProfileResult profile)
         {
             List<PercentMap> maps = new List<PercentMap>();
-            maps.Add(PercentMap("prevClose", "Fechamento anterior", "D-1 fechamento", "real/csv", previousDay.Close, intraday.Price));
-            maps.Add(PercentMap("opening", "Abertura atual", "Abertura", "real/RTD", intraday.Open, intraday.Price));
-            maps.Add(PercentMap("poc", "POC proxy", "POC", "proxy diario", profile.Poc.Price, intraday.Price));
+            maps.Add(PercentMap("prevClose", "Fechamento D-1", "D-1", "fechamento D-1", previousDay.Close, intraday.Price));
             return maps;
         }
 
@@ -896,6 +894,11 @@ namespace RtdDolarNative.Quant
             map.ShortLabel = shortLabel;
             map.Status = status;
             map.Price = reference;
+
+            if (reference <= 0m)
+            {
+                return map;
+            }
 
             foreach (double pct in PercentVariations)
             {
@@ -919,7 +922,7 @@ namespace RtdDolarNative.Quant
             {
                 foreach (PercentLevel level in map.Levels)
                 {
-                    KeyLevel row = Level(level.Price, map.ShortLabel + " " + PercentLabel(level.Percent), level.Percent >= 0 ? "Resistencia" : "Suporte", "Percent", PercentWeight(map.Key, level.Percent), map.Status);
+                    KeyLevel row = Level(level.Price, PercentLabel(level.Percent) + " D-1", level.Percent >= 0 ? "Resistencia" : "Suporte", "Percent", PercentWeight(map.Key, level.Percent), map.Status);
                     row.Distance = level.Price - current;
                     row.Layer = map.Key;
                     rows.Add(row);
