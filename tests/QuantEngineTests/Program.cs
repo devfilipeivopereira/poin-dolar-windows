@@ -24,6 +24,7 @@ namespace QuantEngineTests
                 ReferenceMapsBuildDirectionalLadders,
                 PtaxHistoryStoreUpsertsAndLoads,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
+                ChartMetricLinesUseOnlySelectedReferenceMode,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
                 GarchEngineFitsParametersAndCalculatesBands
@@ -194,6 +195,35 @@ namespace QuantEngineTests
             Assert(!bothLevels.Any(x => string.Equals(x.Tags, "poc", StringComparison.OrdinalIgnoreCase)), "Reference levels sent to the chart should keep POC hidden.");
         }
 
+        private static void ChartMetricLinesUseOnlySelectedReferenceMode()
+        {
+            QuantResult result = BuildResult();
+            result.Garch.DailyBands.Add(new GarchBandLevel
+            {
+                Price = 5333m,
+                Label = "GARCH diario legado",
+                Source = "GARCH-Diario",
+                Side = "Venda",
+                ScoreHint = 93
+            });
+
+            Assert(result.KeyLevels.Any(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase)), "Test setup should include legacy Gauss lines in base key levels.");
+
+            NativeChartControl chart = new NativeChartControl();
+            chart.ShowConfluenceLevels = false;
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Opening;
+
+            List<KeyLevel> chartLevels = chart.ChartLevelsForDiagnostics(result);
+            List<KeyLevel> indicatorLevels = chartLevels
+                .Where(x => IsChartIndicatorMetricSource(x.Source))
+                .ToList();
+
+            Assert(indicatorLevels.Count > 0, "Chart should still show metric indicator lines.");
+            Assert(indicatorLevels.All(x => string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase)), "Metric indicator lines should come only from the selected reference mode.");
+            Assert(!indicatorLevels.Any(x => string.IsNullOrWhiteSpace(x.Tags)), "Metric indicator lines should not include legacy base or standalone bands without a reference tag.");
+            Assert(!indicatorLevels.Any(x => !string.IsNullOrWhiteSpace(x.Source) && x.Source.IndexOf("GARCH-", StringComparison.OrdinalIgnoreCase) >= 0), "Standalone GARCH bands should not be added on top of reference metric lines.");
+        }
+
         private static void ChartCommandsAdjustViewportPredictably()
         {
             NativeChartControl chart = new NativeChartControl();
@@ -354,6 +384,22 @@ namespace QuantEngineTests
             {
                 throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
             }
+        }
+
+        private static bool IsChartIndicatorMetricSource(string source)
+        {
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            return source.IndexOf("Garman", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("GK", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("Gauss", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("Desvio", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("StdDev", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("StandardDeviation", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static void GarchEngineFitsParametersAndCalculatesBands()

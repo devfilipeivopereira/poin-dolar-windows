@@ -418,6 +418,11 @@ namespace RtdDolarNative.Charts
             return BuildReferenceMetricLevels(result);
         }
 
+        public List<KeyLevel> ChartLevelsForDiagnostics(QuantResult result)
+        {
+            return BuildChartLevels(result);
+        }
+
         public void PanHorizontalCandles(int candles)
         {
             _viewOffsetFromEnd += candles;
@@ -531,43 +536,7 @@ namespace RtdDolarNative.Charts
 
             decimal min = viewport.VisibleBars.Min(x => x.Low);
             decimal max = viewport.VisibleBars.Max(x => x.High);
-            List<KeyLevel> levels = new List<KeyLevel>();
-
-            if (_result != null)
-            {
-                if (_showKeyLevels)
-                {
-                    levels.AddRange(_result.KeyLevels
-                        .Where(x => !IsPercentLevel(x))
-                        .Where(IsLevelCategoryEnabled));
-                }
-
-                if (_showPercentLevels && _result.PercentTable != null)
-                {
-                    levels.AddRange(_result.PercentTable.Where(x => x != null && x.Price > 0m));
-                }
-
-                levels.AddRange(BuildReferenceMetricLevels(_result));
-
-                if (_showConfluenceLevels)
-                {
-                    levels.AddRange(_result.Confluence.Take(12));
-                }
-
-                if (_showGarchLevels)
-                {
-                    levels.AddRange(BuildGarchLevels(_result.Garch));
-                }
-            }
-
-            if (_showMaxMin7Levels)
-            {
-                levels.AddRange(BuildMaxMin7Levels());
-            }
-
-            levels = levels
-                .Where(x => !IsPocLevel(x))
-                .ToList();
+            List<KeyLevel> levels = BuildChartLevels(_result);
 
             foreach (KeyLevel level in levels)
             {
@@ -645,6 +614,45 @@ namespace RtdDolarNative.Charts
             {
                 DrawCurrentPriceMarker(dc, plot, min, max);
             }
+        }
+
+        private List<KeyLevel> BuildChartLevels(QuantResult result)
+        {
+            List<KeyLevel> levels = new List<KeyLevel>();
+
+            if (result != null)
+            {
+                if (_showKeyLevels)
+                {
+                    levels.AddRange(result.KeyLevels
+                        .Where(x => !IsPercentLevel(x))
+                        .Where(x => !IsReferenceMetricChartLevel(x))
+                        .Where(IsLevelCategoryEnabled));
+                }
+
+                if (_showPercentLevels && result.PercentTable != null)
+                {
+                    levels.AddRange(result.PercentTable.Where(x => x != null && x.Price > 0m));
+                }
+
+                levels.AddRange(BuildReferenceMetricLevels(result));
+
+                if (_showConfluenceLevels)
+                {
+                    levels.AddRange(result.Confluence
+                        .Where(x => !IsReferenceMetricChartLevel(x))
+                        .Take(12));
+                }
+            }
+
+            if (_showMaxMin7Levels)
+            {
+                levels.AddRange(BuildMaxMin7Levels());
+            }
+
+            return levels
+                .Where(x => !IsPocLevel(x))
+                .ToList();
         }
 
         private bool IsLevelCategoryEnabled(KeyLevel level)
@@ -733,6 +741,21 @@ namespace RtdDolarNative.Charts
         {
             return !string.IsNullOrWhiteSpace(value) &&
                    value.IndexOf("POC", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsReferenceMetricChartLevel(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            List<string> tokens = LevelSourceTokens(level.Source);
+
+            return tokens.Any(IsGarmanSource) ||
+                   tokens.Any(IsGaussSource) ||
+                   tokens.Any(IsStdDevSource) ||
+                   tokens.Any(IsGarchSource);
         }
 
         private static List<KeyLevel> SelectVisibleChartLevels(IEnumerable<KeyLevel> levels)

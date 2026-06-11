@@ -1499,7 +1499,7 @@
                                                           Tag="{StaticResource ChartLineGarchBrush}"
                                                           Style="{StaticResource TopNavChartLineCheckBoxStyle}"
                                                           Margin="0,0,8,0"
-                                                          ToolTip="Niveis e bandas GARCH"
+                                                          ToolTip="Niveis GARCH pela referencia selecionada"
                                                           VerticalContentAlignment="Center"
                                                           Checked="ChartLineVisibility_Checked"
                                                           Unchecked="ChartLineVisibility_Checked" />
