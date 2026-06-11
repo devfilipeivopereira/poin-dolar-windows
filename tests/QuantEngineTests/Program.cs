@@ -27,6 +27,7 @@ namespace QuantEngineTests
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartMetricLinesUseOnlySelectedReferenceMode,
                 ChartMetricBuySellLinesUseDirectionalColors,
+                ChartClosingLinesUseCsvD1CloseEvenWhenRtdFecExists,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
                 GarchEngineFitsParametersAndCalculatesBands
@@ -99,7 +100,8 @@ namespace QuantEngineTests
             Assert(adjustment != null, "Adjustment reference map should exist.");
             Assert(ptax != null, "PTAX reference map should exist.");
             AssertEqual(5180m, opening.ReferencePrice, "Opening reference should use RTD abertura.");
-            AssertEqual(5200m, closing.ReferencePrice, "Closing reference should use RTD fechamento anterior when available.");
+            AssertEqual(result.PreviousDay.Close, closing.ReferencePrice, "Closing reference should use CSV D-1 close when available.");
+            AssertEqual("CSV D-1", closing.ReferenceSource, "Closing reference should identify the CSV D-1 source.");
             AssertEqual(5192m, adjustment.ReferencePrice, "Adjustment reference should use AJU when available.");
             AssertEqual(5.41m, ptax.ReferencePrice, "PTAX reference should use the applied manual SQL value.");
             Assert(poc.ReferencePrice > 0m, "POC reference should come from the proxy profile.");
@@ -264,6 +266,23 @@ namespace QuantEngineTests
             Assert(buy != null, "Reference metrics should include buy lines.");
             AssertEqual("#FFFF5252", chart.ChartLevelColorForDiagnostics(sell), "Sell lines should be red.");
             AssertEqual("#FF12B886", chart.ChartLevelColorForDiagnostics(buy), "Buy lines should be green.");
+        }
+
+        private static void ChartClosingLinesUseCsvD1CloseEvenWhenRtdFecExists()
+        {
+            QuantResult result = BuildResult();
+            NativeChartControl chart = new NativeChartControl();
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Closing;
+
+            KeyLevel gaussSell = chart.ReferenceMetricLevelsForDiagnostics(result)
+                .FirstOrDefault(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase) &&
+                                     string.Equals(x.Type, "Venda", StringComparison.OrdinalIgnoreCase) &&
+                                     x.Label != null &&
+                                     x.Label.IndexOf("+1", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            Assert(gaussSell != null, "Closing chart mode should produce a Gauss sell +1 line.");
+            AssertEqual(result.PreviousDay.Close + result.Gauss.Points, gaussSell.Price, "Closing chart lines should be anchored on CSV D-1 close, not RTD FEC.");
+            Assert(gaussSell.Label.IndexOf("Fechamento", StringComparison.OrdinalIgnoreCase) >= 0, "Closing chart line label should still identify fechamento.");
         }
 
         private static void ChartCommandsAdjustViewportPredictably()

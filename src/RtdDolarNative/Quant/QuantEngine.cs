@@ -678,18 +678,10 @@ namespace RtdDolarNative.Quant
 
             decimal csvPreviousClose = result.PreviousDay == null ? 0m : result.PreviousDay.Close;
             bool hasRtdClose = snapshot != null && snapshot.FechamentoAnterior.HasValue && snapshot.FechamentoAnterior.Value > 0m;
-            decimal closingReference = hasRtdClose ? snapshot.FechamentoAnterior.Value : csvPreviousClose;
-            string closingSource = hasRtdClose ? "RTD" : "CSV D-1";
-
-            if (hasRtdClose &&
-                csvPreviousClose > 0m &&
-                csvPreviousClose != closingReference &&
-                openingReference > 0m &&
-                closingReference == openingReference)
-            {
-                closingReference = csvPreviousClose;
-                closingSource = "CSV D-1";
-            }
+            decimal closingReference = csvPreviousClose > 0m
+                ? csvPreviousClose
+                : (hasRtdClose ? snapshot.FechamentoAnterior.Value : 0m);
+            string closingSource = csvPreviousClose > 0m ? "CSV D-1" : (hasRtdClose ? "RTD" : "CSV D-1");
 
             maps.Add(BuildReferenceMap(result, "closing", "Fechamento", closingSource, closingReference, tickSize));
 
