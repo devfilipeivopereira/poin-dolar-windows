@@ -3187,6 +3187,7 @@ namespace RtdDolarNative
                     Sigma = b.Sigma.ToString("N1", _ptBr) + "σ",
                     Price = b.Price.ToString("N2", _ptBr),
                     DistanceCurrent = FormatPoints(b.DistanceCurrent),
+                    Score = b.ScoreHint.ToString("N0", _ptBr),
                     Read = b.Read
                 });
             }
@@ -3201,6 +3202,7 @@ namespace RtdDolarNative
                     Sigma = b.Sigma.ToString("N1", _ptBr) + "σ",
                     Price = b.Price.ToString("N2", _ptBr),
                     DistanceCurrent = FormatPoints(b.DistanceCurrent),
+                    Score = b.ScoreHint.ToString("N0", _ptBr),
                     Read = b.Read
                 });
             }
@@ -7623,6 +7625,7 @@ namespace RtdDolarNative
             rows.Add(BuildReferenceMetricCard(map == null ? null : map.GarmanSummary, basis));
             rows.Add(BuildReferenceMetricCard(map == null ? null : map.GaussSummary, basis));
             rows.Add(BuildReferenceMetricCard(map == null ? null : map.StdDevSummary, basis));
+            rows.Add(BuildReferenceMetricCard(map == null ? null : map.GarchSummary, basis));
             return rows;
         }
 
@@ -7655,6 +7658,9 @@ namespace RtdDolarNative
                 empty.GaussDistance = "-";
                 empty.StdDevPrice = "-";
                 empty.StdDevDistance = "-";
+                empty.GarchPrice = "-";
+                empty.GarchDistance = "-";
+                empty.GarchScore = "-";
                 rows.Add(empty);
                 return rows;
             }
@@ -7664,17 +7670,19 @@ namespace RtdDolarNative
                 rows.Add(BuildReferenceComparisonRow("Venda", "+" + multiplier.ToString(_ptBr), "Venda", map.ReferencePrice, currentPrice,
                     FindDeviationLevel(map.GarmanLevels, multiplier),
                     FindDeviationLevel(map.GaussLevels, multiplier),
-                    FindDeviationLevel(map.StdDevLevels, multiplier)));
+                    FindDeviationLevel(map.StdDevLevels, multiplier),
+                    FindDeviationLevel(map.GarchLevels, multiplier)));
             }
 
-            rows.Add(BuildReferenceComparisonRow("Ref", "Referencia", "Neutro", map.ReferencePrice, currentPrice, null, null, null));
+            rows.Add(BuildReferenceComparisonRow("Ref", "Referencia", "Neutro", map.ReferencePrice, currentPrice, null, null, null, null));
 
             for (int multiplier = 1; multiplier <= 4; multiplier++)
             {
                 rows.Add(BuildReferenceComparisonRow("Compra", "-" + multiplier.ToString(_ptBr), "Compra", map.ReferencePrice, currentPrice,
                     FindDeviationLevel(map.GarmanLevels, -multiplier),
                     FindDeviationLevel(map.GaussLevels, -multiplier),
-                    FindDeviationLevel(map.StdDevLevels, -multiplier)));
+                    FindDeviationLevel(map.StdDevLevels, -multiplier),
+                    FindDeviationLevel(map.GarchLevels, -multiplier)));
             }
 
             return rows;
@@ -7688,7 +7696,8 @@ namespace RtdDolarNative
             decimal currentPrice,
             DeviationLevel garmanLevel,
             DeviationLevel gaussLevel,
-            DeviationLevel stdDevLevel)
+            DeviationLevel stdDevLevel,
+            DeviationLevel garchLevel)
         {
             ReferenceComparisonRow row = new ReferenceComparisonRow();
             row.Side = side;
@@ -7703,6 +7712,9 @@ namespace RtdDolarNative
                 row.GaussDistance = FormatPoints(referencePrice - currentPrice);
                 row.StdDevPrice = referencePrice.ToString("N2", _ptBr);
                 row.StdDevDistance = FormatPoints(referencePrice - currentPrice);
+                row.GarchPrice = referencePrice.ToString("N2", _ptBr);
+                row.GarchDistance = FormatPoints(referencePrice - currentPrice);
+                row.GarchScore = "-";
                 return row;
             }
 
@@ -7712,6 +7724,9 @@ namespace RtdDolarNative
             row.GaussDistance = gaussLevel == null ? "-" : FormatPoints(gaussLevel.DistanceCurrent);
             row.StdDevPrice = stdDevLevel == null ? "-" : stdDevLevel.Price.ToString("N2", _ptBr);
             row.StdDevDistance = stdDevLevel == null ? "-" : FormatPoints(stdDevLevel.DistanceCurrent);
+            row.GarchPrice = garchLevel == null ? "-" : garchLevel.Price.ToString("N2", _ptBr);
+            row.GarchDistance = garchLevel == null ? "-" : FormatPoints(garchLevel.DistanceCurrent);
+            row.GarchScore = garchLevel == null || garchLevel.Score <= 0d ? "-" : garchLevel.Score.ToString("N0", _ptBr);
             return row;
         }
 
@@ -9777,6 +9792,9 @@ namespace RtdDolarNative
             public string GaussDistance { get; set; }
             public string StdDevPrice { get; set; }
             public string StdDevDistance { get; set; }
+            public string GarchPrice { get; set; }
+            public string GarchDistance { get; set; }
+            public string GarchScore { get; set; }
             public string Direction { get; set; }
         }
 
@@ -9958,6 +9976,7 @@ namespace RtdDolarNative
             public string Sigma { get; set; }
             public string Price { get; set; }
             public string DistanceCurrent { get; set; }
+            public string Score { get; set; }
             public string Read { get; set; }
         }
 

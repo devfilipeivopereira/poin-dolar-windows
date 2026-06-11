@@ -150,6 +150,18 @@ namespace RtdDolarNative.Quant
             return result;
         }
 
+        public static List<GarchBandLevel> BuildReferenceBands(
+            string scope,
+            decimal reference,
+            decimal currentPrice,
+            GarchFitResult fit,
+            IEnumerable<double> multipliers,
+            decimal tickSize)
+        {
+            double[] values = multipliers == null ? null : multipliers.ToArray();
+            return BuildBands(scope, reference, currentPrice, fit, values, tickSize);
+        }
+
         private static decimal ResolveCurrentPrice(List<DailyBar> dailyBars, IntradayContext intraday, MarketSnapshot snapshot, GarchSnapshot result)
         {
             if (intraday != null && intraday.Price > 0m)

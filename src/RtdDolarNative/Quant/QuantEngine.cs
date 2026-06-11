@@ -104,7 +104,7 @@ namespace RtdDolarNative.Quant
             result.PocDeviationLevels = ReferenceDeviationLevels("POC", result.Profile.Poc.Price, result.GarmanKlass.Points, result.Intraday.Price);
             result.StandardDeviationLevels = MetricLevels("Desvio padrao", result.Intraday.Open, result.StandardDeviation, result.Intraday.Price);
             result.GaussLevels = MetricLevels("Gauss robusto", result.Intraday.Open, result.Gauss, result.Intraday.Price);
-            result.ReferenceMaps = BuildReferenceMaps(result, snapshot);
+            result.ReferenceMaps = BuildReferenceMaps(result, snapshot, tickSize);
             result.PercentMaps = PercentVariationMaps(result.PreviousDay, result.Intraday, result.Profile);
             result.PercentTable = FlattenPercentMaps(result.PercentMaps, result.Intraday.Price);
             result.Backtest = BacktestProxy(result.Bars, windowDays);
@@ -662,7 +662,7 @@ namespace RtdDolarNative.Quant
             return levels;
         }
 
-        private static List<ReferenceMapResult> BuildReferenceMaps(QuantResult result, MarketSnapshot snapshot)
+        private static List<ReferenceMapResult> BuildReferenceMaps(QuantResult result, MarketSnapshot snapshot, decimal tickSize)
         {
             List<ReferenceMapResult> maps = new List<ReferenceMapResult>();
 
@@ -674,15 +674,15 @@ namespace RtdDolarNative.Quant
             decimal openingReference = snapshot != null && snapshot.Abertura.HasValue && snapshot.Abertura.Value > 0m
                 ? snapshot.Abertura.Value
                 : result.Intraday.Open;
-            maps.Add(BuildReferenceMap(result, "opening", "Abertura", snapshot != null && snapshot.Abertura.HasValue ? "RTD" : "Intraday", openingReference));
+            maps.Add(BuildReferenceMap(result, "opening", "Abertura", snapshot != null && snapshot.Abertura.HasValue ? "RTD" : "Intraday", openingReference, tickSize));
 
             decimal closingReference = snapshot != null && snapshot.FechamentoAnterior.HasValue && snapshot.FechamentoAnterior.Value > 0m
                 ? snapshot.FechamentoAnterior.Value
                 : (result.PreviousDay == null ? 0m : result.PreviousDay.Close);
-            maps.Add(BuildReferenceMap(result, "closing", "Fechamento", snapshot != null && snapshot.FechamentoAnterior.HasValue ? "RTD" : "CSV D-1", closingReference));
+            maps.Add(BuildReferenceMap(result, "closing", "Fechamento", snapshot != null && snapshot.FechamentoAnterior.HasValue ? "RTD" : "CSV D-1", closingReference, tickSize));
 
             decimal pocReference = result.Profile == null || result.Profile.Poc == null ? 0m : result.Profile.Poc.Price;
-            maps.Add(BuildReferenceMap(result, "poc", "POC", "Profile CSV", pocReference));
+            maps.Add(BuildReferenceMap(result, "poc", "POC", "Profile CSV", pocReference, tickSize));
 
             decimal adjustmentReference = snapshot != null && snapshot.Ajuste.HasValue && snapshot.Ajuste.Value > 0m
                 ? snapshot.Ajuste.Value
@@ -693,15 +693,15 @@ namespace RtdDolarNative.Quant
             string adjustmentSource = ajusteField.HasValue && ajusteField.Value != 0m
                 ? "RTD AJU"
                 : (snapshot != null && snapshot.AjusteAnterior.HasValue ? "RTD AJA" : "RTD");
-            maps.Add(BuildReferenceMap(result, "adjustment", "Ajuste", adjustmentSource, adjustmentReference));
+            maps.Add(BuildReferenceMap(result, "adjustment", "Ajuste", adjustmentSource, adjustmentReference, tickSize));
 
             decimal ptaxReference = snapshot != null && snapshot.Ptax.HasValue && snapshot.Ptax.Value > 0m ? snapshot.Ptax.Value : 0m;
-            maps.Add(BuildReferenceMap(result, "ptax", "PTAX", ptaxReference > 0m ? "SQL manual" : "SQL manual sem valor", ptaxReference));
+            maps.Add(BuildReferenceMap(result, "ptax", "PTAX", ptaxReference > 0m ? "SQL manual" : "SQL manual sem valor", ptaxReference, tickSize));
 
             return maps;
         }
 
-        private static ReferenceMapResult BuildReferenceMap(QuantResult result, string referenceKey, string referenceLabel, string source, decimal referencePrice)
+        private static ReferenceMapResult BuildReferenceMap(QuantResult result, string referenceKey, string referenceLabel, string source, decimal referencePrice, decimal tickSize)
         {
             ReferenceMapResult map = new ReferenceMapResult();
             map.ReferenceKey = referenceKey;
@@ -715,12 +715,95 @@ namespace RtdDolarNative.Quant
                 map.GarmanLevels = ReferenceDeviationLevels(referenceLabel, referencePrice, result == null || result.GarmanKlass == null ? 0m : result.GarmanKlass.Points, currentPrice);
                 map.GaussLevels = MetricLevels("Gauss robusto", referencePrice, result == null ? null : result.Gauss, currentPrice);
                 map.StdDevLevels = MetricLevels("Desvio padrao", referencePrice, result == null ? null : result.StandardDeviation, currentPrice);
+                map.GarchLevels = GarchReferenceLevels(referenceLabel, referencePrice, currentPrice, result == null ? null : result.Garch, tickSize);
             }
 
             map.GarmanSummary = BuildReferenceMetricSummary("garman", "Garman-Klass", result == null ? null : result.GarmanKlass, map.GarmanLevels, currentPrice);
             map.GaussSummary = BuildReferenceMetricSummary("gauss", "Gauss", result == null ? null : result.Gauss, map.GaussLevels, currentPrice);
             map.StdDevSummary = BuildReferenceMetricSummary("stddev", "Desvio padrao", result == null ? null : result.StandardDeviation, map.StdDevLevels, currentPrice);
+            map.GarchSummary = BuildGarchReferenceMetricSummary(result == null ? null : result.Garch, map.GarchLevels, referencePrice, currentPrice, tickSize);
             return map;
+        }
+
+        private static List<DeviationLevel> GarchReferenceLevels(string referenceLabel, decimal referencePrice, decimal currentPrice, GarchSnapshot garch, decimal tickSize)
+        {
+            List<DeviationLevel> levels = new List<DeviationLevel>();
+            GarchFitResult fit = ResolveReferenceGarchFit(garch);
+
+            if (fit == null || !fit.Success || referencePrice <= 0m)
+            {
+                return levels;
+            }
+
+            double[] multipliers = new[] { 1d, 2d, 3d, 4d };
+            string scope = string.IsNullOrWhiteSpace(referenceLabel) ? "Referencia" : referenceLabel.Trim();
+            List<GarchBandLevel> bands = GarchEngine.BuildReferenceBands(scope, referencePrice, currentPrice, fit, multipliers, tickSize);
+
+            foreach (GarchBandLevel band in bands)
+            {
+                if (band == null || band.Price <= 0m)
+                {
+                    continue;
+                }
+
+                levels.Add(new DeviationLevel
+                {
+                    Side = band.Side,
+                    Direction = string.Equals(band.Side, "Venda", StringComparison.OrdinalIgnoreCase) ? "sell" : "buy",
+                    Sigma = Dec(band.Sigma),
+                    Price = band.Price,
+                    DistanceReference = band.DistanceReference,
+                    DistanceCurrent = band.DistanceCurrent,
+                    Label = band.Label,
+                    Score = band.ScoreHint
+                });
+            }
+
+            return levels;
+        }
+
+        private static ReferenceMetricSummary BuildGarchReferenceMetricSummary(GarchSnapshot garch, IEnumerable<DeviationLevel> levels, decimal referencePrice, decimal currentPrice, decimal tickSize)
+        {
+            ReferenceMetricSummary summary = new ReferenceMetricSummary();
+            summary.MetricKey = "garch";
+            summary.MetricLabel = "GARCH";
+            summary.Points = GarchSigmaPoints(garch, referencePrice, tickSize);
+            summary.NearestSell = NearestDeviationLevel(levels, "Venda", currentPrice);
+            summary.NearestBuy = NearestDeviationLevel(levels, "Compra", currentPrice);
+            return summary;
+        }
+
+        private static GarchFitResult ResolveReferenceGarchFit(GarchSnapshot garch)
+        {
+            if (garch == null)
+            {
+                return null;
+            }
+
+            if (garch.DailyFit != null && garch.DailyFit.Success)
+            {
+                return garch.DailyFit;
+            }
+
+            if (garch.IntradayFit != null && garch.IntradayFit.Success)
+            {
+                return garch.IntradayFit;
+            }
+
+            return null;
+        }
+
+        private static decimal GarchSigmaPoints(GarchSnapshot garch, decimal referencePrice, decimal tickSize)
+        {
+            GarchFitResult fit = ResolveReferenceGarchFit(garch);
+
+            if (fit == null || !fit.Success || referencePrice <= 0m)
+            {
+                return 0m;
+            }
+
+            decimal points = Dec(Math.Abs(fit.NextSigma * D(referencePrice)));
+            return RoundToTick(points, tickSize);
         }
 
         private static ReferenceMetricSummary BuildReferenceMetricSummary(string metricKey, string metricLabel, VolatilityMetric metric, IEnumerable<DeviationLevel> levels, decimal currentPrice)
@@ -2004,6 +2087,12 @@ namespace RtdDolarNative.Quant
         private static double Clamp(double n, double min, double max)
         {
             return Math.Max(min, Math.Min(max, n));
+        }
+
+        private static decimal RoundToTick(decimal value, decimal tickSize)
+        {
+            decimal normalizedTick = tickSize <= 0m ? 0.5m : tickSize;
+            return Math.Round(value / normalizedTick, 0, MidpointRounding.AwayFromZero) * normalizedTick;
         }
 
         private static double D(decimal value)

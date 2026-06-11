@@ -128,18 +128,40 @@ if (-not $OpenOnly) {
     Stop-AppProcesses
     Wait-ForUnlockedExecutable -Path $appExe
 
-    $args = @("--launch")
+    $args = @()
     if ($Quiet) {
-        $args = @("--quiet", "--launch")
+        $args = @("--quiet")
     }
 
     Write-Host "Reinstalando em: $installDir"
-    & $distSetup @args`n    Start-Sleep -Seconds 2
+    & $distSetup @args
+    Start-Sleep -Seconds 2
+    # Recompute executable path after installation
+    $appExe = @(
+        [IO.Path]::Combine($installDir, "app", "x64", "RtdDolarNative.exe"),
+        [IO.Path]::Combine($installDir, "app", "x86", "RtdDolarNative.exe"),
+        [IO.Path]::Combine($installDir, "RtdDolarNative.exe")
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($null -eq $appExe) { $appExe = Join-Path $installDir "RtdDolarNative.exe" }
 }
 
 if (Test-Path $appExe) {
-    Write-Host "Abrindo $appExe"
-    Start-Process $appExe
+    $runningApp = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        try {
+            $_.Path -eq $appExe
+        }
+        catch {
+            $false
+        }
+    } | Select-Object -First 1
+
+    if ($runningApp) {
+        Write-Host "App ja aberto em $appExe"
+    }
+    else {
+        Write-Host "Abrindo $appExe"
+        Start-Process $appExe
+    }
 }
 else {
     throw "Executavel nao encontrado em $appExe. Instalacao falhou ou app nao esta instalado."

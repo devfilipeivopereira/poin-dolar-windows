@@ -2589,7 +2589,9 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
-                                                <DataGridTextColumn Header="GARCH Pts" Binding="{Binding DistanceReference}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Preco" Binding="{Binding GarchPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GARCH Dist" Binding="{Binding GarchDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Score" Binding="{Binding GarchScore}" Width="78" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>
@@ -2642,6 +2644,9 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Preco" Binding="{Binding GarchPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GARCH Dist" Binding="{Binding GarchDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Score" Binding="{Binding GarchScore}" Width="78" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>
@@ -2694,6 +2699,9 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Preco" Binding="{Binding GarchPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GARCH Dist" Binding="{Binding GarchDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Score" Binding="{Binding GarchScore}" Width="78" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>
@@ -2746,6 +2754,9 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Preco" Binding="{Binding GarchPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GARCH Dist" Binding="{Binding GarchDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Score" Binding="{Binding GarchScore}" Width="78" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>
@@ -2821,6 +2832,9 @@
                                                 <DataGridTextColumn Header="Gauss Dist" Binding="{Binding GaussDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
                                                 <DataGridTextColumn Header="Desvio Preco" Binding="{Binding StdDevPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                                 <DataGridTextColumn Header="Desvio Dist" Binding="{Binding StdDevDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Preco" Binding="{Binding GarchPrice}" Width="98" CellStyle="{StaticResource LevelsPriceCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
+                                                <DataGridTextColumn Header="GARCH Dist" Binding="{Binding GarchDistance}" Width="96" CellStyle="{StaticResource LevelsDistanceCellStyle}" />
+                                                <DataGridTextColumn Header="GARCH Score" Binding="{Binding GarchScore}" Width="78" CellStyle="{StaticResource CenteredDataGridCellStyle}" ElementStyle="{StaticResource CenteredDataGridTextElementStyle}" EditingElementStyle="{StaticResource CenteredDataGridEditingElementStyle}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </StackPanel>
@@ -4037,6 +4051,7 @@
                                                 <DataGridTextColumn Header="SIGMA" Binding="{Binding Sigma}" Width="60" />
                                                 <DataGridTextColumn Header="PRICE" Binding="{Binding Price}" Width="80" />
                                                 <DataGridTextColumn Header="DIST" Binding="{Binding DistanceCurrent}" Width="80" />
+                                                <DataGridTextColumn Header="SCORE" Binding="{Binding Score}" Width="60" />
                                                 <DataGridTextColumn Header="READ" Binding="{Binding Read}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -4053,6 +4068,7 @@
                                                 <DataGridTextColumn Header="SIGMA" Binding="{Binding Sigma}" Width="60" />
                                                 <DataGridTextColumn Header="PRICE" Binding="{Binding Price}" Width="80" />
                                                 <DataGridTextColumn Header="DIST" Binding="{Binding DistanceCurrent}" Width="80" />
+                                                <DataGridTextColumn Header="SCORE" Binding="{Binding Score}" Width="60" />
                                                 <DataGridTextColumn Header="READ" Binding="{Binding Read}" Width="*" />
                                             </DataGrid.Columns>
                                         </DataGrid>

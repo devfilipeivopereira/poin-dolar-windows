@@ -104,6 +104,7 @@ namespace RtdDolarNative.Quant
         public decimal DistanceReference { get; set; }
         public decimal DistanceCurrent { get; set; }
         public string Label { get; set; }
+        public double Score { get; set; }
     }
 
     public sealed class ReferenceMetricSummary
@@ -122,6 +123,7 @@ namespace RtdDolarNative.Quant
             GarmanLevels = new List<DeviationLevel>();
             GaussLevels = new List<DeviationLevel>();
             StdDevLevels = new List<DeviationLevel>();
+            GarchLevels = new List<DeviationLevel>();
         }
 
         public string ReferenceKey { get; set; }
@@ -131,9 +133,11 @@ namespace RtdDolarNative.Quant
         public List<DeviationLevel> GarmanLevels { get; set; }
         public List<DeviationLevel> GaussLevels { get; set; }
         public List<DeviationLevel> StdDevLevels { get; set; }
+        public List<DeviationLevel> GarchLevels { get; set; }
         public ReferenceMetricSummary GarmanSummary { get; set; }
         public ReferenceMetricSummary GaussSummary { get; set; }
         public ReferenceMetricSummary StdDevSummary { get; set; }
+        public ReferenceMetricSummary GarchSummary { get; set; }
     }
 
     public sealed class PercentLevel
