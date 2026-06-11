@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using RtdDolarNative.Charts;
@@ -28,6 +29,7 @@ namespace QuantEngineTests
                 ChartMetricLinesUseOnlySelectedReferenceMode,
                 ChartMetricBuySellLinesUseDirectionalColors,
                 ChartClosingLinesUseCsvD1CloseEvenWhenRtdFecExists,
+                ChartLineLabelsIncludeFormattedPrice,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
                 GarchEngineFitsParametersAndCalculatesBands
@@ -283,6 +285,24 @@ namespace QuantEngineTests
             Assert(gaussSell != null, "Closing chart mode should produce a Gauss sell +1 line.");
             AssertEqual(result.PreviousDay.Close + result.Gauss.Points, gaussSell.Price, "Closing chart lines should be anchored on CSV D-1 close, not RTD FEC.");
             Assert(gaussSell.Label.IndexOf("Fechamento", StringComparison.OrdinalIgnoreCase) >= 0, "Closing chart line label should still identify fechamento.");
+        }
+
+        private static void ChartLineLabelsIncludeFormattedPrice()
+        {
+            QuantResult result = BuildResult();
+            NativeChartControl chart = new NativeChartControl();
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Opening;
+
+            KeyLevel line = chart.ReferenceMetricLevelsForDiagnostics(result)
+                .FirstOrDefault(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase) &&
+                                     string.Equals(x.Type, "Venda", StringComparison.OrdinalIgnoreCase));
+
+            Assert(line != null, "Reference metrics should include a sample line.");
+            string label = chart.ChartLevelLabelForDiagnostics(line);
+            string expectedPrice = line.Price.ToString("N2", CultureInfo.GetCultureInfo("pt-BR"));
+
+            Assert(label.IndexOf(line.Label, StringComparison.OrdinalIgnoreCase) >= 0, "Chart line label should keep the level name.");
+            Assert(label.IndexOf(expectedPrice, StringComparison.OrdinalIgnoreCase) >= 0, "Chart line label should include the formatted price.");
         }
 
         private static void ChartCommandsAdjustViewportPredictably()

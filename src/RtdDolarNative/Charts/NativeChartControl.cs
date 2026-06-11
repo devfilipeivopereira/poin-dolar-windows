@@ -429,6 +429,11 @@ namespace RtdDolarNative.Charts
             return brush == null ? string.Empty : brush.Color.ToString();
         }
 
+        public string ChartLevelLabelForDiagnostics(KeyLevel level)
+        {
+            return FormatLevelLabel(level);
+        }
+
         public void PanHorizontalCandles(int candles)
         {
             _viewOffsetFromEnd += candles;
@@ -613,7 +618,7 @@ namespace RtdDolarNative.Charts
                 double y = Y(level.Price, min, max, plot);
                 Pen pen = new Pen(LevelBrush(level), level.Source == "POC" || level.Type == "Atual" ? 2 : 1);
                 dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
-                DrawText(dc, level.Label, plot.Left + 6, y - 14, LevelBrush(level), 10);
+                DrawText(dc, FormatLevelLabel(level), plot.Left + 6, y - 14, LevelBrush(level), 10);
             }
 
             if (_showCurrentPriceLine)
@@ -1802,6 +1807,29 @@ namespace RtdDolarNative.Charts
         private string FormatPrice(decimal price)
         {
             return price.ToString("N2", PtBrCulture);
+        }
+
+        private string FormatLevelLabel(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return string.Empty;
+            }
+
+            string price = level.Price > 0m ? FormatPrice(level.Price) : string.Empty;
+            string name = string.IsNullOrWhiteSpace(level.Label) ? string.Empty : level.Label.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return price;
+            }
+
+            if (string.IsNullOrWhiteSpace(price))
+            {
+                return name;
+            }
+
+            return name + " | " + price;
         }
 
         private static Color CurrentPriceColor(MarketSnapshot snapshot)
