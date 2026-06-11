@@ -1051,10 +1051,6 @@ namespace RtdDolarNative
                 ChartShowCurrentPriceLineCheckBox == null ||
                 ChartShowConfluenceCheckBox == null ||
                 ChartShowKeyLevelsCheckBox == null ||
-                ChartShowRtdLevelsCheckBox == null ||
-                ChartShowProfileLevelsCheckBox == null ||
-                ChartShowTechnicalLevelsCheckBox == null ||
-                ChartShowMarketLevelsCheckBox == null ||
                 ChartShowPercentLevelsCheckBox == null ||
                 ChartShowGarmanLevelsCheckBox == null ||
                 ChartShowGaussLevelsCheckBox == null ||
@@ -1073,10 +1069,6 @@ namespace RtdDolarNative
                 ChartShowCurrentPriceLineCheckBox.IsChecked = _config.Ui.ShowChartCurrentPriceLine;
                 ChartShowConfluenceCheckBox.IsChecked = _config.Ui.ShowChartConfluenceLevels;
                 ChartShowKeyLevelsCheckBox.IsChecked = _config.Ui.ShowChartKeyLevels;
-                ChartShowRtdLevelsCheckBox.IsChecked = _config.Ui.ShowChartRtdLevels;
-                ChartShowProfileLevelsCheckBox.IsChecked = _config.Ui.ShowChartProfileLevels;
-                ChartShowTechnicalLevelsCheckBox.IsChecked = _config.Ui.ShowChartTechnicalLevels;
-                ChartShowMarketLevelsCheckBox.IsChecked = _config.Ui.ShowChartMarketLevels;
                 ChartShowPercentLevelsCheckBox.IsChecked = _config.Ui.ShowChartPercentLevels;
                 ChartShowGarmanLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarmanLevels;
                 ChartShowGaussLevelsCheckBox.IsChecked = _config.Ui.ShowChartGaussLevels;
@@ -1103,10 +1095,10 @@ namespace RtdDolarNative
             bool showCurrentPriceLine = ChartShowCurrentPriceLineCheckBox != null && ChartShowCurrentPriceLineCheckBox.IsChecked == true;
             bool showConfluence = ChartShowConfluenceCheckBox != null && ChartShowConfluenceCheckBox.IsChecked == true;
             bool showKeyLevels = ChartShowKeyLevelsCheckBox != null && ChartShowKeyLevelsCheckBox.IsChecked == true;
-            bool showRtdLevels = ChartShowRtdLevelsCheckBox != null && ChartShowRtdLevelsCheckBox.IsChecked == true;
-            bool showProfileLevels = ChartShowProfileLevelsCheckBox != null && ChartShowProfileLevelsCheckBox.IsChecked == true;
-            bool showTechnicalLevels = ChartShowTechnicalLevelsCheckBox != null && ChartShowTechnicalLevelsCheckBox.IsChecked == true;
-            bool showMarketLevels = ChartShowMarketLevelsCheckBox != null && ChartShowMarketLevelsCheckBox.IsChecked == true;
+            bool showRtdLevels = false;
+            bool showProfileLevels = false;
+            bool showTechnicalLevels = false;
+            bool showMarketLevels = false;
             bool showPercentLevels = ChartShowPercentLevelsCheckBox != null && ChartShowPercentLevelsCheckBox.IsChecked == true;
             bool showGarmanLevels = ChartShowGarmanLevelsCheckBox != null && ChartShowGarmanLevelsCheckBox.IsChecked == true;
             bool showGaussLevels = ChartShowGaussLevelsCheckBox != null && ChartShowGaussLevelsCheckBox.IsChecked == true;
@@ -6828,10 +6820,10 @@ namespace RtdDolarNative
             bool showCurrentPrice = _config.Ui.ShowChartCurrentPriceLine;
             bool showConfluence = _config.Ui.ShowChartConfluenceLevels;
             bool showKeyLevels = _config.Ui.ShowChartKeyLevels;
-            bool showRtdLevels = _config.Ui.ShowChartRtdLevels;
-            bool showProfileLevels = _config.Ui.ShowChartProfileLevels;
-            bool showTechnicalLevels = _config.Ui.ShowChartTechnicalLevels;
-            bool showMarketLevels = _config.Ui.ShowChartMarketLevels;
+            bool showRtdLevels = false;
+            bool showProfileLevels = false;
+            bool showTechnicalLevels = false;
+            bool showMarketLevels = false;
             bool showPercentLevels = _config.Ui.ShowChartPercentLevels;
             bool showGarmanLevels = _config.Ui.ShowChartGarmanLevels;
             bool showGaussLevels = _config.Ui.ShowChartGaussLevels;

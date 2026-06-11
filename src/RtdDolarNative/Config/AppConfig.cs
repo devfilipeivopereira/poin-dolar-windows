@@ -85,22 +85,22 @@ namespace RtdDolarNative.Config
 
             if (!HasToken(json, "ShowChartRtdLevels"))
             {
-                config.Ui.ShowChartRtdLevels = true;
+                config.Ui.ShowChartRtdLevels = false;
             }
 
             if (!HasToken(json, "ShowChartProfileLevels"))
             {
-                config.Ui.ShowChartProfileLevels = true;
+                config.Ui.ShowChartProfileLevels = false;
             }
 
             if (!HasToken(json, "ShowChartTechnicalLevels"))
             {
-                config.Ui.ShowChartTechnicalLevels = true;
+                config.Ui.ShowChartTechnicalLevels = false;
             }
 
             if (!HasToken(json, "ShowChartMarketLevels"))
             {
-                config.Ui.ShowChartMarketLevels = true;
+                config.Ui.ShowChartMarketLevels = false;
             }
 
             if (!HasToken(json, "ShowChartPercentLevels"))
@@ -915,10 +915,10 @@ namespace RtdDolarNative.Config
             ShowChartCurrentPriceLine = true;
             ShowChartConfluenceLevels = true;
             ShowChartKeyLevels = true;
-            ShowChartRtdLevels = true;
-            ShowChartProfileLevels = true;
-            ShowChartTechnicalLevels = true;
-            ShowChartMarketLevels = true;
+            ShowChartRtdLevels = false;
+            ShowChartProfileLevels = false;
+            ShowChartTechnicalLevels = false;
+            ShowChartMarketLevels = false;
             ShowChartPercentLevels = true;
             ShowChartGarchLevels = true;
             ShowChartGarmanLevels = true;
