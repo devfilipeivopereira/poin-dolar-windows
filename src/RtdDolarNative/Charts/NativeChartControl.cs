@@ -491,7 +491,14 @@ namespace RtdDolarNative.Charts
             {
                 if (_showKeyLevels)
                 {
-                    levels.AddRange(_result.KeyLevels.Where(IsLevelCategoryEnabled));
+                    levels.AddRange(_result.KeyLevels
+                        .Where(x => !IsPercentLevel(x))
+                        .Where(IsLevelCategoryEnabled));
+                }
+
+                if (_showPercentLevels && _result.PercentTable != null)
+                {
+                    levels.AddRange(_result.PercentTable.Where(x => x != null && x.Price > 0m));
                 }
 
                 levels.AddRange(BuildReferenceMetricLevels(_result));
@@ -566,7 +573,7 @@ namespace RtdDolarNative.Charts
 
             DrawText(dc, TimeframeText(_timeframe), plot.Left + 6, plot.Top + 6, textBrush, 11);
 
-            foreach (KeyLevel level in levels.OrderByDescending(x => x.Score).Take(40))
+            foreach (KeyLevel level in SelectVisibleChartLevels(levels))
             {
                 if (level.Price <= 0m)
                 {
@@ -630,6 +637,39 @@ namespace RtdDolarNative.Charts
             }
 
             return _showPercentLevels || _showTechnicalLevels || _showProfileLevels || _showMarketLevels || _showRtdLevels || _showGarchLevels || _showGarmanLevels || _showGaussLevels || _showStdDevLevels;
+        }
+
+        private static bool IsPercentLevel(KeyLevel level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            return LevelSourceTokens(level.Source).Any(IsPercentSource);
+        }
+
+        private static List<KeyLevel> SelectVisibleChartLevels(IEnumerable<KeyLevel> levels)
+        {
+            List<KeyLevel> valid = (levels ?? Enumerable.Empty<KeyLevel>())
+                .Where(x => x != null && x.Price > 0m)
+                .GroupBy(x => LevelIdentity(x), StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.OrderByDescending(y => y.Score).First())
+                .ToList();
+
+            List<KeyLevel> nonPercent = valid
+                .Where(x => !IsPercentLevel(x))
+                .OrderByDescending(x => x.Score)
+                .Take(40)
+                .ToList();
+
+            List<KeyLevel> percent = valid
+                .Where(IsPercentLevel)
+                .OrderByDescending(x => x.Price)
+                .ToList();
+
+            nonPercent.AddRange(percent);
+            return nonPercent;
         }
 
         private static readonly char[] LevelSourceSeparators = new[] { ',', ';', '+', '/', '|' };
