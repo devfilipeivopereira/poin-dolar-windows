@@ -23,6 +23,7 @@ namespace QuantEngineTests
                 ReferenceMapsFallbackWhenSnapshotFieldsAreMissing,
                 ReferenceMapsBuildDirectionalLadders,
                 PtaxHistoryStoreUpsertsAndLoads,
+                ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
                 GarchEngineFitsParametersAndCalculatesBands
@@ -166,6 +167,31 @@ namespace QuantEngineTests
             {
                 TryDelete(folder);
             }
+        }
+
+        private static void ChartReferenceLineModeFiltersOpeningAndClosingMaps()
+        {
+            QuantResult result = BuildResult();
+            NativeChartControl chart = new NativeChartControl();
+
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Opening;
+            List<KeyLevel> openingLevels = chart.ReferenceMetricLevelsForDiagnostics(result);
+            Assert(openingLevels.Count > 0, "Opening reference mode should produce indicator levels.");
+            Assert(openingLevels.All(x => string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase)), "Opening reference mode should keep only opening levels.");
+
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Closing;
+            List<KeyLevel> closingLevels = chart.ReferenceMetricLevelsForDiagnostics(result);
+            Assert(closingLevels.Count > 0, "D-1 close reference mode should produce indicator levels.");
+            Assert(closingLevels.All(x => string.Equals(x.Tags, "closing", StringComparison.OrdinalIgnoreCase)), "D-1 close reference mode should keep only closing levels.");
+
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.OpeningAndClosing;
+            List<KeyLevel> bothLevels = chart.ReferenceMetricLevelsForDiagnostics(result);
+            Assert(bothLevels.Any(x => string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase)), "Both reference mode should include opening levels.");
+            Assert(bothLevels.Any(x => string.Equals(x.Tags, "closing", StringComparison.OrdinalIgnoreCase)), "Both reference mode should include D-1 close levels.");
+            Assert(bothLevels.All(x =>
+                string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(x.Tags, "closing", StringComparison.OrdinalIgnoreCase)), "Both reference mode should not include adjustment, PTAX, POC or other reference maps.");
+            Assert(!bothLevels.Any(x => string.Equals(x.Tags, "poc", StringComparison.OrdinalIgnoreCase)), "Reference levels sent to the chart should keep POC hidden.");
         }
 
         private static void ChartCommandsAdjustViewportPredictably()

@@ -1044,6 +1044,29 @@ namespace RtdDolarNative
             ApplyChartDisplaySelection();
         }
 
+        private void ChartReferenceLineModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncChartLineVisibilitySelection)
+            {
+                return;
+            }
+
+            ComboBox combo = sender as ComboBox;
+            ComboBoxItem selectedItem = combo == null ? null : combo.SelectedItem as ComboBoxItem;
+            int selectedMode = combo == null ? _config.Ui.ChartReferenceLineMode : ParseChartReferenceLineMode(selectedItem == null ? null : selectedItem.Tag);
+            selectedMode = UiConfig.NormalizeChartReferenceLineMode(selectedMode);
+
+            if (_config.Ui.ChartReferenceLineMode != selectedMode)
+            {
+                _config.Ui.ChartReferenceLineMode = selectedMode;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Referencia grafico", ChartReferenceLineModeText(selectedMode) + " para linhas de indicadores.");
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
         private void InitializeChartLineVisibilitySelection()
         {
             if (ChartShowCandlesCheckBox == null ||
@@ -1056,6 +1079,7 @@ namespace RtdDolarNative
                 ChartShowGaussLevelsCheckBox == null ||
                 ChartShowStdDevLevelsCheckBox == null ||
                 ChartShowGarchLevelsCheckBox == null ||
+                ChartReferenceLineModeComboBox == null ||
                 ChartShowMaxMin7LevelsCheckBox == null)
             {
                 return;
@@ -1076,6 +1100,7 @@ namespace RtdDolarNative
                 ChartShowStdDevLevelsCheckBox.IsChecked = _config.Ui.ShowChartStdDevLevels;
                 ChartShowGarchLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarchLevels;
                 ChartShowMaxMin7LevelsCheckBox.IsChecked = _config.Ui.ShowChartMaxMin7Levels;
+                ChartReferenceLineModeComboBox.SelectedIndex = ChartReferenceLineModeIndex(_config.Ui.ChartReferenceLineMode);
             }
             finally
             {
@@ -6835,6 +6860,7 @@ namespace RtdDolarNative
             bool showStdDevLevels = _config.Ui.ShowChartStdDevLevels;
             bool showGarchLevels = _config.Ui.ShowChartGarchLevels;
             bool showMaxMin7Levels = _config.Ui.ShowChartMaxMin7Levels;
+            ChartReferenceLineMode referenceLineMode = ChartReferenceLineModeFromConfig(_config.Ui.ChartReferenceLineMode);
 
             if (DashboardChartControl != null)
             {
@@ -6857,6 +6883,7 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowStdDevLevels = showStdDevLevels;
                 DashboardChartControl.ShowGarchLevels = showGarchLevels;
                 DashboardChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
+                DashboardChartControl.ChartReferenceLineMode = referenceLineMode;
                 DashboardChartControl.InvalidateVisual();
             }
 
@@ -6881,6 +6908,7 @@ namespace RtdDolarNative
                 ChartControl.ShowStdDevLevels = showStdDevLevels;
                 ChartControl.ShowGarchLevels = showGarchLevels;
                 ChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
+                ChartControl.ChartReferenceLineMode = referenceLineMode;
                 ChartControl.InvalidateVisual();
             }
         }
@@ -6977,6 +7005,19 @@ namespace RtdDolarNative
                 : UiConfig.DefaultCandleSpacingPercent;
         }
 
+        private static int ParseChartReferenceLineMode(object tag)
+        {
+            if (tag == null)
+            {
+                return UiConfig.DefaultChartReferenceLineMode;
+            }
+
+            int parsed;
+            return int.TryParse(Convert.ToString(tag, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : UiConfig.DefaultChartReferenceLineMode;
+        }
+
         private ChartTimeframe ChartTimeframeFromIndex(int index)
         {
             switch (index)
@@ -6987,6 +7028,45 @@ namespace RtdDolarNative
                     return ChartTimeframe.Monthly;
                 default:
                     return ChartTimeframe.Daily;
+            }
+        }
+
+        private ChartReferenceLineMode ChartReferenceLineModeFromConfig(int mode)
+        {
+            switch (UiConfig.NormalizeChartReferenceLineMode(mode))
+            {
+                case 0:
+                    return ChartReferenceLineMode.Opening;
+                case 1:
+                    return ChartReferenceLineMode.Closing;
+                default:
+                    return ChartReferenceLineMode.OpeningAndClosing;
+            }
+        }
+
+        private int ChartReferenceLineModeIndex(int mode)
+        {
+            switch (UiConfig.NormalizeChartReferenceLineMode(mode))
+            {
+                case 0:
+                    return 0;
+                case 1:
+                    return 1;
+                default:
+                    return 2;
+            }
+        }
+
+        private string ChartReferenceLineModeText(int mode)
+        {
+            switch (UiConfig.NormalizeChartReferenceLineMode(mode))
+            {
+                case 0:
+                    return "Abertura";
+                case 1:
+                    return "Fechamento D-1";
+                default:
+                    return "Abertura + fechamento D-1";
             }
         }
 

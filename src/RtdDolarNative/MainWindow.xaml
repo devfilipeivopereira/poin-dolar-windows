@@ -1443,6 +1443,22 @@
                                                            FontWeight="Bold"
                                                            VerticalAlignment="Center"
                                                            Margin="4,0,6,0" />
+                                                <TextBlock Text="Ref:"
+                                                           Foreground="{StaticResource Muted}"
+                                                           FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,4,0" />
+                                                <ComboBox x:Name="ChartReferenceLineModeComboBox"
+                                                          Width="104"
+                                                          SelectedIndex="2"
+                                                          SelectionChanged="ChartReferenceLineModeComboBox_SelectionChanged"
+                                                          ToolTip="Referencia usada nas linhas GK, Gauss, Desvio e GARCH"
+                                                          Style="{StaticResource TopNavComboBoxStyle}"
+                                                          Margin="0,0,8,0">
+                                                    <ComboBoxItem Content="Abertura" Tag="0" />
+                                                    <ComboBoxItem Content="D-1" Tag="1" />
+                                                    <ComboBoxItem Content="Ambas" Tag="2" />
+                                                </ComboBox>
                                                 <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
                                                           Content="Base"
                                                           Tag="{StaticResource ChartLineKeyLevelsBrush}"

@@ -133,6 +133,11 @@ namespace RtdDolarNative.Config
                 config.Ui.ShowChartMaxMin7Levels = true;
             }
 
+            if (!HasToken(json, "ChartReferenceLineMode"))
+            {
+                config.Ui.ChartReferenceLineMode = UiConfig.DefaultChartReferenceLineMode;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -903,6 +908,13 @@ namespace RtdDolarNative.Config
         public static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
         public static readonly int DefaultCandleSpacingPercent = 100;
         public static readonly int[] AllowedCandleSpacingPercents = new[] { 75, 100, 125, 150 };
+        public static readonly int DefaultChartReferenceLineMode = (int)RtdDolarNative.Charts.ChartReferenceLineMode.OpeningAndClosing;
+        public static readonly int[] AllowedChartReferenceLineModes = new[]
+        {
+            (int)RtdDolarNative.Charts.ChartReferenceLineMode.Opening,
+            (int)RtdDolarNative.Charts.ChartReferenceLineMode.Closing,
+            (int)RtdDolarNative.Charts.ChartReferenceLineMode.OpeningAndClosing
+        };
 
         public UiConfig()
         {
@@ -915,6 +927,7 @@ namespace RtdDolarNative.Config
             ChartTimeframeIndex = DefaultChartTimeframeIndex;
             PriceGridTickInterval = DefaultPriceGridTickInterval;
             CandleSpacingPercent = DefaultCandleSpacingPercent;
+            ChartReferenceLineMode = DefaultChartReferenceLineMode;
             ShowChartCandles = true;
             ShowChartPriceGrid = true;
             ShowChartCurrentPriceLine = true;
@@ -941,6 +954,7 @@ namespace RtdDolarNative.Config
         public int ChartTimeframeIndex { get; set; }
         public int PriceGridTickInterval { get; set; }
         public int CandleSpacingPercent { get; set; }
+        public int ChartReferenceLineMode { get; set; }
         public bool ShowChartCandles { get; set; }
         public bool ShowChartPriceGrid { get; set; }
         public bool ShowChartCurrentPriceLine { get; set; }
@@ -963,6 +977,7 @@ namespace RtdDolarNative.Config
             ChartTimeframeIndex = NormalizeChartTimeframeIndex(ChartTimeframeIndex);
             PriceGridTickInterval = NormalizePriceGridTickInterval(PriceGridTickInterval);
             CandleSpacingPercent = NormalizeCandleSpacingPercent(CandleSpacingPercent);
+            ChartReferenceLineMode = NormalizeChartReferenceLineMode(ChartReferenceLineMode);
         }
 
         public static int NormalizeCalculationDays(int days)
@@ -983,6 +998,11 @@ namespace RtdDolarNative.Config
         public static int NormalizeCandleSpacingPercent(int spacingPercent)
         {
             return AllowedCandleSpacingPercents.Contains(spacingPercent) ? spacingPercent : DefaultCandleSpacingPercent;
+        }
+
+        public static int NormalizeChartReferenceLineMode(int mode)
+        {
+            return AllowedChartReferenceLineModes.Contains(mode) ? mode : DefaultChartReferenceLineMode;
         }
     }
 

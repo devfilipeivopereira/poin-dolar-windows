@@ -11,6 +11,13 @@ using RtdDolarNative.Quant;
 
 namespace RtdDolarNative.Charts
 {
+    public enum ChartReferenceLineMode
+    {
+        Opening = 0,
+        Closing = 1,
+        OpeningAndClosing = 2
+    }
+
     public sealed class NativeChartControl : FrameworkElement
     {
         private const int MinVisibleCandles = 20;
@@ -55,6 +62,7 @@ namespace RtdDolarNative.Charts
         private bool _showGaussLevels = true;
         private bool _showStdDevLevels = true;
         private bool _showMaxMin7Levels = true;
+        private ChartReferenceLineMode _chartReferenceLineMode = ChartReferenceLineMode.OpeningAndClosing;
 
         public NativeChartControl()
         {
@@ -368,6 +376,23 @@ namespace RtdDolarNative.Charts
             }
         }
 
+        public ChartReferenceLineMode ChartReferenceLineMode
+        {
+            get { return _chartReferenceLineMode; }
+            set
+            {
+                ChartReferenceLineMode normalized = NormalizeReferenceLineMode(value);
+
+                if (_chartReferenceLineMode == normalized)
+                {
+                    return;
+                }
+
+                _chartReferenceLineMode = normalized;
+                InvalidateVisual();
+            }
+        }
+
         public int ViewOffsetFromEndForDiagnostics
         {
             get { return _viewOffsetFromEnd; }
@@ -386,6 +411,11 @@ namespace RtdDolarNative.Charts
         public decimal PricePanOffsetForDiagnostics
         {
             get { return _pricePanOffset; }
+        }
+
+        public List<KeyLevel> ReferenceMetricLevelsForDiagnostics(QuantResult result)
+        {
+            return BuildReferenceMetricLevels(result);
         }
 
         public void PanHorizontalCandles(int candles)
@@ -898,6 +928,11 @@ namespace RtdDolarNative.Charts
                     continue;
                 }
 
+                if (!ShouldShowReferenceMap(map))
+                {
+                    continue;
+                }
+
                 if (_showGarmanLevels)
                 {
                     AddReferenceMetricLevels(levels, map, map.GarmanLevels, "GK", "Garman-Klass", 74d);
@@ -924,6 +959,42 @@ namespace RtdDolarNative.Charts
                 .GroupBy(x => LevelIdentity(x), StringComparer.OrdinalIgnoreCase)
                 .Select(x => x.OrderByDescending(y => y.Score).First())
                 .ToList();
+        }
+
+        private bool ShouldShowReferenceMap(ReferenceMapResult map)
+        {
+            if (map == null || string.IsNullOrWhiteSpace(map.ReferenceKey))
+            {
+                return false;
+            }
+
+            bool opening = string.Equals(map.ReferenceKey, "opening", StringComparison.OrdinalIgnoreCase);
+            bool closing = string.Equals(map.ReferenceKey, "closing", StringComparison.OrdinalIgnoreCase);
+
+            switch (_chartReferenceLineMode)
+            {
+                case ChartReferenceLineMode.Opening:
+                    return opening;
+                case ChartReferenceLineMode.Closing:
+                    return closing;
+                case ChartReferenceLineMode.OpeningAndClosing:
+                    return opening || closing;
+                default:
+                    return opening || closing;
+            }
+        }
+
+        private static ChartReferenceLineMode NormalizeReferenceLineMode(ChartReferenceLineMode mode)
+        {
+            switch (mode)
+            {
+                case ChartReferenceLineMode.Opening:
+                case ChartReferenceLineMode.Closing:
+                case ChartReferenceLineMode.OpeningAndClosing:
+                    return mode;
+                default:
+                    return ChartReferenceLineMode.OpeningAndClosing;
+            }
         }
 
         private static void AddReferenceMetricLevels(List<KeyLevel> target, ReferenceMapResult map, IEnumerable<DeviationLevel> source, string shortMetric, string sourceName, double baseScore)
