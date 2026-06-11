@@ -59,6 +59,12 @@
     <Compile Include="..\..\src\RtdDolarNative\Csv\PtaxHistorySqliteStore.cs">
       <Link>Csv\PtaxHistorySqliteStore.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomAnnotationFilter.cs">
+      <Link>Dom\DomAnnotationFilter.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomAnnotationOptions.cs">
+      <Link>Dom\DomAnnotationOptions.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\MarketData\MarketSnapshot.cs">
       <Link>MarketData\MarketSnapshot.cs</Link>
     </Compile>

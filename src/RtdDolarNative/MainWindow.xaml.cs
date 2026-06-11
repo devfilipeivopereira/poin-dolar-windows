@@ -103,6 +103,7 @@ namespace RtdDolarNative
         private bool _syncChartPriceGridSelection = true;
         private bool _syncChartCandleSpacingSelection = true;
         private bool _syncChartLineVisibilitySelection = true;
+        private bool _syncDomAnnotationSelection = true;
         private DateTime _ptaxTradeDate = DateTime.Today;
         private decimal? _appliedPtaxValue;
         private readonly List<PtaxHistoryViewRow> _ptaxHistoryRows = new List<PtaxHistoryViewRow>();
@@ -150,6 +151,7 @@ namespace RtdDolarNative
             InitializeChartPriceGridSelection();
             InitializeChartCandleSpacingSelection();
             InitializeChartLineVisibilitySelection();
+            InitializeDomAnnotationSelection();
             InitializePtaxEditor();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
@@ -1169,6 +1171,172 @@ namespace RtdDolarNative
             }
 
             ApplyChartDisplaySelection();
+        }
+
+        private void InitializeDomAnnotationSelection()
+        {
+            _syncDomAnnotationSelection = true;
+
+            try
+            {
+                SetDomAnnotationCheckBox(DashboardDomShowBaseCheckBox, _config.Ui.ShowDomBaseAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowGarmanCheckBox, _config.Ui.ShowDomGarmanAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowGaussCheckBox, _config.Ui.ShowDomGaussAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowStdDevCheckBox, _config.Ui.ShowDomStdDevAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowGarchCheckBox, _config.Ui.ShowDomGarchAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowPercentCheckBox, _config.Ui.ShowDomPercentAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowMaxMin7CheckBox, _config.Ui.ShowDomMaxMin7Annotations);
+                SetDomAnnotationCheckBox(DashboardDomShowProfileCheckBox, _config.Ui.ShowDomProfileAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowTechnicalCheckBox, _config.Ui.ShowDomTechnicalAnnotations);
+                SetDomAnnotationCheckBox(DashboardDomShowFlowCheckBox, _config.Ui.ShowDomFlowAnnotations);
+
+                SetDomAnnotationCheckBox(DomShowBaseCheckBox, _config.Ui.ShowDomBaseAnnotations);
+                SetDomAnnotationCheckBox(DomShowGarmanCheckBox, _config.Ui.ShowDomGarmanAnnotations);
+                SetDomAnnotationCheckBox(DomShowGaussCheckBox, _config.Ui.ShowDomGaussAnnotations);
+                SetDomAnnotationCheckBox(DomShowStdDevCheckBox, _config.Ui.ShowDomStdDevAnnotations);
+                SetDomAnnotationCheckBox(DomShowGarchCheckBox, _config.Ui.ShowDomGarchAnnotations);
+                SetDomAnnotationCheckBox(DomShowPercentCheckBox, _config.Ui.ShowDomPercentAnnotations);
+                SetDomAnnotationCheckBox(DomShowMaxMin7CheckBox, _config.Ui.ShowDomMaxMin7Annotations);
+                SetDomAnnotationCheckBox(DomShowProfileCheckBox, _config.Ui.ShowDomProfileAnnotations);
+                SetDomAnnotationCheckBox(DomShowTechnicalCheckBox, _config.Ui.ShowDomTechnicalAnnotations);
+                SetDomAnnotationCheckBox(DomShowFlowCheckBox, _config.Ui.ShowDomFlowAnnotations);
+            }
+            finally
+            {
+                _syncDomAnnotationSelection = false;
+            }
+        }
+
+        private void SetDomAnnotationCheckBox(CheckBox checkBox, bool value)
+        {
+            if (checkBox != null)
+            {
+                checkBox.IsChecked = value;
+            }
+        }
+
+        private void DomAnnotationVisibility_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_syncDomAnnotationSelection)
+            {
+                return;
+            }
+
+            CheckBox checkBox = sender as CheckBox;
+
+            if (checkBox == null)
+            {
+                return;
+            }
+
+            bool value = checkBox.IsChecked == true;
+            bool changed = ApplyDomAnnotationSetting(checkBox.Name, value);
+
+            InitializeDomAnnotationSelection();
+
+            if (changed)
+            {
+                SaveRuntimeConfig();
+                AddHistory("App", "DOM", "Marcacoes de pontos do DOM atualizadas.");
+                RefreshDomAnnotationViews();
+            }
+        }
+
+        private bool ApplyDomAnnotationSetting(string name, bool value)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            if (name.IndexOf("Base", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomBaseAnnotations != value;
+                _config.Ui.ShowDomBaseAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Garman", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomGarmanAnnotations != value;
+                _config.Ui.ShowDomGarmanAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Gauss", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomGaussAnnotations != value;
+                _config.Ui.ShowDomGaussAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("StdDev", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomStdDevAnnotations != value;
+                _config.Ui.ShowDomStdDevAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Garch", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomGarchAnnotations != value;
+                _config.Ui.ShowDomGarchAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Percent", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomPercentAnnotations != value;
+                _config.Ui.ShowDomPercentAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("MaxMin7", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomMaxMin7Annotations != value;
+                _config.Ui.ShowDomMaxMin7Annotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Profile", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomProfileAnnotations != value;
+                _config.Ui.ShowDomProfileAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Technical", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomTechnicalAnnotations != value;
+                _config.Ui.ShowDomTechnicalAnnotations = value;
+                return changed;
+            }
+
+            if (name.IndexOf("Flow", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool changed = _config.Ui.ShowDomFlowAnnotations != value;
+                _config.Ui.ShowDomFlowAnnotations = value;
+                return changed;
+            }
+
+            return false;
+        }
+
+        private void RefreshDomAnnotationViews()
+        {
+            MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
+
+            if (DashboardDomGrid != null)
+            {
+                DashboardDomGrid.ItemsSource = BuildDashboardDomRows(snapshot);
+                ScheduleDashboardDomCenter();
+            }
+
+            if (snapshot != null)
+            {
+                RenderDom(snapshot);
+                RenderDomBookLevels(snapshot);
+            }
         }
 
         private void AddAssetButton_Click(object sender, RoutedEventArgs e)
@@ -5183,7 +5351,7 @@ namespace RtdDolarNative
             levels.AddRange(FlowSignalKeyLevels(snapshot));
 
             int eachSide = Math.Max(4, Math.Min(10, _config.Ui.DomTicksEachSide));
-            return DomLadderModel.Build(snapshot, levels, _config.Rtd.TickSize, eachSide);
+            return DomLadderModel.Build(snapshot, FilterDomAnnotationLevels(levels), _config.Rtd.TickSize, eachSide);
         }
 
         private List<DashboardTapeRow> BuildDashboardTapeRows(MarketSnapshot snapshot)
@@ -5362,7 +5530,7 @@ namespace RtdDolarNative
             levels.AddRange(FlowProfileKeyLevels(snapshot));
             levels.AddRange(FlowSignalKeyLevels(snapshot));
 
-            DomLevelsGrid.ItemsSource = levels
+            DomLevelsGrid.ItemsSource = FilterDomAnnotationLevels(levels)
                 .OrderBy(x => Math.Abs(x.Distance))
                 .Take(80)
                 .ToList();
@@ -9532,8 +9700,37 @@ namespace RtdDolarNative
             List<KeyLevel> levels = (_result == null ? BasicLevels(snapshot) : _result.KeyLevels.Concat(_result.Confluence)).ToList();
             levels.AddRange(FlowProfileKeyLevels(snapshot));
             levels.AddRange(FlowSignalKeyLevels(snapshot));
-            DomGrid.ItemsSource = DomLadderModel.Build(snapshot, levels, _config.Rtd.TickSize, _config.Ui.DomTicksEachSide);
+            DomGrid.ItemsSource = DomLadderModel.Build(snapshot, FilterDomAnnotationLevels(levels), _config.Rtd.TickSize, _config.Ui.DomTicksEachSide);
             ScheduleDomCenter();
+        }
+
+        private List<KeyLevel> FilterDomAnnotationLevels(IEnumerable<KeyLevel> levels)
+        {
+            return DomAnnotationFilter.Apply(levels, CurrentDomAnnotationOptions()).ToList();
+        }
+
+        private DomAnnotationOptions CurrentDomAnnotationOptions()
+        {
+            UiConfig ui = _config == null ? null : _config.Ui;
+
+            if (ui == null)
+            {
+                return new DomAnnotationOptions();
+            }
+
+            return new DomAnnotationOptions
+            {
+                ShowBase = ui.ShowDomBaseAnnotations,
+                ShowGarman = ui.ShowDomGarmanAnnotations,
+                ShowGauss = ui.ShowDomGaussAnnotations,
+                ShowStdDev = ui.ShowDomStdDevAnnotations,
+                ShowGarch = ui.ShowDomGarchAnnotations,
+                ShowPercent = ui.ShowDomPercentAnnotations,
+                ShowMaxMin7 = ui.ShowDomMaxMin7Annotations,
+                ShowProfile = ui.ShowDomProfileAnnotations,
+                ShowTechnical = ui.ShowDomTechnicalAnnotations,
+                ShowFlow = ui.ShowDomFlowAnnotations
+            };
         }
 
         private void ScheduleDomCenter()

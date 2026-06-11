@@ -1746,7 +1746,31 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="DOM" FontSize="15" FontWeight="Bold" Margin="0,0,0,8" />
+                                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                        <DockPanel Margin="0,0,0,4" LastChildFill="False">
+                                            <TextBlock Text="DOM" DockPanel.Dock="Left" FontSize="15" FontWeight="Bold" />
+                                            <TextBlock Text="Pontos" DockPanel.Dock="Right" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right" />
+                                        </DockPanel>
+                                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                      VerticalScrollBarVisibility="Disabled"
+                                                      Height="30"
+                                                      CanContentScroll="False"
+                                                      PanningMode="HorizontalOnly"
+                                                      Focusable="False">
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox x:Name="DashboardDomShowBaseCheckBox" Content="Base" Tag="{StaticResource ChartLineKeyLevelsBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowGarmanCheckBox" Content="GK" Tag="{StaticResource ChartLineGarmanBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowGaussCheckBox" Content="Gauss" Tag="{StaticResource ChartLineGaussBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowStdDevCheckBox" Content="Desvio" Tag="{StaticResource ChartLineStdDevBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowGarchCheckBox" Content="GARCH" Tag="{StaticResource ChartLineGarchBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowPercentCheckBox" Content="%" Tag="{StaticResource ChartLinePercentBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowMaxMin7CheckBox" Content="MaxMin7" Tag="{StaticResource ChartLineMaxMin7Brush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowProfileCheckBox" Content="Perfil" Tag="{StaticResource ChartLineProfileBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowTechnicalCheckBox" Content="Tecnico" Tag="{StaticResource ChartLineTechnicalBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                                <CheckBox x:Name="DashboardDomShowFlowCheckBox" Content="Fluxo" Tag="{StaticResource ChartLineConfluenceBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </StackPanel>
                                     <DataGrid x:Name="DashboardDomGrid"
                                               Grid.Row="1"
                                               AutoGenerateColumns="False"
@@ -2152,22 +2176,52 @@
                             <ColumnDefinition Width="1.5*" />
                             <ColumnDefinition Width="0.9*" />
                         </Grid.ColumnDefinitions>
-                        <DataGrid x:Name="DomGrid"
-                                  Grid.Column="0"
-                                  AutoGenerateColumns="False"
-                                  Margin="0,0,10,0"
-                                  RowStyle="{StaticResource DomLadderRowStyle}"
-                                  CanUserSortColumns="False"
-                                  RowHeight="22"
-                                  FontSize="11">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Venda" Binding="{Binding AskVol}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
-                                <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
-                                <DataGridTextColumn Header="Compra" Binding="{Binding BidVol}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
-                                <DataGridTextColumn Header="Flags" Binding="{Binding Flags}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
-                                <DataGridTextColumn Header="Marcacoes" Binding="{Binding Markings}" Width="*" CellStyle="{StaticResource DomLadderLeftCellStyle}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
+                        <Grid Grid.Column="0" Margin="0,0,10,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                <DockPanel Margin="0,0,0,4" LastChildFill="False">
+                                    <TextBlock Text="Pontos do DOM" DockPanel.Dock="Left" FontWeight="Bold" />
+                                    <TextBlock Text="Anotacoes" DockPanel.Dock="Right" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold" />
+                                </DockPanel>
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              Height="30"
+                                              CanContentScroll="False"
+                                              PanningMode="HorizontalOnly"
+                                              Focusable="False">
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox x:Name="DomShowBaseCheckBox" Content="Base" Tag="{StaticResource ChartLineKeyLevelsBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowGarmanCheckBox" Content="GK" Tag="{StaticResource ChartLineGarmanBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowGaussCheckBox" Content="Gauss" Tag="{StaticResource ChartLineGaussBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowStdDevCheckBox" Content="Desvio" Tag="{StaticResource ChartLineStdDevBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowGarchCheckBox" Content="GARCH" Tag="{StaticResource ChartLineGarchBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowPercentCheckBox" Content="%" Tag="{StaticResource ChartLinePercentBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowMaxMin7CheckBox" Content="MaxMin7" Tag="{StaticResource ChartLineMaxMin7Brush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowProfileCheckBox" Content="Perfil" Tag="{StaticResource ChartLineProfileBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowTechnicalCheckBox" Content="Tecnico" Tag="{StaticResource ChartLineTechnicalBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                        <CheckBox x:Name="DomShowFlowCheckBox" Content="Fluxo" Tag="{StaticResource ChartLineConfluenceBrush}" Style="{StaticResource TopNavChartLineCheckBoxStyle}" Checked="DomAnnotationVisibility_Checked" Unchecked="DomAnnotationVisibility_Checked" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </StackPanel>
+                            <DataGrid x:Name="DomGrid"
+                                      Grid.Row="1"
+                                      AutoGenerateColumns="False"
+                                      RowStyle="{StaticResource DomLadderRowStyle}"
+                                      CanUserSortColumns="False"
+                                      RowHeight="22"
+                                      FontSize="11">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Venda" Binding="{Binding AskVol}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                    <DataGridTextColumn Header="Preco" Binding="{Binding PriceText}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                    <DataGridTextColumn Header="Compra" Binding="{Binding BidVol}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                    <DataGridTextColumn Header="Flags" Binding="{Binding Flags}" Width="90" CellStyle="{StaticResource DomLadderCenterCellStyle}" />
+                                    <DataGridTextColumn Header="Marcacoes" Binding="{Binding Markings}" Width="*" CellStyle="{StaticResource DomLadderLeftCellStyle}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
                         <DataGrid x:Name="BookGrid"
                                   Grid.Column="1"
                                   AutoGenerateColumns="False"

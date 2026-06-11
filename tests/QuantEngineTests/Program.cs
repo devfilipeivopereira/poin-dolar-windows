@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using RtdDolarNative.Charts;
 using RtdDolarNative.Csv;
+using RtdDolarNative.Dom;
 using RtdDolarNative.MarketData;
 using RtdDolarNative.Quant;
 
@@ -32,6 +33,9 @@ namespace QuantEngineTests
                 ChartLineLabelsIncludeFormattedPrice,
                 ChartCommandsAdjustViewportPredictably,
                 ChartResetPreservesDisplaySettings,
+                DomAnnotationFilterKeepsAllCategoriesVisibleByDefault,
+                DomAnnotationFilterHidesUncheckedCategoriesFromDomMarkings,
+                DomAnnotationFilterKeepsProfilePercentLabelsWhenPercentIsUnchecked,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -489,6 +493,82 @@ namespace QuantEngineTests
                    source.IndexOf("StdDev", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    source.IndexOf("StandardDeviation", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void DomAnnotationFilterKeepsAllCategoriesVisibleByDefault()
+        {
+            List<KeyLevel> levels = BuildDomAnnotationSampleLevels();
+
+            List<KeyLevel> visible = DomAnnotationFilter.Apply(levels, new DomAnnotationOptions()).ToList();
+
+            AssertEqual(levels.Count, visible.Count, "All DOM annotation categories should be visible by default.");
+        }
+
+        private static void DomAnnotationFilterHidesUncheckedCategoriesFromDomMarkings()
+        {
+            List<KeyLevel> levels = BuildDomAnnotationSampleLevels();
+            DomAnnotationOptions options = new DomAnnotationOptions();
+            options.ShowGauss = false;
+            options.ShowProfile = false;
+            options.ShowFlow = false;
+            options.ShowPercent = false;
+            options.ShowMaxMin7 = false;
+
+            List<string> labels = DomAnnotationFilter.Apply(levels, options)
+                .Select(x => x.Label)
+                .ToList();
+
+            Assert(labels.Contains("Atual"), "RTD/base DOM annotation should stay visible.");
+            Assert(labels.Contains("GARCH"), "Enabled GARCH DOM annotation should stay visible.");
+            Assert(!labels.Contains("Gauss"), "Unchecked Gauss DOM annotation should be hidden.");
+            Assert(!labels.Contains("POC"), "Unchecked profile DOM annotation should be hidden.");
+            Assert(!labels.Contains("Absorcao"), "Unchecked flow DOM annotation should be hidden.");
+            Assert(!labels.Contains("1% D-1"), "Unchecked percent DOM annotation should be hidden.");
+            Assert(!labels.Contains("MaxMin7 Max"), "Unchecked MaxMin7 DOM annotation should be hidden.");
+            Assert(!labels.Contains("RTD + Gauss"), "Mixed DOM annotation should be hidden when one detected category is unchecked.");
+        }
+
+        private static void DomAnnotationFilterKeepsProfilePercentLabelsWhenPercentIsUnchecked()
+        {
+            List<KeyLevel> levels = new List<KeyLevel>
+            {
+                DomLevel("VAH 70%", "VAH", "Volume Profile", "profile")
+            };
+
+            DomAnnotationOptions options = new DomAnnotationOptions();
+            options.ShowPercent = false;
+
+            List<KeyLevel> visible = DomAnnotationFilter.Apply(levels, options).ToList();
+
+            AssertEqual(1, visible.Count, "Profile labels with percentages, such as VAH 70%, should not be hidden by the percent toggle.");
+        }
+
+        private static List<KeyLevel> BuildDomAnnotationSampleLevels()
+        {
+            return new List<KeyLevel>
+            {
+                DomLevel("Atual", "RTD", null, null),
+                DomLevel("Gauss", "Gauss", null, null),
+                DomLevel("GARCH", "GARCH", null, null),
+                DomLevel("POC", "POC", "Volume Profile", "profile"),
+                DomLevel("Absorcao", "Setups", "Order Flow", "absorcao"),
+                DomLevel("1% D-1", "Percent", null, null),
+                DomLevel("MaxMin7 Max", "MaxMin7", "MaxMin7", null),
+                DomLevel("RTD + Gauss", "RTD, Gauss", null, null)
+            };
+        }
+
+        private static KeyLevel DomLevel(string label, string source, string layer, string tags)
+        {
+            return new KeyLevel
+            {
+                Price = 5000m,
+                Label = label,
+                Source = source,
+                Layer = layer,
+                Tags = tags,
+                Score = 50d
+            };
         }
 
         private static void GarchEngineFitsParametersAndCalculatesBands()

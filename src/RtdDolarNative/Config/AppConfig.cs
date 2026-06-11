@@ -133,6 +133,56 @@ namespace RtdDolarNative.Config
                 config.Ui.ShowChartMaxMin7Levels = true;
             }
 
+            if (!HasToken(json, "ShowDomBaseAnnotations"))
+            {
+                config.Ui.ShowDomBaseAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomGarmanAnnotations"))
+            {
+                config.Ui.ShowDomGarmanAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomGaussAnnotations"))
+            {
+                config.Ui.ShowDomGaussAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomStdDevAnnotations"))
+            {
+                config.Ui.ShowDomStdDevAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomGarchAnnotations"))
+            {
+                config.Ui.ShowDomGarchAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomPercentAnnotations"))
+            {
+                config.Ui.ShowDomPercentAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomMaxMin7Annotations"))
+            {
+                config.Ui.ShowDomMaxMin7Annotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomProfileAnnotations"))
+            {
+                config.Ui.ShowDomProfileAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomTechnicalAnnotations"))
+            {
+                config.Ui.ShowDomTechnicalAnnotations = true;
+            }
+
+            if (!HasToken(json, "ShowDomFlowAnnotations"))
+            {
+                config.Ui.ShowDomFlowAnnotations = true;
+            }
+
             if (!HasToken(json, "ChartReferenceLineMode"))
             {
                 config.Ui.ChartReferenceLineMode = UiConfig.DefaultChartReferenceLineMode;
@@ -943,6 +993,16 @@ namespace RtdDolarNative.Config
             ShowChartGaussLevels = true;
             ShowChartStdDevLevels = true;
             ShowChartMaxMin7Levels = true;
+            ShowDomBaseAnnotations = true;
+            ShowDomGarmanAnnotations = true;
+            ShowDomGaussAnnotations = true;
+            ShowDomStdDevAnnotations = true;
+            ShowDomGarchAnnotations = true;
+            ShowDomPercentAnnotations = true;
+            ShowDomMaxMin7Annotations = true;
+            ShowDomProfileAnnotations = true;
+            ShowDomTechnicalAnnotations = true;
+            ShowDomFlowAnnotations = true;
         }
 
         public int FastIntervalMs { get; set; }
@@ -970,6 +1030,16 @@ namespace RtdDolarNative.Config
         public bool ShowChartGaussLevels { get; set; }
         public bool ShowChartStdDevLevels { get; set; }
         public bool ShowChartMaxMin7Levels { get; set; }
+        public bool ShowDomBaseAnnotations { get; set; }
+        public bool ShowDomGarmanAnnotations { get; set; }
+        public bool ShowDomGaussAnnotations { get; set; }
+        public bool ShowDomStdDevAnnotations { get; set; }
+        public bool ShowDomGarchAnnotations { get; set; }
+        public bool ShowDomPercentAnnotations { get; set; }
+        public bool ShowDomMaxMin7Annotations { get; set; }
+        public bool ShowDomProfileAnnotations { get; set; }
+        public bool ShowDomTechnicalAnnotations { get; set; }
+        public bool ShowDomFlowAnnotations { get; set; }
 
         public void Normalize()
         {
