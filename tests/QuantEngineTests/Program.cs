@@ -57,6 +57,7 @@ namespace QuantEngineTests
                 HeatmapUsesSqlHistoryWhenCurrentBookIsThin,
                 HeatmapSqliteStoreLoadsRecentTradeContextByPrice,
                 HeatmapUsesSqlTradeHistoryAfterRestart,
+                HeatmapSqlHistoryScoresRecentLevelsAboveStaleLevels,
                 GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
@@ -1302,6 +1303,75 @@ namespace QuantEngineTests
                 Assert(historicalBuy.HistoricalDelta >= 400m, "Historical trade delta should be merged into the cell.");
                 Assert(historicalBuy.Read.IndexOf("fluxo historico", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that the level came from SQL historical flow.");
                 Assert(heatmap.HistoricalTradeLevels > 0, "Snapshot should expose how many SQL historical trade levels were merged.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapSqlHistoryScoresRecentLevelsAboveStaleLevels()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-sql-freshness-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot oldBook = BuildHeatmapSnapshot(5000m);
+                oldBook.LocalTimestamp = now.AddMinutes(-300);
+                AddBookBid(oldBook, 0, 4998m, 2000m);
+                writer.PostSnapshot(oldBook);
+
+                MarketSnapshot recentBook = BuildHeatmapSnapshot(5000m);
+                recentBook.LocalTimestamp = now.AddMinutes(-5);
+                AddBookBid(recentBook, 0, 4999m, 2000m);
+                writer.PostSnapshot(recentBook);
+
+                writer.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-300),
+                    Price = 5002m,
+                    Quantity = 120m,
+                    Delta = 120m,
+                    Aggressor = "Buy"
+                });
+                writer.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-3),
+                    Price = 5001m,
+                    Quantity = 120m,
+                    Delta = 120m,
+                    Aggressor = "Buy"
+                });
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 2", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                       writer.StorageStatus.IndexOf("trades 2", StringComparison.OrdinalIgnoreCase) >= 0, 3000),
+                    "Writer should persist stale and recent historical samples.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell recentBookCell = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4999m);
+                HeatmapCell oldBookCell = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4998m);
+                HeatmapCell recentFlowCell = heatmap.InterestCells.FirstOrDefault(x => x.Price == 5001m);
+                HeatmapCell oldFlowCell = heatmap.InterestCells.FirstOrDefault(x => x.Price == 5002m);
+
+                Assert(recentBookCell != null && oldBookCell != null, "Both recent and stale SQL book levels should remain visible.");
+                Assert(recentFlowCell != null && oldFlowCell != null, "Both recent and stale SQL flow levels should remain visible.");
+                Assert(recentBookCell.HistoricalFreshnessScore > oldBookCell.HistoricalFreshnessScore, "Recent SQL book level should carry higher freshness than stale book.");
+                Assert(recentBookCell.HistoricalScore > oldBookCell.HistoricalScore, "Recent SQL book level should score above equal-size stale book.");
+                Assert(recentFlowCell.HistoricalFlowFreshnessScore > oldFlowCell.HistoricalFlowFreshnessScore, "Recent SQL flow level should carry higher freshness than stale flow.");
+                Assert(recentFlowCell.HistoricalFlowScore > oldFlowCell.HistoricalFlowScore, "Recent SQL flow level should score above equal-size stale flow.");
+                Assert(recentBookCell.HistoricalAgeMinutes < oldBookCell.HistoricalAgeMinutes, "Book age should expose freshness in minutes.");
+                Assert(recentFlowCell.HistoricalTradeAgeMinutes < oldFlowCell.HistoricalTradeAgeMinutes, "Flow age should expose freshness in minutes.");
 
                 reader.Dispose();
             }

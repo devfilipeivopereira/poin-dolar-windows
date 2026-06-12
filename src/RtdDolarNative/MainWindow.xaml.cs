@@ -9649,8 +9649,8 @@ namespace RtdDolarNative
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
-            AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente 6h");
-            AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr));
+            AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente 6h com frescor");
+            AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr) + " com frescor");
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
@@ -9714,14 +9714,45 @@ namespace RtdDolarNative
                 row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
                 row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
                 row.Persistence = cell.PersistenceScore.ToString("N0", _ptBr);
-                row.Historical = "B " + cell.HistoricalScore.ToString("N0", _ptBr) + "/" + cell.HistoricalSamples.ToString(_ptBr) +
-                                 " | F " + cell.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + cell.HistoricalTradeSamples.ToString(_ptBr);
+                row.Historical = FormatHeatmapSqlCell(cell);
                 row.Spoof = cell.SpoofRiskScore.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(cell.Read) + (cell.HistoricalTradeSamples > 0 ? " | SQLd " + cell.HistoricalDelta.ToString("N0", _ptBr) : string.Empty);
                 rows.Add(row);
             }
 
             return rows;
+        }
+
+        private string FormatHeatmapSqlCell(HeatmapCell cell)
+        {
+            if (cell == null)
+            {
+                return "-";
+            }
+
+            string book = cell.HistoricalSamples <= 0
+                ? "B -"
+                : "B " + cell.HistoricalScore.ToString("N0", _ptBr) + "/" + cell.HistoricalSamples.ToString(_ptBr) + " " + FormatHeatmapAge(cell.HistoricalAgeMinutes);
+            string flow = cell.HistoricalTradeSamples <= 0
+                ? "F -"
+                : "F " + cell.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + cell.HistoricalTradeSamples.ToString(_ptBr) + " " + FormatHeatmapAge(cell.HistoricalTradeAgeMinutes);
+
+            return book + " | " + flow;
+        }
+
+        private string FormatHeatmapAge(double minutes)
+        {
+            if (minutes < 1d)
+            {
+                return "<1m";
+            }
+
+            if (minutes < 60d)
+            {
+                return Math.Round(minutes).ToString("N0", _ptBr) + "m";
+            }
+
+            return (minutes / 60d).ToString("N1", _ptBr) + "h";
         }
 
         private string FlowMapZone(decimal price, decimal center, bool hasLevel)

@@ -684,12 +684,26 @@ namespace RtdDolarNative.Heatmap
                 ? ClampScore(cell.PullingScore * 0.74m + (tradeVolume <= 0m ? 26m : Math.Max(0m, 16m - tradeRatio * 16m)))
                 : 0m;
             cell.PersistenceScore = (cell.BidLiquidity > 0m || cell.AskLiquidity > 0m) ? ClampScore(ageScore + countScore) : 0m;
+            double historicalAge = 0d;
+            decimal historicalFreshness = 0m;
+            double historicalTradeAge = 0d;
+            decimal historicalFlowFreshness = 0m;
+            decimal historicalFreshnessFactor = cell.HistoricalSamples > 0
+                ? HistoricalFreshnessFactor(cell.HistoricalLastSeen, snapshot.LocalTimestamp, out historicalAge, out historicalFreshness)
+                : 0m;
+            decimal historicalFlowFreshnessFactor = cell.HistoricalTradeSamples > 0
+                ? HistoricalFreshnessFactor(cell.HistoricalTradeLastSeen, snapshot.LocalTimestamp, out historicalTradeAge, out historicalFlowFreshness)
+                : 0m;
             cell.HistoricalScore = cell.HistoricalSamples > 0
-                ? ClampScore(historicalRatio * 70m + Math.Min(30m, cell.HistoricalSamples * 6m))
+                ? ClampScore((historicalRatio * 70m + Math.Min(30m, cell.HistoricalSamples * 6m)) * historicalFreshnessFactor)
                 : 0m;
+            cell.HistoricalAgeMinutes = cell.HistoricalSamples > 0 ? historicalAge : 0d;
+            cell.HistoricalFreshnessScore = cell.HistoricalSamples > 0 ? historicalFreshness : 0m;
             cell.HistoricalFlowScore = cell.HistoricalTradeSamples > 0
-                ? ClampScore(historicalFlowRatio * 60m + historicalDeltaAbs * 25m + Math.Min(15m, cell.HistoricalTradeSamples * 3m))
+                ? ClampScore((historicalFlowRatio * 60m + historicalDeltaAbs * 25m + Math.Min(15m, cell.HistoricalTradeSamples * 3m)) * historicalFlowFreshnessFactor)
                 : 0m;
+            cell.HistoricalTradeAgeMinutes = cell.HistoricalTradeSamples > 0 ? historicalTradeAge : 0d;
+            cell.HistoricalFlowFreshnessScore = cell.HistoricalTradeSamples > 0 ? historicalFlowFreshness : 0m;
             cell.DistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((cell.Price - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
             decimal baseInterest = ClampScore(
                 cell.WallScore * 0.62m +
@@ -1043,6 +1057,23 @@ namespace RtdDolarNative.Heatmap
             }
 
             return value;
+        }
+
+        private static decimal HistoricalFreshnessFactor(DateTimeOffset lastSeen, DateTimeOffset reference, out double ageMinutes, out decimal freshnessScore)
+        {
+            if (lastSeen == DateTimeOffset.MinValue)
+            {
+                ageMinutes = HistoricalContextMinutes;
+                freshnessScore = 0m;
+                return 0m;
+            }
+
+            DateTimeOffset effectiveReference = reference == DateTimeOffset.MinValue ? DateTimeOffset.Now : reference;
+            ageMinutes = Math.Max(0d, (effectiveReference - lastSeen).TotalMinutes);
+            double freshnessRatio = Math.Max(0d, 1d - ageMinutes / HistoricalContextMinutes);
+            decimal factor = 0.25m + (decimal)freshnessRatio * 0.75m;
+            freshnessScore = ClampScore(factor * 100m);
+            return factor;
         }
 
         private static decimal ClampScore(decimal value)
