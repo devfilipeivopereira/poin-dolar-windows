@@ -89,7 +89,7 @@ namespace RtdDolarNative.Heatmap
 
                 trades.Insert(0, trade);
 
-                DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-30);
+                DateTimeOffset cutoff = EffectiveTimestamp(trade.LocalTimestamp).AddMinutes(-30);
                 trades.RemoveAll(x => x.LocalTimestamp < cutoff);
 
                 if (trades.Count > 5000)
@@ -149,7 +149,7 @@ namespace RtdDolarNative.Heatmap
 
                 if (_tradesByAsset.TryGetValue(asset, out trades))
                 {
-                    DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-15);
+                    DateTimeOffset cutoff = ResolveWindowReferenceTimeLocked(asset).AddMinutes(-15);
 
                     foreach (TradePrint trade in trades.Where(x => x.LocalTimestamp >= cutoff))
                     {
@@ -309,6 +309,40 @@ namespace RtdDolarNative.Heatmap
             }
 
             return result;
+        }
+
+        private DateTimeOffset ResolveWindowReferenceTimeLocked(string asset)
+        {
+            DateTimeOffset reference = DateTimeOffset.MinValue;
+            List<TradePrint> trades;
+
+            if (!string.IsNullOrWhiteSpace(asset) &&
+                _tradesByAsset.TryGetValue(asset, out trades) &&
+                trades.Count > 0)
+            {
+                reference = trades.Max(x => EffectiveTimestamp(x.LocalTimestamp));
+            }
+
+            Dictionary<decimal, HeatmapCell> book;
+
+            if (!string.IsNullOrWhiteSpace(asset) &&
+                _bookByAsset.TryGetValue(asset, out book) &&
+                book.Count > 0)
+            {
+                DateTimeOffset bookReference = book.Values.Max(x => EffectiveTimestamp(x.LastSeen));
+
+                if (bookReference > reference)
+                {
+                    reference = bookReference;
+                }
+            }
+
+            return reference == DateTimeOffset.MinValue ? DateTimeOffset.Now : reference;
+        }
+
+        private static DateTimeOffset EffectiveTimestamp(DateTimeOffset timestamp)
+        {
+            return timestamp == DateTimeOffset.MinValue ? DateTimeOffset.Now : timestamp;
         }
 
         private void MergeHistoricalContext(string asset, HeatmapSnapshot snapshot, Dictionary<decimal, HeatmapCell> combined)
