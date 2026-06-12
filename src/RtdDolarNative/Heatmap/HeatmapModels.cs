@@ -110,6 +110,9 @@ namespace RtdDolarNative.Heatmap
         public int DistanceTicks { get; set; }
         public int CellCount { get; set; }
         public string Direction { get; set; }
+        public string Action { get; set; }
+        public decimal ActionScore { get; set; }
+        public string ActionRead { get; set; }
         public string Read { get; set; }
     }
 

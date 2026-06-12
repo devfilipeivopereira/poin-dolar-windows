@@ -9720,6 +9720,8 @@ namespace RtdDolarNative
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
+            HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => Math.Abs(x.DistanceTicks)).FirstOrDefault();
+            AddRow(rows, "Acao", actionZone == null ? "-" : EmptyToDash(actionZone.Action), actionZone == null ? "-" : "urg " + actionZone.ActionScore.ToString("N0", _ptBr) + " | " + EmptyToDash(actionZone.ActionRead));
             AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
             AddRow(rows, "Contexto SQL", heatmap.UseHistoricalContext ? FormatHeatmapWindow(heatmap.HistoricalContextMinutes) : "Desligado", heatmap.UseHistoricalContext ? "book e fluxo historicos entram no score" : "somente book e negocios ao vivo");
             string sqlWindow = FormatHeatmapWindow(heatmap.HistoricalContextMinutes);
@@ -9749,6 +9751,8 @@ namespace RtdDolarNative
                 row.Center = zone.CenterPrice.ToString("N2", _ptBr);
                 row.Distance = zone.DistanceTicks == 0 ? "0" : zone.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
                 row.Direction = EmptyToDash(zone.Direction);
+                row.Action = EmptyToDash(zone.Action);
+                row.ActionScore = zone.ActionScore.ToString("N0", _ptBr);
                 row.Score = zone.Score.ToString("N0", _ptBr);
                 row.Quality = FormatHeatmapQuality(zone.Quality, zone.ConfidenceScore, zone.ConfluenceScore, zone.ConflictScore);
                 row.Persistence = zone.PersistenceScore.ToString("N0", _ptBr);
@@ -9756,7 +9760,7 @@ namespace RtdDolarNative
                                  " | F " + zone.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + zone.HistoricalTradeSamples.ToString(_ptBr);
                 row.Book = "C " + zone.TotalBidLiquidity.ToString("N0", _ptBr) + " / V " + zone.TotalAskLiquidity.ToString("N0", _ptBr);
                 row.Delta = zone.Delta.ToString("N0", _ptBr);
-                row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas | SQLd " + zone.HistoricalDelta.ToString("N0", _ptBr);
+                row.Read = EmptyToDash(zone.ActionRead) + " | " + EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas | SQLd " + zone.HistoricalDelta.ToString("N0", _ptBr);
                 rows.Add(row);
             }
 
@@ -10792,6 +10796,8 @@ namespace RtdDolarNative
             public string Center { get; set; }
             public string Distance { get; set; }
             public string Direction { get; set; }
+            public string Action { get; set; }
+            public string ActionScore { get; set; }
             public string Score { get; set; }
             public string Quality { get; set; }
             public string Persistence { get; set; }

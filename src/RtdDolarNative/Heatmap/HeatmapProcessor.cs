@@ -635,7 +635,70 @@ namespace RtdDolarNative.Heatmap
             zone.Direction = dominant.Direction;
             zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
             zone.Read = ZoneRead(zone.Direction, cells);
+            ApplyZoneAction(zone);
             zones.Add(zone);
+        }
+
+        private static void ApplyZoneAction(HeatmapZone zone)
+        {
+            if (zone == null)
+            {
+                return;
+            }
+
+            int absDistance = Math.Abs(zone.DistanceTicks);
+            decimal distanceBonus = absDistance <= 2 ? 18m : absDistance <= 5 ? 10m : absDistance <= 10 ? 4m : 0m;
+            decimal distancePenalty = Math.Min(34m, Math.Max(0, absDistance - 2) * 2.2m);
+            decimal qualityBonus = string.Equals(zone.Quality, "Alta", StringComparison.OrdinalIgnoreCase) ? 10m :
+                string.Equals(zone.Quality, "Media", StringComparison.OrdinalIgnoreCase) ? 4m : 0m;
+            decimal rawScore =
+                zone.Score * 0.38m +
+                zone.ConfidenceScore * 0.30m +
+                zone.ConfluenceScore * 0.14m +
+                zone.PersistenceScore * 0.08m +
+                Math.Max(zone.HistoricalScore, zone.HistoricalFlowScore) * 0.06m +
+                qualityBonus +
+                distanceBonus -
+                zone.ConflictScore * 0.68m -
+                distancePenalty;
+
+            zone.ActionScore = ClampScore(rawScore);
+
+            if (zone.ConflictScore >= 40m ||
+                string.Equals(zone.Quality, "Conflito", StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(zone.Read) && zone.Read.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                zone.Action = "Aguardar";
+                zone.ActionScore = Math.Min(zone.ActionScore, 35m);
+                zone.ActionRead = "conflito entre sinais; esperar confirmacao";
+                return;
+            }
+
+            if (DirectionSign(zone.Direction) == 0m)
+            {
+                zone.Action = "Observar";
+                zone.ActionRead = "zona neutra; sem lado claro";
+                return;
+            }
+
+            string side = string.Equals(zone.Direction, "Compra", StringComparison.OrdinalIgnoreCase) ? "compra" : "venda";
+
+            if (zone.ActionScore >= 70m && absDistance <= 5)
+            {
+                zone.Action = zone.Direction + " defesa";
+                zone.ActionRead = "zona perto; defesa de " + side + " com confirmacao";
+                return;
+            }
+
+            if (zone.ActionScore >= 58m)
+            {
+                zone.Action = "Monitorar " + side;
+                zone.ActionRead = absDistance <= 10 ? "zona proxima; esperar gatilho" : "zona forte distante; preparar contexto";
+                return;
+            }
+
+            zone.Action = "Observar";
+            zone.ActionRead = absDistance <= 10 ? "zona perto sem confirmacao suficiente" : "zona distante ou fraca";
         }
 
         private static string ZoneRead(string direction, List<HeatmapCell> cells)

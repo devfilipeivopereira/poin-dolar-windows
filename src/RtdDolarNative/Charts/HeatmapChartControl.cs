@@ -222,12 +222,38 @@ namespace RtdDolarNative.Charts
                 double top = plot.Top + topIndex * rowHeight;
                 double height = Math.Max(rowHeight, (bottomIndex - topIndex + 1) * rowHeight - 1);
                 Brush brush = DirectionBrush(zone.Direction);
-                Pen pen = new Pen(brush, zone.Score >= 75m ? 2 : 1);
+                Pen pen = new Pen(brush, zone.ActionScore >= 70m ? 2.5 : zone.Score >= 75m ? 2 : 1);
                 Rect rect = new Rect(plot.Left + 1, top + 1, Math.Max(10, plot.Width - 2), Math.Max(8, height - 2));
 
                 dc.DrawRectangle(null, pen, rect);
                 DrawText(dc, "Z" + zone.Score.ToString("N0", CultureInfo.InvariantCulture), plot.Right - readWidth - 42, top + 3, brush, 10, FontWeights.Bold);
+                DrawText(dc, ActionShort(zone), plot.Left + 6, top + 3, brush, 10, FontWeights.Bold);
             }
+        }
+
+        private static string ActionShort(HeatmapZone zone)
+        {
+            if (zone == null || string.IsNullOrWhiteSpace(zone.Action) || zone.ActionScore <= 0m)
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(zone.Action, "Aguardar", StringComparison.OrdinalIgnoreCase))
+            {
+                return "AG " + zone.ActionScore.ToString("N0", CultureInfo.InvariantCulture);
+            }
+
+            if (zone.Action.IndexOf("Compra", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "C " + zone.ActionScore.ToString("N0", CultureInfo.InvariantCulture);
+            }
+
+            if (zone.Action.IndexOf("Venda", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "V " + zone.ActionScore.ToString("N0", CultureInfo.InvariantCulture);
+            }
+
+            return zone.ActionScore.ToString("N0", CultureInfo.InvariantCulture);
         }
 
         private Brush DirectionBrush(string direction)

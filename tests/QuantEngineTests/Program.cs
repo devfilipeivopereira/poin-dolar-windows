@@ -5,12 +5,14 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using RtdDolarNative.Charts;
+using RtdDolarNative.Config;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
 using RtdDolarNative.Flow;
 using RtdDolarNative.Heatmap;
 using RtdDolarNative.Logging;
 using RtdDolarNative.MarketData;
+using RtdDolarNative.Opportunities;
 using RtdDolarNative.Quant;
 
 namespace QuantEngineTests
@@ -37,6 +39,14 @@ namespace QuantEngineTests
                 PtaxHistoryStoreUpsertsAndLoads,
                 MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
                 MarketBiasStaysNeutralWhenCsvIsMissing,
+                OpportunityScorerBlocksRobustnessWithoutRealTimes,
+                OpportunityScorerCapsFragileQuantEdgeAtMonitor,
+                OpportunityScorerRewardsAlignedFlowAndPenalizesDivergence,
+                OpportunityScorerBlocksStaleSnapshots,
+                OpportunityJournalStoreInsertsAndLoadsCards,
+                OpportunityJournalStoreDedupesRecentCards,
+                OpportunityJournalStoreFiltersByAssetRobustnessAndDirection,
+                OpportunityJournalStorePersistsAcrossRestart,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartMetricLinesUseOnlySelectedReferenceMode,
                 ChartMetricBuySellLinesUseDirectionalColors,
@@ -61,6 +71,8 @@ namespace QuantEngineTests
                 HeatmapSqlHistoryScoresRecentLevelsAboveStaleLevels,
                 HeatmapConfluencePromotesAlignedLiveAndSqlSupport,
                 HeatmapConfluenceFlagsConflictingHistoricalBookAndFlow,
+                HeatmapZoneActionMarksNearbySupportAsBuyDefense,
+                HeatmapZoneActionBlocksConflictingSqlZone,
                 HeatmapSqlContextWindowIsConfigurable,
                 HeatmapSqlContextCanBeDisabled,
                 HeatmapHeaderBadgesWrapWithinAvailableWidth,
@@ -1489,6 +1501,96 @@ namespace QuantEngineTests
                 AssertEqual("Conflito", conflict.Quality, "Conflicting level should be marked as conflict.");
                 Assert(conflict.ConfidenceScore < conflict.ConfluenceScore || conflict.ConfidenceScore < 60m, "Conflict should reduce operational confidence.");
                 Assert(conflict.Read.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) >= 0, "Read should mention conflict.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapZoneActionMarksNearbySupportAsBuyDefense()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                DateTimeOffset start = DateTimeOffset.Now.AddSeconds(-8);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+                    snapshot.LocalTimestamp = start.AddSeconds(i * 2);
+                    AddBookBid(snapshot, 0, 4999m, 2800m);
+                    AddBookBid(snapshot, 1, 4999.5m, 2400m);
+                    AddBookAsk(snapshot, 0, 5001m, 500m);
+                    processor.PostSnapshot(snapshot);
+                }
+
+                processor.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = start.AddSeconds(8),
+                    Price = 4999m,
+                    Quantity = 420m,
+                    Delta = -420m,
+                    Aggressor = "Sell"
+                });
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapZone support = heatmap.Zones.FirstOrDefault(x => x.Direction == "Compra");
+
+                Assert(support != null, "Nearby confirmed support should produce a buy-side zone.");
+                AssertEqual("Compra defesa", support.Action, "Nearby confirmed support should become an actionable buy defense.");
+                Assert(support.ActionScore >= 70m, "Actionable nearby support should carry high urgency.");
+                Assert(support.ActionRead.IndexOf("perto", StringComparison.OrdinalIgnoreCase) >= 0, "Action read should state that the zone is near the current price.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapZoneActionBlocksConflictingSqlZone()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-zone-action-conflict-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot historicalBook = BuildHeatmapSnapshot(5000m);
+                historicalBook.LocalTimestamp = now.AddMinutes(-3);
+                AddBookBid(historicalBook, 0, 4999m, 2400m);
+                writer.PostSnapshot(historicalBook);
+
+                writer.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-2),
+                    Price = 4999m,
+                    Quantity = 320m,
+                    Delta = -320m,
+                    Aggressor = "Sell"
+                });
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 1", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                       writer.StorageStatus.IndexOf("trades 1", StringComparison.OrdinalIgnoreCase) >= 0, 3000),
+                    "Writer should persist conflicting SQL context for zone action.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapZone conflict = heatmap.Zones.FirstOrDefault(x => x.Quality == "Conflito");
+
+                Assert(conflict != null, "Conflicting SQL level should form a visible zone.");
+                AssertEqual("Aguardar", conflict.Action, "Conflicting zone should block directional action.");
+                Assert(conflict.ActionScore <= 35m, "Conflict should cap urgency for the zone.");
+                Assert(conflict.ActionRead.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) >= 0, "Action read should explain that the zone is conflicting.");
 
                 reader.Dispose();
             }

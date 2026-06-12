@@ -3854,6 +3854,8 @@
                                     <DataGridTextColumn Header="Centro" Binding="{Binding Center}" Width="76" />
                                     <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="58" />
                                     <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="66" />
+                                    <DataGridTextColumn Header="Acao" Binding="{Binding Action}" Width="110" />
+                                    <DataGridTextColumn Header="Urg" Binding="{Binding ActionScore}" Width="52" />
                                     <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="62" />
                                     <DataGridTextColumn Header="Qual" Binding="{Binding Quality}" Width="76" />
                                     <DataGridTextColumn Header="Pers" Binding="{Binding Persistence}" Width="54" />
