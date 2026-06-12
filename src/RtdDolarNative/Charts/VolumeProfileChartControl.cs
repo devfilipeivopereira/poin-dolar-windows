@@ -41,7 +41,7 @@ namespace RtdDolarNative.Charts
             }
             else if (proxy != null && proxy.Bins != null && proxy.Bins.Count > 0)
             {
-                _source = "Proxy";
+                _source = string.IsNullOrWhiteSpace(proxy.Source) ? "CSV" : proxy.Source;
                 _rows = proxy.Bins
                     .Select(x => new ProfileChartRow
                     {

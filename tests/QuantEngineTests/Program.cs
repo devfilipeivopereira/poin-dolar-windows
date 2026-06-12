@@ -25,6 +25,7 @@ namespace QuantEngineTests
                 ReferenceMapsFallbackWhenSnapshotFieldsAreMissing,
                 ReferenceMapClosingUsesCsvWhenRtdCloseMatchesOpening,
                 ReferenceMapsBuildDirectionalLadders,
+                VolumeProfileUsesRequestedCsvHistoryWindow,
                 PtaxHistoryStoreUpsertsAndLoads,
                 MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
                 MarketBiasStaysNeutralWhenCsvIsMissing,
@@ -177,6 +178,27 @@ namespace QuantEngineTests
             AssertEqual(8, opening.StdDevLevels.Count, "StdDev opening map should build 8 directional levels.");
             Assert(opening.GarmanLevels.Count(x => x.Side == "Venda" && x.Price > opening.ReferencePrice) == 4, "Sell Garman levels should stay above the reference.");
             Assert(opening.GarmanLevels.Count(x => x.Side == "Compra" && x.Price < opening.ReferencePrice) == 4, "Buy Garman levels should stay below the reference.");
+        }
+
+        private static void VolumeProfileUsesRequestedCsvHistoryWindow()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 6120m;
+            snapshot.Rtd["ABE"] = 6110m;
+            snapshot.Rtd["FEC"] = 6100m;
+
+            QuantResult sevenDays = QuantEngine.Build(BuildVolumeProfileWindowBars(), snapshot, 0.5m, 45, 7, null, null, null);
+            QuantResult fortyTwoDays = QuantEngine.Build(BuildVolumeProfileWindowBars(), snapshot, 0.5m, 45, 42, null, null, null);
+
+            Assert(sevenDays.Profile != null && sevenDays.Profile.Poc != null, "7-day CSV profile should produce a POC.");
+            Assert(fortyTwoDays.Profile != null && fortyTwoDays.Profile.Poc != null, "42-day CSV profile should produce a POC.");
+            AssertEqual(7, sevenDays.Profile.WindowDays, "CSV volume profile should remember the requested 7-day window.");
+            AssertEqual(7, sevenDays.Profile.SampleSize, "7-day CSV profile should use only the last 7 daily bars.");
+            AssertEqual(42, fortyTwoDays.Profile.WindowDays, "CSV volume profile should remember the requested 42-day window.");
+            AssertEqual(42, fortyTwoDays.Profile.SampleSize, "42-day CSV profile should use the last 42 daily bars.");
+            Assert(sevenDays.Profile.Poc.Price > 6000m, "7-day POC should be anchored in the high-volume area from the latest 7 pregões.");
+            Assert(fortyTwoDays.Profile.Poc.Price < 5300m, "42-day POC should be anchored in the older high-volume CSV area.");
+            Assert(sevenDays.Profile.Poc.Price != fortyTwoDays.Profile.Poc.Price, "Changing the CSV volume window should move the POC price, not just the label.");
         }
 
         private static void PtaxHistoryStoreUpsertsAndLoads()
@@ -436,6 +458,42 @@ namespace QuantEngineTests
                     Low = Math.Min(low, Math.Min(open, close)),
                     Close = close,
                     Volume = 1000m + i
+                });
+            }
+
+            return bars;
+        }
+
+        private static List<DailyBar> BuildVolumeProfileWindowBars()
+        {
+            List<DailyBar> bars = new List<DailyBar>();
+            DateTime start = new DateTime(2026, 4, 1);
+
+            for (int i = 0; i < 35; i++)
+            {
+                bars.Add(new DailyBar
+                {
+                    Asset = "WDOFUT_F_0",
+                    Date = start.AddDays(i),
+                    Open = 5010m,
+                    High = 5030m,
+                    Low = 4990m,
+                    Close = 5015m,
+                    Volume = 10000m
+                });
+            }
+
+            for (int i = 35; i < 42; i++)
+            {
+                bars.Add(new DailyBar
+                {
+                    Asset = "WDOFUT_F_0",
+                    Date = start.AddDays(i),
+                    Open = 6100m,
+                    High = 6125m,
+                    Low = 6080m,
+                    Close = 6110m,
+                    Volume = 1000m
                 });
             }
 

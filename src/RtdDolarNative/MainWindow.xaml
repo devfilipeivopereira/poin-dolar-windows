@@ -1176,6 +1176,21 @@
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="Vol" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <ComboBox x:Name="VolumeProfileDaysComboBox"
+                                  Width="76"
+                                  SelectedIndex="5"
+                                  SelectionChanged="VolumeProfileDaysComboBox_SelectionChanged"
+                                  ToolTip="Pregoes do CSV usados no POC/Volume Profile">
+                            <ComboBoxItem Content="7" />
+                            <ComboBoxItem Content="14" />
+                            <ComboBoxItem Content="21" />
+                            <ComboBoxItem Content="28" />
+                            <ComboBoxItem Content="35" />
+                            <ComboBoxItem Content="42" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                         <TextBlock Text="TF" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <RadioButton x:Name="ChartTimeframeDailyButton"
                                      Content="1D"

@@ -93,6 +93,9 @@ namespace RtdDolarNative.Quant
         public decimal Val { get; set; }
         public List<ProfileBin> Hvn { get; set; }
         public List<ProfileBin> Lvn { get; set; }
+        public int WindowDays { get; set; }
+        public int SampleSize { get; set; }
+        public string Source { get; set; }
     }
 
     public sealed class DeviationLevel

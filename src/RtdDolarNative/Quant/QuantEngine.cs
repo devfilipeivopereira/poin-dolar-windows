@@ -16,12 +16,12 @@ namespace RtdDolarNative.Quant
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays)
         {
-            return Build(allBars, snapshot, tickSize, calculationDays, null);
+            return Build(allBars, snapshot, tickSize, calculationDays, UiConfig.DefaultVolumeProfileDays, null, null, null);
         }
 
         public static QuantResult Build(List<DailyBar> allBars, MarketSnapshot snapshot, decimal tickSize, int calculationDays, IEnumerable<TickEvent> ticks)
         {
-            return Build(allBars, snapshot, tickSize, calculationDays, ticks, null, null);
+            return Build(allBars, snapshot, tickSize, calculationDays, UiConfig.DefaultVolumeProfileDays, ticks, null, null);
         }
 
         public static QuantResult Build(
@@ -33,9 +33,23 @@ namespace RtdDolarNative.Quant
             List<IntradayBar> intradayBars,
             GarchConfig garchConfig)
         {
+            return Build(allBars, snapshot, tickSize, calculationDays, UiConfig.DefaultVolumeProfileDays, ticks, intradayBars, garchConfig);
+        }
+
+        public static QuantResult Build(
+            List<DailyBar> allBars,
+            MarketSnapshot snapshot,
+            decimal tickSize,
+            int calculationDays,
+            int volumeProfileDays,
+            IEnumerable<TickEvent> ticks,
+            List<IntradayBar> intradayBars,
+            GarchConfig garchConfig)
+        {
             QuantResult result = new QuantResult();
             result.Bars = allBars == null ? new List<DailyBar>() : allBars.OrderBy(x => x.Date).ToList();
             int windowDays = UiConfig.NormalizeCalculationDays(calculationDays);
+            int profileWindowDays = UiConfig.NormalizeVolumeProfileDays(volumeProfileDays);
             result.CalculationDays = windowDays;
 
             if (result.Bars.Count == 0)
@@ -50,6 +64,11 @@ namespace RtdDolarNative.Quant
             if (result.Bars.Count < windowDays)
             {
                 result.Warnings.Add("CSV tem menos de " + windowDays + " pregoes validos; calculos ficam incompletos.");
+            }
+
+            if (result.Bars.Count < profileWindowDays)
+            {
+                result.Warnings.Add("CSV tem menos de " + profileWindowDays + " pregoes validos para o perfil de volume.");
             }
 
             result.PreviousDay = result.Bars[result.Bars.Count - 1];
@@ -72,6 +91,8 @@ namespace RtdDolarNative.Quant
 
             List<DailyBar> window = result.Bars.Skip(Math.Max(0, result.Bars.Count - windowDays)).ToList();
             List<DailyBar> selectedWindow = window.Count > 0 ? window : result.Bars;
+            List<DailyBar> profileWindow = result.Bars.Skip(Math.Max(0, result.Bars.Count - profileWindowDays)).ToList();
+            List<DailyBar> selectedProfileWindow = profileWindow.Count > 0 ? profileWindow : result.Bars;
 
             result.GarmanKlass = CalcGarmanKlass(selectedWindow, windowDays);
             result.Parkinson = CalcParkinson(selectedWindow, windowDays);
@@ -97,7 +118,7 @@ namespace RtdDolarNative.Quant
                 result.WindowMetrics.Add(CalcAtr(selectedWindow, windowDays, result.Bars));
             }
 
-            result.Profile = VolumeProfileProxy(selectedWindow);
+            result.Profile = VolumeProfileProxy(selectedProfileWindow, profileWindowDays);
             result.SupportResistance = SupportResistanceEngine(selectedWindow, result.Intraday.Price, result.GarmanKlass.Points, result.Atr.Points);
             result.Avwaps = AnchoredVwaps(selectedWindow);
             result.Garch = BuildGarch(result.Bars, result.Intraday, snapshot, ticks, intradayBars, tickSize, garchConfig);
@@ -439,9 +460,12 @@ namespace RtdDolarNative.Quant
             return trs;
         }
 
-        private static VolumeProfileResult VolumeProfileProxy(List<DailyBar> bars)
+        private static VolumeProfileResult VolumeProfileProxy(List<DailyBar> bars, int windowDays)
         {
             VolumeProfileResult result = new VolumeProfileResult();
+            result.WindowDays = UiConfig.NormalizeVolumeProfileDays(windowDays);
+            result.SampleSize = bars == null ? 0 : bars.Count;
+            result.Source = "CSV " + result.WindowDays.ToString() + "d";
 
             if (bars == null || bars.Count == 0)
             {
@@ -688,7 +712,8 @@ namespace RtdDolarNative.Quant
             maps.Add(BuildReferenceMap(result, "closing", "Fechamento", closingSource, closingReference, tickSize));
 
             decimal pocReference = result.Profile == null || result.Profile.Poc == null ? 0m : result.Profile.Poc.Price;
-            maps.Add(BuildReferenceMap(result, "poc", "POC", "Profile CSV", pocReference, tickSize));
+            string pocSource = result.Profile == null || string.IsNullOrWhiteSpace(result.Profile.Source) ? "Profile CSV" : result.Profile.Source;
+            maps.Add(BuildReferenceMap(result, "poc", "POC", pocSource, pocReference, tickSize));
 
             decimal adjustmentReference = snapshot != null && snapshot.Ajuste.HasValue && snapshot.Ajuste.Value > 0m
                 ? snapshot.Ajuste.Value

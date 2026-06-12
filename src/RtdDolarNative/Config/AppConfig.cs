@@ -188,6 +188,11 @@ namespace RtdDolarNative.Config
                 config.Ui.ChartReferenceLineMode = UiConfig.DefaultChartReferenceLineMode;
             }
 
+            if (!HasToken(json, "VolumeProfileDays"))
+            {
+                config.Ui.VolumeProfileDays = UiConfig.DefaultVolumeProfileDays;
+            }
+
             if (config.Rtd.PollIntervalMs < 150)
             {
                 config.Rtd.PollIntervalMs = 150;
@@ -952,6 +957,8 @@ namespace RtdDolarNative.Config
     {
         public static readonly int DefaultCalculationDays = 45;
         public static readonly int[] AllowedCalculationDays = new[] { 21, 45, 63, 90 };
+        public static readonly int DefaultVolumeProfileDays = 42;
+        public static readonly int[] AllowedVolumeProfileDays = new[] { 7, 14, 21, 28, 35, 42 };
         public static readonly int DefaultChartTimeframeIndex = 0;
         public static readonly int[] AllowedChartTimeframeIndexes = new[] { 0, 1, 2 };
         public static readonly int DefaultPriceGridTickInterval = 10;
@@ -974,6 +981,7 @@ namespace RtdDolarNative.Config
             DomTicksEachSide = 100;
             TapeCapacity = 500;
             CalculationDays = DefaultCalculationDays;
+            VolumeProfileDays = DefaultVolumeProfileDays;
             ChartTimeframeIndex = DefaultChartTimeframeIndex;
             PriceGridTickInterval = DefaultPriceGridTickInterval;
             CandleSpacingPercent = DefaultCandleSpacingPercent;
@@ -1011,6 +1019,7 @@ namespace RtdDolarNative.Config
         public int DomTicksEachSide { get; set; }
         public int TapeCapacity { get; set; }
         public int CalculationDays { get; set; }
+        public int VolumeProfileDays { get; set; }
         public int ChartTimeframeIndex { get; set; }
         public int PriceGridTickInterval { get; set; }
         public int CandleSpacingPercent { get; set; }
@@ -1044,6 +1053,7 @@ namespace RtdDolarNative.Config
         public void Normalize()
         {
             CalculationDays = NormalizeCalculationDays(CalculationDays);
+            VolumeProfileDays = NormalizeVolumeProfileDays(VolumeProfileDays);
             ChartTimeframeIndex = NormalizeChartTimeframeIndex(ChartTimeframeIndex);
             PriceGridTickInterval = NormalizePriceGridTickInterval(PriceGridTickInterval);
             CandleSpacingPercent = NormalizeCandleSpacingPercent(CandleSpacingPercent);
@@ -1053,6 +1063,11 @@ namespace RtdDolarNative.Config
         public static int NormalizeCalculationDays(int days)
         {
             return AllowedCalculationDays.Contains(days) ? days : DefaultCalculationDays;
+        }
+
+        public static int NormalizeVolumeProfileDays(int days)
+        {
+            return AllowedVolumeProfileDays.Contains(days) ? days : DefaultVolumeProfileDays;
         }
 
         public static int NormalizeChartTimeframeIndex(int timeframeIndex)

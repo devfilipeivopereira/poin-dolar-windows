@@ -99,6 +99,7 @@ namespace RtdDolarNative
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object _postedTimesLock = new object();
         private bool _syncCalculationDaysSelection = true;
+        private bool _syncVolumeProfileDaysSelection = true;
         private bool _syncChartTimeframeSelection = true;
         private bool _syncChartPriceGridSelection = true;
         private bool _syncChartCandleSpacingSelection = true;
@@ -147,6 +148,7 @@ namespace RtdDolarNative
 
             InitializeStaticText();
             InitializeCalculationDaysSelection();
+            InitializeVolumeProfileDaysSelection();
             InitializeChartTimeframeSelection();
             InitializeChartPriceGridSelection();
             InitializeChartCandleSpacingSelection();
@@ -973,6 +975,26 @@ namespace RtdDolarNative
                 _config.Ui.Normalize();
                 SaveRuntimeConfig();
                 AddHistory("App", "Janela de calculo", selectedDays.ToString(_ptBr) + " dias selecionados.");
+            }
+
+            Recalculate();
+        }
+
+        private void VolumeProfileDaysComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncVolumeProfileDaysSelection || VolumeProfileDaysComboBox == null)
+            {
+                return;
+            }
+
+            int selectedDays = SelectedVolumeProfileDays();
+
+            if (_config.Ui.VolumeProfileDays != selectedDays)
+            {
+                _config.Ui.VolumeProfileDays = selectedDays;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Janela de volume", selectedDays.ToString(_ptBr) + " pregoes para POC CSV.");
             }
 
             Recalculate();
@@ -5420,19 +5442,20 @@ namespace RtdDolarNative
             VolumeProfileMetrics flowProfile = metrics == null ? null : metrics.Profile;
             VolumeProfileResult proxy = _result == null ? null : _result.Profile;
 
+            if (proxy != null && proxy.Poc != null)
+            {
+                DashboardProfileText.Text = "POC " + proxy.Poc.Price.ToString("N2", _ptBr) + " | " + EmptyToDash(proxy.Source);
+                DashboardProfileDetailText.Text = "VAH / VAL " + proxy.Vah.ToString("N2", _ptBr) + " / " + proxy.Val.ToString("N2", _ptBr) +
+                                                  " | amostra " + proxy.SampleSize.ToString(_ptBr) + " pregoes" +
+                                                  " | " + DistanceText(snapshot, proxy.Poc.Price);
+                return;
+            }
+
             if (flowProfile != null && flowProfile.Poc.HasValue)
             {
                 DashboardProfileText.Text = "POC " + flowProfile.Poc.Value.ToString("N2", _ptBr) + " | " + EmptyToDash(flowProfile.Source);
                 DashboardProfileDetailText.Text = "VAH / VAL " + FormatDecimal(flowProfile.Vah, "N2") + " / " + FormatDecimal(flowProfile.Val, "N2") +
                                                   " | " + DistanceText(snapshot, flowProfile.Poc);
-                return;
-            }
-
-            if (proxy != null && proxy.Poc != null)
-            {
-                DashboardProfileText.Text = "POC " + proxy.Poc.Price.ToString("N2", _ptBr) + " | CSV proxy";
-                DashboardProfileDetailText.Text = "VAH / VAL " + proxy.Vah.ToString("N2", _ptBr) + " / " + proxy.Val.ToString("N2", _ptBr) +
-                                                  " | " + DistanceText(snapshot, proxy.Poc.Price);
                 return;
             }
 
@@ -6746,6 +6769,25 @@ namespace RtdDolarNative
             }
         }
 
+        private void InitializeVolumeProfileDaysSelection()
+        {
+            if (VolumeProfileDaysComboBox == null)
+            {
+                return;
+            }
+
+            _syncVolumeProfileDaysSelection = true;
+
+            try
+            {
+                VolumeProfileDaysComboBox.SelectedIndex = VolumeProfileDaysIndex(_config.Ui == null ? UiConfig.DefaultVolumeProfileDays : _config.Ui.VolumeProfileDays);
+            }
+            finally
+            {
+                _syncVolumeProfileDaysSelection = false;
+            }
+        }
+
         private void InitializeChartTimeframeSelection()
         {
             if (ChartTimeframeDailyButton == null)
@@ -7048,6 +7090,60 @@ namespace RtdDolarNative
                     return 90;
                 default:
                     return UiConfig.DefaultCalculationDays;
+            }
+        }
+
+        private int SelectedVolumeProfileDays()
+        {
+            if (VolumeProfileDaysComboBox == null)
+            {
+                return UiConfig.NormalizeVolumeProfileDays(_config.Ui == null ? UiConfig.DefaultVolumeProfileDays : _config.Ui.VolumeProfileDays);
+            }
+
+            return VolumeProfileDaysFromIndex(VolumeProfileDaysComboBox.SelectedIndex);
+        }
+
+        private int VolumeProfileDaysIndex(int days)
+        {
+            int normalized = UiConfig.NormalizeVolumeProfileDays(days);
+
+            switch (normalized)
+            {
+                case 7:
+                    return 0;
+                case 14:
+                    return 1;
+                case 21:
+                    return 2;
+                case 28:
+                    return 3;
+                case 35:
+                    return 4;
+                case 42:
+                    return 5;
+                default:
+                    return 5;
+            }
+        }
+
+        private int VolumeProfileDaysFromIndex(int index)
+        {
+            switch (index)
+            {
+                case 0:
+                    return 7;
+                case 1:
+                    return 14;
+                case 2:
+                    return 21;
+                case 3:
+                    return 28;
+                case 4:
+                    return 35;
+                case 5:
+                    return 42;
+                default:
+                    return UiConfig.DefaultVolumeProfileDays;
             }
         }
 
@@ -7914,7 +8010,7 @@ namespace RtdDolarNative
                 MarketSnapshot calcSnapshot = CurrentSnapshotForCalc();
                 IEnumerable<TickEvent> focusedTicks = FilterFocusedTicks(FocusedAsset());
                 var intradayBars = _intradayAggregator != null ? _intradayAggregator.GetBars(FocusedAsset(), _config.Garch.IntradayTimeframeSeconds) : null;
-                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize, SelectedCalculationDays(), focusedTicks, intradayBars, _config.Garch);
+                _result = QuantEngine.Build(_dailyBars, calcSnapshot, _config.Rtd.TickSize, SelectedCalculationDays(), SelectedVolumeProfileDays(), focusedTicks, intradayBars, _config.Garch);
                 _lastQuantVersion = _lastVersion;
                 RenderResult(calcSnapshot);
             }
@@ -9067,12 +9163,21 @@ namespace RtdDolarNative
 
         private void RenderVolumeProfile(MarketSnapshot snapshot, FlowMetrics metrics)
         {
-            VolumeProfileMetrics profile = metrics == null ? null : metrics.Profile;
             VolumeProfileResult proxy = _result == null ? null : _result.Profile;
+            bool hasProxy = proxy != null && proxy.Bins != null && proxy.Bins.Count > 0;
+            VolumeProfileMetrics profile = hasProxy ? null : (metrics == null ? null : metrics.Profile);
 
             if (ProfileChartControl != null)
             {
                 ProfileChartControl.SetData(profile, proxy, snapshot, _config.Flow.ValueAreaPercent);
+            }
+
+            if (hasProxy)
+            {
+                ProfileSummaryGrid.ItemsSource = BuildProxyProfileSummaryRows(proxy, snapshot);
+                ProfileNodesGrid.ItemsSource = BuildProxyProfileNodes(proxy);
+                ProfileGrid.ItemsSource = proxy.Bins.OrderByDescending(x => x.Price).ToList();
+                return;
             }
 
             if (profile != null && profile.Bins != null && profile.Bins.Count > 0)
@@ -9080,14 +9185,6 @@ namespace RtdDolarNative
                 ProfileSummaryGrid.ItemsSource = BuildProfileSummaryRows(profile, snapshot);
                 ProfileNodesGrid.ItemsSource = profile.Nodes == null ? null : profile.Nodes.ToList();
                 ProfileGrid.ItemsSource = profile.Bins.OrderByDescending(x => x.Price).ToList();
-                return;
-            }
-
-            if (proxy != null)
-            {
-                ProfileSummaryGrid.ItemsSource = BuildProxyProfileSummaryRows(proxy, snapshot);
-                ProfileNodesGrid.ItemsSource = BuildProxyProfileNodes(proxy);
-                ProfileGrid.ItemsSource = proxy.Bins.OrderByDescending(x => x.Price).ToList();
                 return;
             }
 
@@ -9116,7 +9213,8 @@ namespace RtdDolarNative
 
             if (result.Profile != null && result.Profile.Poc != null)
             {
-                lines.Add("POC proxy: " + result.Profile.Poc.Price.ToString("N2", _ptBr));
+                lines.Add("POC " + EmptyToDash(result.Profile.Source) + ": " + result.Profile.Poc.Price.ToString("N2", _ptBr) +
+                          " | amostra " + result.Profile.SampleSize.ToString(_ptBr) + " pregoes");
                 lines.Add("VAH/VAL: " + result.Profile.Vah.ToString("N2", _ptBr) + " / " + result.Profile.Val.ToString("N2", _ptBr));
             }
 
@@ -9672,7 +9770,8 @@ namespace RtdDolarNative
                 return rows;
             }
 
-            AddRow(rows, "Fonte", "CSV diario proxy", "fallback");
+            AddRow(rows, "Fonte", string.IsNullOrWhiteSpace(profile.Source) ? "CSV diario" : profile.Source, "historico CSV");
+            AddRow(rows, "Janela", profile.WindowDays.ToString(_ptBr) + " pregoes", "amostra " + profile.SampleSize.ToString(_ptBr));
             AddRow(rows, "POC", profile.Poc == null ? "-" : profile.Poc.Price.ToString("N2", _ptBr), profile.Poc == null ? "-" : DistanceText(snapshot, profile.Poc.Price));
             AddRow(rows, "VAH", profile.Vah.ToString("N2", _ptBr), DistanceText(snapshot, profile.Vah));
             AddRow(rows, "VAL", profile.Val.ToString("N2", _ptBr), DistanceText(snapshot, profile.Val));
