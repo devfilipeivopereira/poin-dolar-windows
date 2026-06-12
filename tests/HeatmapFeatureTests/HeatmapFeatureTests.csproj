@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{0C7C18E9-33A8-4A47-95B7-1FC59D3D7E68}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HeatmapFeatureTests</RootNamespace>
+    <AssemblyName>HeatmapFeatureTests</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\..\src\RtdDolarNative\External\SQLite\System.Data.SQLite.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomLadderModel.cs">
+      <Link>Dom\DomLadderModel.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomRow.cs">
+      <Link>Dom\DomRow.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Flow\FlowModels.cs">
+      <Link>Flow\FlowModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Csv\DailyBar.cs">
+      <Link>Csv\DailyBar.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapModels.cs">
+      <Link>Heatmap\HeatmapModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapProcessor.cs">
+      <Link>Heatmap\HeatmapProcessor.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\MarketHeatmapSqliteStore.cs">
+      <Link>Heatmap\MarketHeatmapSqliteStore.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Logging\Logger.cs">
+      <Link>Logging\Logger.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\MarketSnapshot.cs">
+      <Link>MarketData\MarketSnapshot.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\ValueParser.cs">
+      <Link>MarketData\ValueParser.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Quant\QuantModels.cs">
+      <Link>Quant\QuantModels.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\System.Data.SQLite.dll">
+      <Link>System.Data.SQLite.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\x64\SQLite.Interop.dll">
+      <Link>x64\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\src\RtdDolarNative\External\SQLite\x86\SQLite.Interop.dll">
+      <Link>x86\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

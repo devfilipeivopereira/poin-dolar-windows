@@ -17,6 +17,7 @@ using RtdDolarNative.Heatmap;
 using RtdDolarNative.Logging;
 using RtdDolarNative.LowLatency;
 using RtdDolarNative.MarketData;
+using RtdDolarNative.Opportunities;
 using RtdDolarNative.Quant;
 using RtdDolarNative.Rtd;
 
@@ -50,6 +51,8 @@ namespace RtdDolarNative
         private const int TabGarch = 23;
         private const int DashboardChartRefreshMs = 1500;
         private const int DashboardHeavyRefreshMs = 1000;
+        private static readonly TimeSpan OpportunityJournalDedupeWindow = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan OpportunityJournalLookback = TimeSpan.FromHours(8);
 
         private readonly AppConfig _config;
         private readonly string _configPath;
@@ -58,6 +61,7 @@ namespace RtdDolarNative
         private readonly RtdProbeService _probeService;
         private readonly FlowProcessor _flowProcessor;
         private readonly HeatmapProcessor _heatmapProcessor;
+        private readonly OpportunityJournalSqliteStore _opportunityJournalStore;
         private readonly CsvHistorySqliteStore _csvHistoryStore;
         private readonly PtaxHistorySqliteStore _ptaxHistoryStore;
         private readonly RingBuffer<TickEvent> _ticks;
@@ -131,8 +135,10 @@ namespace RtdDolarNative
             _probeService.TickReceived += ProbeService_TickReceived;
             _probeService.SnapshotReceived += ProbeService_SnapshotReceived;
             _flowProcessor = new FlowProcessor(_config.Rtd.TickSize, _config.Flow, _log);
-            _heatmapProcessor = new HeatmapProcessor(_config.Rtd.TickSize, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "market_heatmap.sqlite"), _log);
-            string historyDatabasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data", "csv_history.sqlite");
+            string dataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PoinDolarWindows", "data");
+            _heatmapProcessor = new HeatmapProcessor(_config.Rtd.TickSize, Path.Combine(dataFolder, "market_heatmap.sqlite"), _log);
+            _opportunityJournalStore = new OpportunityJournalSqliteStore(Path.Combine(dataFolder, "opportunity_journal.sqlite"));
+            string historyDatabasePath = Path.Combine(dataFolder, "csv_history.sqlite");
             _csvHistoryStore = new CsvHistorySqliteStore(historyDatabasePath);
             _ptaxHistoryStore = new PtaxHistorySqliteStore(historyDatabasePath);
 
@@ -198,6 +204,7 @@ namespace RtdDolarNative
             _chartTimer.Stop();
             _flowProcessor.Dispose();
             _heatmapProcessor.Dispose();
+            _opportunityJournalStore.Dispose();
             _probeService.Dispose();
         }
 
@@ -9722,6 +9729,7 @@ namespace RtdDolarNative
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => Math.Abs(x.DistanceTicks)).FirstOrDefault();
             AddRow(rows, "Acao", actionZone == null ? "-" : EmptyToDash(actionZone.Action), actionZone == null ? "-" : "urg " + actionZone.ActionScore.ToString("N0", _ptBr) + " | " + EmptyToDash(actionZone.ActionRead));
+            AddRow(rows, "Corredor", heatmap.Corridor != null && heatmap.Corridor.IsAvailable ? heatmap.Corridor.WidthTicks.ToString(_ptBr) + "t | " + EmptyToDash(heatmap.Corridor.Bias) : "-", heatmap.Corridor == null ? "-" : EmptyToDash(heatmap.Corridor.Read));
             AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
             AddRow(rows, "Contexto SQL", heatmap.UseHistoricalContext ? FormatHeatmapWindow(heatmap.HistoricalContextMinutes) : "Desligado", heatmap.UseHistoricalContext ? "book e fluxo historicos entram no score" : "somente book e negocios ao vivo");
             string sqlWindow = FormatHeatmapWindow(heatmap.HistoricalContextMinutes);

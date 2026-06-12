@@ -196,6 +196,7 @@ namespace RtdDolarNative.Charts
             }
 
             DrawZoneOverlays(dc, plot, rowHeight, readWidth);
+            DrawCorridorOverlay(dc, plot, rowHeight, labelWidth, accent, muted);
         }
 
         private void DrawZoneOverlays(DrawingContext dc, Rect plot, double rowHeight, double readWidth)
@@ -229,6 +230,45 @@ namespace RtdDolarNative.Charts
                 DrawText(dc, "Z" + zone.Score.ToString("N0", CultureInfo.InvariantCulture), plot.Right - readWidth - 42, top + 3, brush, 10, FontWeights.Bold);
                 DrawText(dc, ActionShort(zone), plot.Left + 6, top + 3, brush, 10, FontWeights.Bold);
             }
+        }
+
+        private void DrawCorridorOverlay(DrawingContext dc, Rect plot, double rowHeight, double labelWidth, Brush accent, Brush muted)
+        {
+            if (_snapshot == null ||
+                _snapshot.Corridor == null ||
+                !_snapshot.Corridor.IsAvailable ||
+                _snapshot.Cells == null ||
+                _snapshot.Cells.Count == 0)
+            {
+                return;
+            }
+
+            var support = _snapshot.Cells
+                .Select((x, i) => new { Cell = x, Index = i })
+                .OrderBy(x => Math.Abs(x.Cell.Price - _snapshot.Corridor.SupportPrice))
+                .FirstOrDefault();
+            var resistance = _snapshot.Cells
+                .Select((x, i) => new { Cell = x, Index = i })
+                .OrderBy(x => Math.Abs(x.Cell.Price - _snapshot.Corridor.ResistancePrice))
+                .FirstOrDefault();
+
+            if (support == null || resistance == null)
+            {
+                return;
+            }
+
+            double supportY = plot.Top + support.Index * rowHeight + rowHeight / 2d;
+            double resistanceY = plot.Top + resistance.Index * rowHeight + rowHeight / 2d;
+            double top = Math.Min(supportY, resistanceY);
+            double bottom = Math.Max(supportY, resistanceY);
+            double bracketX = plot.Left + Math.Max(64d, labelWidth - 8d);
+            Pen pen = new Pen(accent, 1.5);
+
+            dc.DrawLine(pen, new Point(bracketX, top), new Point(bracketX, bottom));
+            dc.DrawLine(pen, new Point(bracketX - 8, top), new Point(bracketX + 8, top));
+            dc.DrawLine(pen, new Point(bracketX - 8, bottom), new Point(bracketX + 8, bottom));
+            DrawText(dc, "COR " + _snapshot.Corridor.WidthTicks.ToString("N0", CultureInfo.InvariantCulture) + "t " + Empty(_snapshot.Corridor.Bias), bracketX + 12, top + 2, accent, 10, FontWeights.Bold);
+            DrawText(dc, _snapshot.Corridor.CurrentPositionPct.ToString("N0", CultureInfo.InvariantCulture) + "%", bracketX + 12, bottom - 14, muted, 10, FontWeights.Normal);
         }
 
         private static string ActionShort(HeatmapZone zone)

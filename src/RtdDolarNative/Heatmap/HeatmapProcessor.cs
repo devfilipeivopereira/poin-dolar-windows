@@ -258,6 +258,7 @@ namespace RtdDolarNative.Heatmap
             snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows));
             snapshot.InterestCells = SelectInterestRows(allCells, snapshot.CurrentPrice, Math.Max(40, maxRows));
             snapshot.Zones = BuildZones(snapshot.InterestCells, snapshot.CurrentPrice, Math.Max(12, maxRows / 4));
+            snapshot.Corridor = BuildCorridor(snapshot);
             snapshot.Bias = BuildBias(snapshot);
             ApplyDominantRead(snapshot);
             return snapshot;
@@ -747,6 +748,51 @@ namespace RtdDolarNative.Heatmap
             }
 
             return "zona " + side;
+        }
+
+        private HeatmapCorridor BuildCorridor(HeatmapSnapshot snapshot)
+        {
+            HeatmapCorridor corridor = new HeatmapCorridor();
+
+            if (snapshot == null || !snapshot.CurrentPrice.HasValue || snapshot.Zones == null || snapshot.Zones.Count == 0)
+            {
+                corridor.Read = "sem corredor operacional";
+                return corridor;
+            }
+
+            decimal current = snapshot.CurrentPrice.Value;
+            HeatmapZone support = snapshot.Zones
+                .Where(x => string.Equals(x.Direction, "Compra", StringComparison.OrdinalIgnoreCase) && x.CenterPrice <= current)
+                .OrderBy(x => Math.Abs(x.CenterPrice - current))
+                .ThenByDescending(x => x.ActionScore)
+                .FirstOrDefault();
+            HeatmapZone resistance = snapshot.Zones
+                .Where(x => string.Equals(x.Direction, "Venda", StringComparison.OrdinalIgnoreCase) && x.CenterPrice >= current)
+                .OrderBy(x => Math.Abs(x.CenterPrice - current))
+                .ThenByDescending(x => x.ActionScore)
+                .FirstOrDefault();
+
+            if (support == null || resistance == null || resistance.CenterPrice <= support.CenterPrice)
+            {
+                corridor.Read = "sem corredor operacional";
+                return corridor;
+            }
+
+            decimal width = resistance.CenterPrice - support.CenterPrice;
+            int ticks = Math.Max(1, (int)Math.Round((double)(width / _tickSize)));
+            decimal positionPct = width <= 0m ? 0m : ClampScore((current - support.CenterPrice) / width * 100m);
+            decimal scoreDiff = support.ActionScore - resistance.ActionScore;
+
+            corridor.IsAvailable = true;
+            corridor.SupportPrice = support.CenterPrice;
+            corridor.ResistancePrice = resistance.CenterPrice;
+            corridor.WidthTicks = ticks;
+            corridor.CurrentPositionPct = positionPct;
+            corridor.SupportActionScore = support.ActionScore;
+            corridor.ResistanceActionScore = resistance.ActionScore;
+            corridor.Bias = scoreDiff > 12m ? "Compra" : scoreDiff < -12m ? "Venda" : "Neutro";
+            corridor.Read = "corredor " + ticks.ToString() + "t | pos " + positionPct.ToString("N0") + "% | " + corridor.Bias.ToLowerInvariant();
+            return corridor;
         }
 
         private void ScoreAndClassify(HeatmapCell cell, HeatmapSnapshot snapshot)
