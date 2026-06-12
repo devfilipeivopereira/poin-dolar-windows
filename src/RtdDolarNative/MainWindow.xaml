@@ -1474,6 +1474,23 @@
                                                     <ComboBoxItem Content="D-1" Tag="1" />
                                                     <ComboBoxItem Content="Ambas" Tag="2" />
                                                 </ComboBox>
+                                                <TextBlock Text="Pares:"
+                                                           Foreground="{StaticResource Muted}"
+                                                           FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,4,0" />
+                                                <ComboBox x:Name="ChartMetricLevelPairsComboBox"
+                                                          Width="72"
+                                                          SelectedIndex="3"
+                                                          SelectionChanged="ChartMetricLevelPairsComboBox_SelectionChanged"
+                                                          ToolTip="Quantidade de pares compra/venda por metrica"
+                                                          Style="{StaticResource TopNavComboBoxStyle}"
+                                                          Margin="0,0,8,0">
+                                                    <ComboBoxItem Content="1 par" Tag="1" />
+                                                    <ComboBoxItem Content="2 pares" Tag="2" />
+                                                    <ComboBoxItem Content="3 pares" Tag="3" />
+                                                    <ComboBoxItem Content="4 pares" Tag="4" />
+                                                </ComboBox>
                                                 <CheckBox x:Name="ChartShowKeyLevelsCheckBox"
                                                           Content="Base"
                                                           Tag="{StaticResource ChartLineKeyLevelsBrush}"

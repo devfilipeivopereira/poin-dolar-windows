@@ -1106,6 +1106,29 @@ namespace RtdDolarNative
             ApplyChartDisplaySelection();
         }
 
+        private void ChartMetricLevelPairsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncChartLineVisibilitySelection)
+            {
+                return;
+            }
+
+            ComboBox combo = sender as ComboBox;
+            ComboBoxItem selectedItem = combo == null ? null : combo.SelectedItem as ComboBoxItem;
+            int selectedPairs = combo == null ? _config.Ui.ChartMetricLevelPairs : ParseChartMetricLevelPairs(selectedItem == null ? null : selectedItem.Tag);
+            selectedPairs = UiConfig.NormalizeChartMetricLevelPairs(selectedPairs);
+
+            if (_config.Ui.ChartMetricLevelPairs != selectedPairs)
+            {
+                _config.Ui.ChartMetricLevelPairs = selectedPairs;
+                _config.Ui.Normalize();
+                SaveRuntimeConfig();
+                AddHistory("App", "Pares grafico", selectedPairs.ToString(_ptBr) + " par(es) de linhas por indicador.");
+            }
+
+            ApplyChartDisplaySelection();
+        }
+
         private void InitializeChartLineVisibilitySelection()
         {
             if (ChartShowCandlesCheckBox == null ||
@@ -1119,6 +1142,7 @@ namespace RtdDolarNative
                 ChartShowStdDevLevelsCheckBox == null ||
                 ChartShowGarchLevelsCheckBox == null ||
                 ChartReferenceLineModeComboBox == null ||
+                ChartMetricLevelPairsComboBox == null ||
                 ChartShowMaxMin7LevelsCheckBox == null)
             {
                 return;
@@ -1140,6 +1164,7 @@ namespace RtdDolarNative
                 ChartShowGarchLevelsCheckBox.IsChecked = _config.Ui.ShowChartGarchLevels;
                 ChartShowMaxMin7LevelsCheckBox.IsChecked = _config.Ui.ShowChartMaxMin7Levels;
                 ChartReferenceLineModeComboBox.SelectedIndex = ChartReferenceLineModeIndex(_config.Ui.ChartReferenceLineMode);
+                ChartMetricLevelPairsComboBox.SelectedIndex = ChartMetricLevelPairsIndex(_config.Ui.ChartMetricLevelPairs);
             }
             finally
             {
@@ -7560,6 +7585,7 @@ namespace RtdDolarNative
             bool showStdDevLevels = _config.Ui.ShowChartStdDevLevels;
             bool showGarchLevels = _config.Ui.ShowChartGarchLevels;
             bool showMaxMin7Levels = _config.Ui.ShowChartMaxMin7Levels;
+            int metricLevelPairs = SelectedChartMetricLevelPairs();
             ChartReferenceLineMode referenceLineMode = ChartReferenceLineModeFromConfig(_config.Ui.ChartReferenceLineMode);
 
             if (DashboardChartControl != null)
@@ -7583,6 +7609,7 @@ namespace RtdDolarNative
                 DashboardChartControl.ShowStdDevLevels = showStdDevLevels;
                 DashboardChartControl.ShowGarchLevels = showGarchLevels;
                 DashboardChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
+                DashboardChartControl.ChartMetricLevelPairs = metricLevelPairs;
                 DashboardChartControl.ChartReferenceLineMode = referenceLineMode;
                 DashboardChartControl.InvalidateVisual();
             }
@@ -7608,6 +7635,7 @@ namespace RtdDolarNative
                 ChartControl.ShowStdDevLevels = showStdDevLevels;
                 ChartControl.ShowGarchLevels = showGarchLevels;
                 ChartControl.ShowMaxMin7Levels = showMaxMin7Levels;
+                ChartControl.ChartMetricLevelPairs = metricLevelPairs;
                 ChartControl.ChartReferenceLineMode = referenceLineMode;
                 ChartControl.InvalidateVisual();
             }
@@ -7718,6 +7746,19 @@ namespace RtdDolarNative
                 : UiConfig.DefaultChartReferenceLineMode;
         }
 
+        private static int ParseChartMetricLevelPairs(object tag)
+        {
+            if (tag == null)
+            {
+                return UiConfig.DefaultChartMetricLevelPairs;
+            }
+
+            int parsed;
+            return int.TryParse(Convert.ToString(tag, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : UiConfig.DefaultChartMetricLevelPairs;
+        }
+
         private ChartTimeframe ChartTimeframeFromIndex(int index)
         {
             switch (index)
@@ -7754,6 +7795,23 @@ namespace RtdDolarNative
                     return 1;
                 default:
                     return 2;
+            }
+        }
+
+        private int ChartMetricLevelPairsIndex(int pairs)
+        {
+            int normalized = UiConfig.NormalizeChartMetricLevelPairs(pairs);
+
+            switch (normalized)
+            {
+                case 1:
+                    return 0;
+                case 2:
+                    return 1;
+                case 3:
+                    return 2;
+                default:
+                    return 3;
             }
         }
 
@@ -7797,6 +7855,11 @@ namespace RtdDolarNative
         private int SelectedChartCandleSpacingPercent()
         {
             return UiConfig.NormalizeCandleSpacingPercent(_config.Ui == null ? UiConfig.DefaultCandleSpacingPercent : _config.Ui.CandleSpacingPercent);
+        }
+
+        private int SelectedChartMetricLevelPairs()
+        {
+            return UiConfig.NormalizeChartMetricLevelPairs(_config.Ui == null ? UiConfig.DefaultChartMetricLevelPairs : _config.Ui.ChartMetricLevelPairs);
         }
 
         private string ChartTimeframeText(ChartTimeframe timeframe)

@@ -49,6 +49,7 @@ namespace QuantEngineTests
                 OpportunityJournalStorePersistsAcrossRestart,
                 ChartReferenceLineModeFiltersOpeningAndClosingMaps,
                 ChartMetricLinesUseOnlySelectedReferenceMode,
+                ChartMetricPairCountLimitsReferenceLevels,
                 ChartMetricBuySellLinesUseDirectionalColors,
                 ChartClosingLinesUseCsvD1CloseEvenWhenRtdFecExists,
                 ChartLineLabelsIncludeFormattedPrice,
@@ -756,6 +757,45 @@ namespace QuantEngineTests
             Assert(!indicatorLevels.Any(x => !string.IsNullOrWhiteSpace(x.Source) && x.Source.IndexOf("GARCH-", StringComparison.OrdinalIgnoreCase) >= 0), "Standalone GARCH bands should not be added on top of reference metric lines.");
         }
 
+        private static void ChartMetricPairCountLimitsReferenceLevels()
+        {
+            QuantResult result = BuildResult();
+            NativeChartControl chart = new NativeChartControl();
+            chart.ChartReferenceLineMode = ChartReferenceLineMode.Opening;
+            chart.ChartMetricLevelPairs = 2;
+
+            List<KeyLevel> twoPairLevels = chart.ReferenceMetricLevelsForDiagnostics(result);
+            List<KeyLevel> gaussTwoPairs = twoPairLevels
+                .Where(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            AssertEqual(4, gaussTwoPairs.Count, "Two selected metric pairs should draw two sell and two buy Gauss lines.");
+            Assert(gaussTwoPairs.Any(x => LabelContainsSigma(x.Label, "+1")), "Two selected metric pairs should include sell +1.");
+            Assert(gaussTwoPairs.Any(x => LabelContainsSigma(x.Label, "+2")), "Two selected metric pairs should include sell +2.");
+            Assert(gaussTwoPairs.Any(x => LabelContainsSigma(x.Label, "-1")), "Two selected metric pairs should include buy -1.");
+            Assert(gaussTwoPairs.Any(x => LabelContainsSigma(x.Label, "-2")), "Two selected metric pairs should include buy -2.");
+            Assert(!gaussTwoPairs.Any(x => LabelContainsSigma(x.Label, "+3") || LabelContainsSigma(x.Label, "+4") || LabelContainsSigma(x.Label, "-3") || LabelContainsSigma(x.Label, "-4")),
+                "Two selected metric pairs should not leak third or fourth pairs.");
+
+            foreach (IGrouping<string, KeyLevel> metricGroup in twoPairLevels
+                .Where(x => IsChartIndicatorMetricSource(x.Source) && string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(x => x.Source))
+            {
+                AssertEqual(4, metricGroup.Count(), "Metric " + metricGroup.Key + " should draw exactly four lines when two pairs are selected.");
+            }
+
+            chart.ChartMetricLevelPairs = 1;
+            List<KeyLevel> gaussOnePair = chart.ReferenceMetricLevelsForDiagnostics(result)
+                .Where(x => string.Equals(x.Source, "Gauss", StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(x.Tags, "opening", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            AssertEqual(2, gaussOnePair.Count, "One selected metric pair should draw one sell and one buy Gauss line.");
+            Assert(!gaussOnePair.Any(x => LabelContainsSigma(x.Label, "+2") || LabelContainsSigma(x.Label, "-2")),
+                "One selected metric pair should not include the second pair.");
+        }
+
         private static void ChartMetricBuySellLinesUseDirectionalColors()
         {
             QuantResult result = BuildResult();
@@ -1073,6 +1113,12 @@ namespace QuantEngineTests
                    source.IndexOf("StdDev", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    source.IndexOf("StandardDeviation", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    source.IndexOf("GARCH", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool LabelContainsSigma(string label, string sigma)
+        {
+            return !string.IsNullOrWhiteSpace(label) &&
+                   label.IndexOf(" " + sigma, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static void DomAnnotationFilterKeepsAllCategoriesVisibleByDefault()

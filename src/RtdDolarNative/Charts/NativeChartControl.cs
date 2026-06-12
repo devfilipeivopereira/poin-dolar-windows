@@ -27,6 +27,8 @@ namespace RtdDolarNative.Charts
         private static readonly int[] AllowedPriceGridTickIntervals = new[] { 5, 10, 50, 100 };
         private const int DefaultCandleSpacingPercent = 100;
         private static readonly int[] AllowedCandleSpacingPercents = new[] { 75, 100, 125, 150 };
+        private const int DefaultChartMetricLevelPairs = 4;
+        private static readonly int[] AllowedChartMetricLevelPairs = new[] { 1, 2, 3, 4 };
         private static readonly CultureInfo PtBrCulture = CultureInfo.GetCultureInfo("pt-BR");
 
         private List<DailyBar> _bars = new List<DailyBar>();
@@ -62,6 +64,7 @@ namespace RtdDolarNative.Charts
         private bool _showGaussLevels = true;
         private bool _showStdDevLevels = true;
         private bool _showMaxMin7Levels = true;
+        private int _chartMetricLevelPairs = DefaultChartMetricLevelPairs;
         private ChartReferenceLineMode _chartReferenceLineMode = ChartReferenceLineMode.OpeningAndClosing;
 
         public NativeChartControl()
@@ -389,6 +392,23 @@ namespace RtdDolarNative.Charts
                 }
 
                 _chartReferenceLineMode = normalized;
+                InvalidateVisual();
+            }
+        }
+
+        public int ChartMetricLevelPairs
+        {
+            get { return _chartMetricLevelPairs; }
+            set
+            {
+                int normalized = NormalizeMetricLevelPairs(value);
+
+                if (_chartMetricLevelPairs == normalized)
+                {
+                    return;
+                }
+
+                _chartMetricLevelPairs = normalized;
                 InvalidateVisual();
             }
         }
@@ -969,22 +989,22 @@ namespace RtdDolarNative.Charts
 
                 if (_showGarmanLevels)
                 {
-                    AddReferenceMetricLevels(levels, map, map.GarmanLevels, "GK", "Garman-Klass", 74d);
+                    AddReferenceMetricLevels(levels, map, map.GarmanLevels, "GK", "Garman-Klass", 74d, _chartMetricLevelPairs);
                 }
 
                 if (_showGaussLevels)
                 {
-                    AddReferenceMetricLevels(levels, map, map.GaussLevels, "Gauss", "Gauss", 72d);
+                    AddReferenceMetricLevels(levels, map, map.GaussLevels, "Gauss", "Gauss", 72d, _chartMetricLevelPairs);
                 }
 
                 if (_showStdDevLevels)
                 {
-                    AddReferenceMetricLevels(levels, map, map.StdDevLevels, "Desvio", "Desvio padrao", 70d);
+                    AddReferenceMetricLevels(levels, map, map.StdDevLevels, "Desvio", "Desvio padrao", 70d, _chartMetricLevelPairs);
                 }
 
                 if (_showGarchLevels)
                 {
-                    AddReferenceMetricLevels(levels, map, map.GarchLevels, "GARCH", "GARCH", 76d);
+                    AddReferenceMetricLevels(levels, map, map.GarchLevels, "GARCH", "GARCH", 76d, _chartMetricLevelPairs);
                 }
             }
 
@@ -1031,7 +1051,12 @@ namespace RtdDolarNative.Charts
             }
         }
 
-        private static void AddReferenceMetricLevels(List<KeyLevel> target, ReferenceMapResult map, IEnumerable<DeviationLevel> source, string shortMetric, string sourceName, double baseScore)
+        private static int NormalizeMetricLevelPairs(int pairs)
+        {
+            return AllowedChartMetricLevelPairs.Contains(pairs) ? pairs : DefaultChartMetricLevelPairs;
+        }
+
+        private static void AddReferenceMetricLevels(List<KeyLevel> target, ReferenceMapResult map, IEnumerable<DeviationLevel> source, string shortMetric, string sourceName, double baseScore, int metricLevelPairs)
         {
             if (target == null || map == null || source == null)
             {
@@ -1040,12 +1065,34 @@ namespace RtdDolarNative.Charts
 
             foreach (DeviationLevel level in source)
             {
+                if (!ShouldIncludeMetricPair(level, metricLevelPairs))
+                {
+                    continue;
+                }
+
                 KeyLevel keyLevel = ToReferenceMetricKeyLevel(map, level, shortMetric, sourceName, baseScore);
                 if (keyLevel != null)
                 {
                     target.Add(keyLevel);
                 }
             }
+        }
+
+        private static bool ShouldIncludeMetricPair(DeviationLevel level, int metricLevelPairs)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            decimal sigma = Math.Abs(level.Sigma);
+            if (sigma == 0m)
+            {
+                return true;
+            }
+
+            int normalizedPairs = NormalizeMetricLevelPairs(metricLevelPairs);
+            return sigma <= normalizedPairs;
         }
 
         private static KeyLevel ToReferenceMetricKeyLevel(ReferenceMapResult map, DeviationLevel level, string shortMetric, string sourceName, double baseScore)

@@ -188,6 +188,11 @@ namespace RtdDolarNative.Config
                 config.Ui.ChartReferenceLineMode = UiConfig.DefaultChartReferenceLineMode;
             }
 
+            if (!HasToken(json, "ChartMetricLevelPairs"))
+            {
+                config.Ui.ChartMetricLevelPairs = UiConfig.DefaultChartMetricLevelPairs;
+            }
+
             if (!HasToken(json, "VolumeProfileDays"))
             {
                 config.Ui.VolumeProfileDays = UiConfig.DefaultVolumeProfileDays;
@@ -972,6 +977,8 @@ namespace RtdDolarNative.Config
             (int)RtdDolarNative.Charts.ChartReferenceLineMode.Closing,
             (int)RtdDolarNative.Charts.ChartReferenceLineMode.OpeningAndClosing
         };
+        public static readonly int DefaultChartMetricLevelPairs = 4;
+        public static readonly int[] AllowedChartMetricLevelPairs = new[] { 1, 2, 3, 4 };
 
         public UiConfig()
         {
@@ -986,6 +993,7 @@ namespace RtdDolarNative.Config
             PriceGridTickInterval = DefaultPriceGridTickInterval;
             CandleSpacingPercent = DefaultCandleSpacingPercent;
             ChartReferenceLineMode = DefaultChartReferenceLineMode;
+            ChartMetricLevelPairs = DefaultChartMetricLevelPairs;
             ShowChartCandles = true;
             ShowChartPriceGrid = true;
             ShowChartCurrentPriceLine = true;
@@ -1024,6 +1032,7 @@ namespace RtdDolarNative.Config
         public int PriceGridTickInterval { get; set; }
         public int CandleSpacingPercent { get; set; }
         public int ChartReferenceLineMode { get; set; }
+        public int ChartMetricLevelPairs { get; set; }
         public bool ShowChartCandles { get; set; }
         public bool ShowChartPriceGrid { get; set; }
         public bool ShowChartCurrentPriceLine { get; set; }
@@ -1058,6 +1067,7 @@ namespace RtdDolarNative.Config
             PriceGridTickInterval = NormalizePriceGridTickInterval(PriceGridTickInterval);
             CandleSpacingPercent = NormalizeCandleSpacingPercent(CandleSpacingPercent);
             ChartReferenceLineMode = NormalizeChartReferenceLineMode(ChartReferenceLineMode);
+            ChartMetricLevelPairs = NormalizeChartMetricLevelPairs(ChartMetricLevelPairs);
         }
 
         public static int NormalizeCalculationDays(int days)
@@ -1088,6 +1098,11 @@ namespace RtdDolarNative.Config
         public static int NormalizeChartReferenceLineMode(int mode)
         {
             return AllowedChartReferenceLineModes.Contains(mode) ? mode : DefaultChartReferenceLineMode;
+        }
+
+        public static int NormalizeChartMetricLevelPairs(int pairs)
+        {
+            return AllowedChartMetricLevelPairs.Contains(pairs) ? pairs : DefaultChartMetricLevelPairs;
         }
     }
 
