@@ -9905,9 +9905,9 @@ namespace RtdDolarNative
             AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
-            AddRow(rows, "Plano", heatmap.Plan == null ? "-" : EmptyToDash(heatmap.Plan.State), heatmap.Plan == null ? "-" : "conf " + heatmap.Plan.ConfidenceScore.ToString("N0", _ptBr) + " | gatilho " + EmptyToDash(heatmap.Plan.Trigger) + " | invalida " + EmptyToDash(heatmap.Plan.Invalidation));
+            AddRow(rows, "Plano", heatmap.Plan == null ? "-" : EmptyToDash(heatmap.Plan.State), heatmap.Plan == null ? "-" : "conf " + heatmap.Plan.ConfidenceScore.ToString("N0", _ptBr) + " | " + EmptyToDash(heatmap.Plan.Envelope) + " | gatilho " + EmptyToDash(heatmap.Plan.Trigger) + " | invalida " + EmptyToDash(heatmap.Plan.Invalidation));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
-            HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => Math.Abs(x.DistanceTicks)).FirstOrDefault();
+            HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => AbsHeatmapTicks(x.DistanceTicks)).FirstOrDefault();
             AddRow(rows, "Acao", actionZone == null ? "-" : EmptyToDash(actionZone.Action), actionZone == null ? "-" : "urg " + actionZone.ActionScore.ToString("N0", _ptBr) + " | " + EmptyToDash(actionZone.ActionRead));
             AddRow(rows, "Corredor", heatmap.Corridor != null && heatmap.Corridor.IsAvailable ? heatmap.Corridor.WidthTicks.ToString(_ptBr) + "t | " + EmptyToDash(heatmap.Corridor.Phase) : "-", heatmap.Corridor == null ? "-" : EmptyToDash(heatmap.Corridor.Location) + " | " + EmptyToDash(heatmap.Corridor.Read));
             AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
@@ -9933,7 +9933,7 @@ namespace RtdDolarNative
                 return rows;
             }
 
-            foreach (HeatmapZone zone in heatmap.Zones.OrderByDescending(x => x.Score).ThenBy(x => Math.Abs(x.DistanceTicks)))
+            foreach (HeatmapZone zone in heatmap.Zones.OrderByDescending(x => x.Score).ThenBy(x => AbsHeatmapTicks(x.DistanceTicks)))
             {
                 HeatmapZoneRow row = new HeatmapZoneRow();
                 row.Range = zone.LowPrice.ToString("N2", _ptBr) + " - " + zone.HighPrice.ToString("N2", _ptBr);
@@ -9969,7 +9969,7 @@ namespace RtdDolarNative
                 ? heatmap.InterestCells
                 : (heatmap.Cells ?? new List<HeatmapCell>());
 
-            foreach (HeatmapCell cell in source.OrderByDescending(x => x.InterestScore).ThenBy(x => Math.Abs(x.DistanceTicks)))
+            foreach (HeatmapCell cell in source.OrderByDescending(x => x.InterestScore).ThenBy(x => AbsHeatmapTicks(x.DistanceTicks)))
             {
                 HeatmapInterestRow row = new HeatmapInterestRow();
                 row.Price = cell.Price.ToString("N2", _ptBr);
@@ -10054,6 +10054,11 @@ namespace RtdDolarNative
             }
 
             return (minutes / 60m).ToString("N1", _ptBr) + "h";
+        }
+
+        private static int AbsHeatmapTicks(int ticks)
+        {
+            return ticks == int.MinValue ? int.MaxValue : Math.Abs(ticks);
         }
 
         private string FlowMapZone(decimal price, decimal center, bool hasLevel)

@@ -163,9 +163,15 @@ namespace RtdDolarNative.Heatmap
         public string Direction { get; set; }
         public decimal ConfidenceScore { get; set; }
         public decimal? AnchorPrice { get; set; }
+        public decimal? TargetPrice { get; set; }
+        public decimal? StopPrice { get; set; }
         public int AnchorDistanceTicks { get; set; }
+        public int RiskTicks { get; set; }
+        public int RewardTicks { get; set; }
+        public decimal RiskReward { get; set; }
         public string Trigger { get; set; }
         public string Invalidation { get; set; }
+        public string Envelope { get; set; }
         public string Read { get; set; }
     }
 

@@ -547,7 +547,7 @@ namespace RtdDolarNative.Heatmap
             return cells
                 .Where(x => x.InterestScore > 0m)
                 .OrderByDescending(x => x.InterestScore)
-                .ThenBy(x => Math.Abs(x.DistanceTicks))
+                .ThenBy(x => AbsTicks(x.DistanceTicks))
                 .ThenByDescending(x => x.Price)
                 .Take(maxRows)
                 .ToList();
@@ -596,7 +596,7 @@ namespace RtdDolarNative.Heatmap
 
             return zones
                 .OrderByDescending(x => x.Score)
-                .ThenBy(x => Math.Abs(x.DistanceTicks))
+                .ThenBy(x => AbsTicks(x.DistanceTicks))
                 .Take(maxZones)
                 .ToList();
         }
@@ -636,7 +636,7 @@ namespace RtdDolarNative.Heatmap
             zone.Quality = dominant.Quality;
             zone.CellCount = cells.Count;
             zone.Direction = dominant.Direction;
-            zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
+            zone.DistanceTicks = PriceDistanceTicks(zone.CenterPrice, currentPrice);
             zone.Read = ZoneRead(zone.Direction, cells);
             ApplyZoneAction(zone);
             zones.Add(zone);
@@ -649,7 +649,7 @@ namespace RtdDolarNative.Heatmap
                 return;
             }
 
-            int absDistance = Math.Abs(zone.DistanceTicks);
+            int absDistance = AbsTicks(zone.DistanceTicks);
             decimal distanceBonus = absDistance <= 2 ? 18m : absDistance <= 5 ? 10m : absDistance <= 10 ? 4m : 0m;
             decimal distancePenalty = Math.Min(34m, Math.Max(0, absDistance - 2) * 2.2m);
             decimal qualityBonus = string.Equals(zone.Quality, "Alta", StringComparison.OrdinalIgnoreCase) ? 10m :
@@ -875,7 +875,7 @@ namespace RtdDolarNative.Heatmap
                     continue;
                 }
 
-                decimal distanceWeight = 1m / (1m + Math.Abs(cell.DistanceTicks) / 24m);
+                decimal distanceWeight = 1m / (1m + AbsTicks(cell.DistanceTicks) / 24m);
                 decimal weighted = SqlSignalScore(cell) * distanceWeight;
                 signedPressure += sign * weighted;
                 totalPressure += Math.Abs(weighted);
@@ -906,7 +906,7 @@ namespace RtdDolarNative.Heatmap
             {
                 support = sqlCells
                     .Where(x => SqlSignalSign(x) > 0m)
-                    .OrderBy(x => Math.Abs(x.DistanceTicks))
+                    .OrderBy(x => AbsTicks(x.DistanceTicks))
                     .ThenByDescending(SqlSignalScore)
                     .FirstOrDefault();
             }
@@ -915,7 +915,7 @@ namespace RtdDolarNative.Heatmap
             {
                 resistance = sqlCells
                     .Where(x => SqlSignalSign(x) < 0m)
-                    .OrderBy(x => Math.Abs(x.DistanceTicks))
+                    .OrderBy(x => AbsTicks(x.DistanceTicks))
                     .ThenByDescending(SqlSignalScore)
                     .FirstOrDefault();
             }
@@ -1047,6 +1047,7 @@ namespace RtdDolarNative.Heatmap
                 plan.AnchorPrice = actionZone.CenterPrice;
                 plan.AnchorDistanceTicks = actionZone.DistanceTicks;
                 plan.ConfidenceScore = PlanConfidence(actionZone, snapshot);
+                ApplyPlanEnvelope(plan, actionZone, snapshot);
                 plan.Trigger = "defender " + FormatPlanPrice(actionZone.CenterPrice) + " (" + FormatTicks(actionZone.DistanceTicks) + ")";
                 plan.Invalidation = PlanInvalidation(actionZone, snapshot);
                 plan.Read = "prioridade na defesa da zona; " + Empty(actionZone.ActionRead) + " | " + PlanContext(snapshot);
@@ -1065,7 +1066,7 @@ namespace RtdDolarNative.Heatmap
                 plan.AnchorPrice = string.Equals(plan.Direction, "Compra", StringComparison.OrdinalIgnoreCase)
                     ? snapshot.Corridor.ResistancePrice
                     : snapshot.Corridor.SupportPrice;
-                plan.AnchorDistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((plan.AnchorPrice.Value - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
+                plan.AnchorDistanceTicks = PriceDistanceTicks(plan.AnchorPrice.Value, snapshot.CurrentPrice);
                 plan.ConfidenceScore = ClampScore(snapshot.Bias.Confidence * 0.62m + Math.Abs(snapshot.Bias.Score) * 0.24m + Math.Max(snapshot.Corridor.SupportActionScore, snapshot.Corridor.ResistanceActionScore) * 0.14m);
                 plan.Trigger = string.Equals(plan.Direction, "Compra", StringComparison.OrdinalIgnoreCase)
                     ? "romper " + FormatPlanPrice(snapshot.Corridor.ResistancePrice)
@@ -1082,6 +1083,7 @@ namespace RtdDolarNative.Heatmap
                 plan.AnchorPrice = actionZone.CenterPrice;
                 plan.AnchorDistanceTicks = actionZone.DistanceTicks;
                 plan.ConfidenceScore = PlanConfidence(actionZone, snapshot);
+                ApplyPlanEnvelope(plan, actionZone, snapshot);
                 plan.Trigger = "monitorar " + FormatPlanPrice(actionZone.CenterPrice) + " (" + FormatTicks(actionZone.DistanceTicks) + ")";
                 plan.Invalidation = "perder leitura da zona";
                 plan.Read = Empty(actionZone.ActionRead) + " | " + PlanContext(snapshot);
@@ -1104,6 +1106,106 @@ namespace RtdDolarNative.Heatmap
             return plan;
         }
 
+        private void ApplyPlanEnvelope(HeatmapOperationalPlan plan, HeatmapZone zone, HeatmapSnapshot snapshot)
+        {
+            if (plan == null || zone == null)
+            {
+                return;
+            }
+
+            decimal sign = DirectionSign(zone.Direction);
+
+            if (sign == 0m)
+            {
+                return;
+            }
+
+            decimal anchor = plan.AnchorPrice.HasValue ? plan.AnchorPrice.Value : zone.CenterPrice;
+            decimal? target = ResolvePlanTarget(zone, snapshot);
+            decimal stop = sign > 0m
+                ? Round(zone.LowPrice - _tickSize)
+                : Round(zone.HighPrice + _tickSize);
+
+            plan.StopPrice = stop;
+
+            if (target.HasValue)
+            {
+                plan.TargetPrice = target.Value;
+            }
+
+            decimal rawRisk = sign > 0m ? anchor - stop : stop - anchor;
+            decimal rawReward = target.HasValue
+                ? sign > 0m ? target.Value - anchor : anchor - target.Value
+                : 0m;
+            plan.RiskTicks = rawRisk > 0m ? Math.Max(1, PriceSpanTicks(rawRisk)) : 0;
+            plan.RewardTicks = rawReward > 0m ? Math.Max(0, PriceSpanTicks(rawReward)) : 0;
+            plan.RiskReward = plan.RiskTicks <= 0 || plan.RewardTicks <= 0
+                ? 0m
+                : Math.Round(plan.RewardTicks / (decimal)plan.RiskTicks, 2, MidpointRounding.AwayFromZero);
+            plan.Envelope = BuildPlanEnvelope(plan);
+        }
+
+        private decimal? ResolvePlanTarget(HeatmapZone zone, HeatmapSnapshot snapshot)
+        {
+            if (zone == null || snapshot == null)
+            {
+                return null;
+            }
+
+            if (snapshot.Corridor != null && snapshot.Corridor.IsAvailable)
+            {
+                if (string.Equals(zone.Direction, "Compra", StringComparison.OrdinalIgnoreCase) &&
+                    snapshot.Corridor.ResistancePrice > zone.CenterPrice)
+                {
+                    return snapshot.Corridor.ResistancePrice;
+                }
+
+                if (string.Equals(zone.Direction, "Venda", StringComparison.OrdinalIgnoreCase) &&
+                    snapshot.Corridor.SupportPrice < zone.CenterPrice)
+                {
+                    return snapshot.Corridor.SupportPrice;
+                }
+            }
+
+            if (snapshot.Zones == null)
+            {
+                return null;
+            }
+
+            decimal sign = DirectionSign(zone.Direction);
+
+            if (sign > 0m)
+            {
+                HeatmapZone target = snapshot.Zones
+                    .Where(x => DirectionSign(x.Direction) < 0m && x.CenterPrice > zone.CenterPrice)
+                    .OrderBy(x => x.CenterPrice)
+                    .ThenByDescending(x => x.ActionScore)
+                    .FirstOrDefault();
+                return target == null ? (decimal?)null : target.CenterPrice;
+            }
+
+            HeatmapZone sellTarget = snapshot.Zones
+                .Where(x => DirectionSign(x.Direction) > 0m && x.CenterPrice < zone.CenterPrice)
+                .OrderByDescending(x => x.CenterPrice)
+                .ThenByDescending(x => x.ActionScore)
+                .FirstOrDefault();
+            return sellTarget == null ? (decimal?)null : sellTarget.CenterPrice;
+        }
+
+        private static string BuildPlanEnvelope(HeatmapOperationalPlan plan)
+        {
+            if (plan == null || !plan.TargetPrice.HasValue || !plan.StopPrice.HasValue || plan.RiskTicks <= 0)
+            {
+                return "R/R -";
+            }
+
+            return "alvo " + FormatPlanPrice(plan.TargetPrice.Value) +
+                   " | stop " + FormatPlanPrice(plan.StopPrice.Value) +
+                   " | risco " + plan.RiskTicks.ToString() + "t" +
+                   " | retorno " + plan.RewardTicks.ToString() + "t" +
+                   " | R/R " + plan.RiskReward.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         private HeatmapZone BestActionZone(HeatmapSnapshot snapshot)
         {
             if (snapshot == null || snapshot.Zones == null || snapshot.Zones.Count == 0)
@@ -1113,7 +1215,7 @@ namespace RtdDolarNative.Heatmap
 
             return snapshot.Zones
                 .OrderByDescending(x => x.ActionScore)
-                .ThenBy(x => Math.Abs(x.DistanceTicks))
+                .ThenBy(x => AbsTicks(x.DistanceTicks))
                 .ThenByDescending(x => x.Score)
                 .FirstOrDefault();
         }
@@ -1290,7 +1392,7 @@ namespace RtdDolarNative.Heatmap
                 : 0m;
             cell.HistoricalTradeAgeMinutes = cell.HistoricalTradeSamples > 0 ? historicalTradeAge : 0d;
             cell.HistoricalFlowFreshnessScore = cell.HistoricalTradeSamples > 0 ? historicalFlowFreshness : 0m;
-            cell.DistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((cell.Price - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
+            cell.DistanceTicks = PriceDistanceTicks(cell.Price, snapshot.CurrentPrice);
             decimal baseInterest = ClampScore(
                 cell.WallScore * 0.62m +
                 tradeRatio * 100m * 0.12m +
@@ -1626,7 +1728,7 @@ namespace RtdDolarNative.Heatmap
                         continue;
                     }
 
-                    decimal distanceFactor = 1m / (1m + Math.Abs(zone.DistanceTicks) / 24m);
+                    decimal distanceFactor = 1m / (1m + AbsTicks(zone.DistanceTicks) / 24m);
                     decimal zonePressure = sign * zone.Score * distanceFactor * 0.22m;
                     score += zonePressure;
                     AddBiasReason(reasons, zone.Read, zonePressure);
@@ -1656,7 +1758,7 @@ namespace RtdDolarNative.Heatmap
                         continue;
                     }
 
-                    decimal distanceFactor = 1m / (1m + Math.Abs(cell.DistanceTicks) / 28m);
+                    decimal distanceFactor = 1m / (1m + AbsTicks(cell.DistanceTicks) / 28m);
                     decimal signalScore = Math.Max(Math.Max(cell.AbsorptionScore, cell.SpoofRiskScore), Math.Max(Math.Max(cell.PersistenceScore, cell.AggressionScore), Math.Max(cell.HistoricalScore, cell.HistoricalFlowScore)));
                     decimal signalWeight = cell.AbsorptionScore >= 55m || cell.SpoofRiskScore >= 55m ? 0.36m : 0.10m;
                     decimal signalPressure = sign * signalScore * distanceFactor * signalWeight;
@@ -1887,6 +1989,39 @@ namespace RtdDolarNative.Heatmap
         private decimal Round(decimal price)
         {
             return DomLadderModel.RoundToTick(price, _tickSize);
+        }
+
+        private int PriceDistanceTicks(decimal price, decimal? currentPrice)
+        {
+            if (!currentPrice.HasValue)
+            {
+                return 0;
+            }
+
+            return PriceSpanTicks(price - currentPrice.Value);
+        }
+
+        private int PriceSpanTicks(decimal distance)
+        {
+            decimal rawTicks = distance / _tickSize;
+            decimal rounded = Math.Round(rawTicks, 0, MidpointRounding.AwayFromZero);
+
+            if (rounded > int.MaxValue)
+            {
+                return int.MaxValue;
+            }
+
+            if (rounded < -int.MaxValue)
+            {
+                return -int.MaxValue;
+            }
+
+            return (int)rounded;
+        }
+
+        private static int AbsTicks(int ticks)
+        {
+            return ticks == int.MinValue ? int.MaxValue : Math.Abs(ticks);
         }
 
         private static string BookField(string field, int index)

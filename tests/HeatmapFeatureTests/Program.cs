@@ -22,7 +22,10 @@ namespace HeatmapFeatureTests
                 SqlMemoryFramesHistoricalSupportAndResistanceAfterRestart,
                 SqlMemoryBiasesTowardStrongerHistoricalSupport,
                 OperationalPlanPromotesAlignedSupportDefense,
-                OperationalPlanWaitsWhenLiveAndSqlConflict
+                OperationalPlanWaitsWhenLiveAndSqlConflict,
+                OperationalPlanCalculatesBuyDefenseRiskReward,
+                OperationalPlanCalculatesSellDefenseRiskReward,
+                HeatmapDoesNotCrashWhenPriceDistanceOverflowsIntTicks
             };
 
             int failed = 0;
@@ -306,6 +309,85 @@ namespace HeatmapFeatureTests
             finally
             {
                 reader.Dispose();
+            }
+        }
+
+        private static void OperationalPlanCalculatesBuyDefenseRiskReward()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000m);
+                AddBid(snapshot, 0, 4999.5m, 6200m);
+                AddAsk(snapshot, 0, 5002m, 3600m);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                AssertEqual("Compra defesa", heatmap.Plan.State, "Buy support should create a defensive plan.");
+                Assert(heatmap.Plan.TargetPrice.HasValue, "Buy defense should expose a target price.");
+                Assert(heatmap.Plan.StopPrice.HasValue, "Buy defense should expose a stop price.");
+                AssertEqual(5002m, heatmap.Plan.TargetPrice.Value, "Buy defense target should use corridor resistance.");
+                AssertEqual(4999m, heatmap.Plan.StopPrice.Value, "Buy defense stop should sit one tick below support.");
+                AssertEqual(1, heatmap.Plan.RiskTicks, "Buy defense should expose risk in ticks.");
+                AssertEqual(5, heatmap.Plan.RewardTicks, "Buy defense should expose reward in ticks.");
+                Assert(heatmap.Plan.RiskReward >= 4.9m, "Buy defense should expose a favorable risk/reward.");
+                Assert(heatmap.Plan.Envelope.IndexOf("R/R", StringComparison.OrdinalIgnoreCase) >= 0, "Envelope should summarize risk/reward.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void OperationalPlanCalculatesSellDefenseRiskReward()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000m);
+                AddAsk(snapshot, 0, 5000.5m, 6200m);
+                AddBid(snapshot, 0, 4998m, 3600m);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                AssertEqual("Venda defesa", heatmap.Plan.State, "Sell resistance should create a defensive plan.");
+                Assert(heatmap.Plan.TargetPrice.HasValue, "Sell defense should expose a target price.");
+                Assert(heatmap.Plan.StopPrice.HasValue, "Sell defense should expose a stop price.");
+                AssertEqual(4998m, heatmap.Plan.TargetPrice.Value, "Sell defense target should use corridor support.");
+                AssertEqual(5001m, heatmap.Plan.StopPrice.Value, "Sell defense stop should sit one tick above resistance.");
+                AssertEqual(1, heatmap.Plan.RiskTicks, "Sell defense should expose risk in ticks.");
+                AssertEqual(5, heatmap.Plan.RewardTicks, "Sell defense should expose reward in ticks.");
+                Assert(heatmap.Plan.RiskReward >= 4.9m, "Sell defense should expose a favorable risk/reward.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapDoesNotCrashWhenPriceDistanceOverflowsIntTicks()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(2000000000m);
+                AddBid(snapshot, 0, 1m, 5000m);
+                AddAsk(snapshot, 0, 2m, 5000m);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 2000000000m, 40);
+
+                Assert(heatmap.InterestCells.Count > 0, "Extreme but valid price distances should still produce interest rows.");
+                Assert(!heatmap.InterestCells.Any(x => x.DistanceTicks == int.MinValue), "Distance ticks should be clamped away from int.MinValue.");
+            }
+            finally
+            {
+                processor.Dispose();
             }
         }
 
