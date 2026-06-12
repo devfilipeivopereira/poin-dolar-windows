@@ -55,6 +55,8 @@ namespace QuantEngineTests
                 HeatmapBiasTurnsSellWhenBidLiquidityIsPulled,
                 HeatmapSqliteStoreLoadsRecentBookContextByPrice,
                 HeatmapUsesSqlHistoryWhenCurrentBookIsThin,
+                HeatmapSqliteStoreLoadsRecentTradeContextByPrice,
+                HeatmapUsesSqlTradeHistoryAfterRestart,
                 GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
@@ -1195,6 +1197,111 @@ namespace QuantEngineTests
                 Assert(historicalBid.HistoricalScore >= 60m, "Historical repeated liquidity should receive an operational score.");
                 Assert(historicalBid.Read.IndexOf("historico", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that the level came from SQL history.");
                 Assert(heatmap.HistoricalLevels > 0, "Snapshot should expose how many SQL historical levels were merged.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapSqliteStoreLoadsRecentTradeContextByPrice()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-sql-trade-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+            MarketHeatmapSqliteStore store = new MarketHeatmapSqliteStore(path, new Logger(null));
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                store.Start();
+                store.EnqueueTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-4),
+                    Price = 5001m,
+                    Quantity = 80m,
+                    Delta = 80m,
+                    Aggressor = "Buy"
+                });
+                store.EnqueueTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-2),
+                    Price = 5001m,
+                    Quantity = 120m,
+                    Delta = 120m,
+                    Aggressor = "Buy"
+                });
+                store.EnqueueTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-1),
+                    Price = 4999m,
+                    Quantity = 50m,
+                    Delta = -50m,
+                    Aggressor = "Sell"
+                });
+
+                Assert(WaitUntil(() => store.TradeRows >= 3, 3000), "SQLite heatmap store should flush queued trade rows.");
+
+                List<HeatmapHistoricalTradeLevel> levels = store.LoadRecentTradeContext("WDOFUT_F_0", now.AddMinutes(-10), 20);
+                HeatmapHistoricalTradeLevel buy = levels.FirstOrDefault(x => x.Price == 5001m);
+                HeatmapHistoricalTradeLevel sell = levels.FirstOrDefault(x => x.Price == 4999m);
+
+                Assert(buy != null, "Historical SQL trade context should aggregate repeated buy prints by price.");
+                Assert(sell != null, "Historical SQL trade context should aggregate sell prints by price.");
+                AssertEqual(2, buy.Samples, "Repeated trade price should expose sample count.");
+                AssertEqual(200m, buy.BuyVolume, "Historical buy volume should sum by price.");
+                AssertEqual(200m, buy.Delta, "Historical delta should sum by price.");
+                AssertEqual(50m, sell.SellVolume, "Historical sell volume should sum by price.");
+                Assert(sell.LastSeen >= now.AddMinutes(-2), "Historical trade context should expose last seen timestamp.");
+            }
+            finally
+            {
+                store.Dispose();
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapUsesSqlTradeHistoryAfterRestart()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-sql-trade-integration-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                for (int i = 0; i < 4; i++)
+                {
+                    writer.PostTrade(new TradePrint
+                    {
+                        Asset = "WDOFUT_F_0",
+                        LocalTimestamp = DateTimeOffset.Now.AddMinutes(-4 + i),
+                        Price = 5001m,
+                        Quantity = 100m,
+                        Delta = 100m,
+                        Aggressor = "Buy"
+                    });
+                }
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("trades 4", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist trade prints before the reader opens the SQL context.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell historicalBuy = heatmap.InterestCells.FirstOrDefault(x => x.Price == 5001m);
+
+                Assert(historicalBuy != null, "Heatmap should use SQLite trade history after restart.");
+                AssertEqual("Compra", historicalBuy.Direction, "Historical buy aggression above current price should remain visible as buy pressure.");
+                Assert(historicalBuy.HistoricalTradeSamples >= 4, "Historical trade cell should expose SQL trade sample count.");
+                Assert(historicalBuy.HistoricalFlowScore >= 60m, "Historical repeated aggression should receive an operational flow score.");
+                Assert(historicalBuy.HistoricalDelta >= 400m, "Historical trade delta should be merged into the cell.");
+                Assert(historicalBuy.Read.IndexOf("fluxo historico", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that the level came from SQL historical flow.");
+                Assert(heatmap.HistoricalTradeLevels > 0, "Snapshot should expose how many SQL historical trade levels were merged.");
 
                 reader.Dispose();
             }

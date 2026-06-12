@@ -22,6 +22,17 @@ namespace RtdDolarNative.Heatmap
         public DateTimeOffset LastSeen { get; set; }
     }
 
+    public sealed class HeatmapHistoricalTradeLevel
+    {
+        public decimal Price { get; set; }
+        public decimal BuyVolume { get; set; }
+        public decimal SellVolume { get; set; }
+        public decimal NeutralVolume { get; set; }
+        public decimal Delta { get; set; }
+        public int Samples { get; set; }
+        public DateTimeOffset LastSeen { get; set; }
+    }
+
     public sealed class HeatmapCell
     {
         public decimal Price { get; set; }
@@ -48,6 +59,13 @@ namespace RtdDolarNative.Heatmap
         public int HistoricalSamples { get; set; }
         public decimal HistoricalScore { get; set; }
         public DateTimeOffset HistoricalLastSeen { get; set; }
+        public decimal HistoricalBuyVolume { get; set; }
+        public decimal HistoricalSellVolume { get; set; }
+        public decimal HistoricalNeutralVolume { get; set; }
+        public decimal HistoricalDelta { get; set; }
+        public int HistoricalTradeSamples { get; set; }
+        public decimal HistoricalFlowScore { get; set; }
+        public DateTimeOffset HistoricalTradeLastSeen { get; set; }
         public decimal InterestScore { get; set; }
         public int SeenCount { get; set; }
         public double AgeSeconds { get; set; }
@@ -72,6 +90,9 @@ namespace RtdDolarNative.Heatmap
         public decimal PersistenceScore { get; set; }
         public decimal HistoricalScore { get; set; }
         public int HistoricalSamples { get; set; }
+        public decimal HistoricalFlowScore { get; set; }
+        public int HistoricalTradeSamples { get; set; }
+        public decimal HistoricalDelta { get; set; }
         public int DistanceTicks { get; set; }
         public int CellCount { get; set; }
         public string Direction { get; set; }
@@ -112,12 +133,18 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxPersistenceScore { get; set; }
         public decimal MaxHistoricalLiquidity { get; set; }
         public decimal MaxHistoricalScore { get; set; }
+        public decimal MaxHistoricalFlowVolume { get; set; }
+        public decimal MaxHistoricalFlowScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }
         public decimal TotalSellVolume { get; set; }
         public decimal CumulativeDelta { get; set; }
+        public decimal HistoricalBuyVolume { get; set; }
+        public decimal HistoricalSellVolume { get; set; }
+        public decimal HistoricalCumulativeDelta { get; set; }
         public int HistoricalLevels { get; set; }
+        public int HistoricalTradeLevels { get; set; }
         public int BookLevels { get; set; }
         public int TradeCount { get; set; }
         public long Version { get; set; }

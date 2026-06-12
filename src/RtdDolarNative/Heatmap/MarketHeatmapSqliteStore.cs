@@ -179,6 +179,77 @@ namespace RtdDolarNative.Heatmap
             return levels;
         }
 
+        public List<HeatmapHistoricalTradeLevel> LoadRecentTradeContext(string asset, DateTimeOffset since, int maxRows)
+        {
+            List<HeatmapHistoricalTradeLevel> levels = new List<HeatmapHistoricalTradeLevel>();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                return levels;
+            }
+
+            try
+            {
+                string folder = Path.GetDirectoryName(_databasePath);
+
+                if (!string.IsNullOrWhiteSpace(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+
+                using (SQLiteConnection connection = new SQLiteConnection("Data Source=" + _databasePath + ";Version=3;Pooling=True;"))
+                {
+                    connection.Open();
+                    Initialize(connection);
+
+                    using (SQLiteCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText =
+                            "SELECT price, " +
+                            "SUM(CASE WHEN delta > 0 OR UPPER(aggressor) = 'BUY' THEN quantity ELSE 0 END) AS buy_sum, " +
+                            "SUM(CASE WHEN delta < 0 OR UPPER(aggressor) = 'SELL' THEN quantity ELSE 0 END) AS sell_sum, " +
+                            "SUM(CASE WHEN delta = 0 AND UPPER(aggressor) <> 'BUY' AND UPPER(aggressor) <> 'SELL' THEN quantity ELSE 0 END) AS neutral_sum, " +
+                            "SUM(delta) AS delta_sum, COUNT(1) AS samples, MAX(ts_unix_ms) AS last_ms " +
+                            "FROM trades " +
+                            "WHERE asset = @asset AND ts_unix_ms >= @since_ms AND quantity > 0 " +
+                            "GROUP BY price " +
+                            "ORDER BY ABS(SUM(delta)) DESC, SUM(quantity) DESC, COUNT(1) DESC " +
+                            "LIMIT @limit;";
+                        command.Parameters.AddWithValue("@asset", asset);
+                        command.Parameters.AddWithValue("@since_ms", since.ToUnixTimeMilliseconds());
+                        command.Parameters.AddWithValue("@limit", Math.Max(1, maxRows));
+
+                        using (SQLiteDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                HeatmapHistoricalTradeLevel level = new HeatmapHistoricalTradeLevel();
+                                level.Price = Convert.ToDecimal(reader["price"]);
+                                level.BuyVolume = Convert.ToDecimal(reader["buy_sum"]);
+                                level.SellVolume = Convert.ToDecimal(reader["sell_sum"]);
+                                level.NeutralVolume = Convert.ToDecimal(reader["neutral_sum"]);
+                                level.Delta = Convert.ToDecimal(reader["delta_sum"]);
+                                level.Samples = Convert.ToInt32(reader["samples"]);
+                                level.LastSeen = DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(reader["last_ms"])).ToLocalTime();
+                                levels.Add(level);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _lastError = ex;
+
+                if (_log != null)
+                {
+                    _log.Error("Falha ao ler fluxo historico SQLite do heatmap.", ex);
+                }
+            }
+
+            return levels;
+        }
+
         public void Dispose()
         {
             _stopRequested = true;

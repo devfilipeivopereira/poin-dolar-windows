@@ -30,6 +30,7 @@ namespace RtdDolarNative.Charts
             Brush accent = new SolidColorBrush(Color.FromRgb(255, 184, 0));
             Brush buy = new SolidColorBrush(Color.FromRgb(18, 184, 134));
             Brush sell = new SolidColorBrush(Color.FromRgb(255, 82, 82));
+            Brush flowSql = new SolidColorBrush(Color.FromRgb(88, 166, 255));
             Pen border = new Pen(new SolidColorBrush(Color.FromRgb(48, 56, 68)), 1);
 
             dc.DrawRectangle(background, null, bounds);
@@ -45,7 +46,7 @@ namespace RtdDolarNative.Charts
 
             if (_snapshot != null)
             {
-                DrawBadge(dc, "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 678, 12, _snapshot.MaxHistoricalScore >= 70m ? accent : muted);
+                DrawBadge(dc, "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 678, 12, _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted);
                 DrawBadge(dc, "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 570, 12, _snapshot.CumulativeDelta >= 0m ? buy : sell);
                 DrawBadge(dc, "STAB " + _snapshot.MaxPersistenceScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 462, 12, _snapshot.MaxPersistenceScore >= 70m ? buy : muted);
                 DrawBadge(dc, "SPOOF " + _snapshot.MaxSpoofRiskScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 354, 12, _snapshot.MaxSpoofRiskScore >= 70m ? sell : muted);
@@ -103,6 +104,13 @@ namespace RtdDolarNative.Charts
                     byte historicalAlpha = (byte)Math.Max(54, Math.Min(220, 54 + decimal.ToDouble(cell.HistoricalScore) * 1.66d));
                     Brush historicalBrush = new SolidColorBrush(Color.FromArgb(historicalAlpha, 255, 184, 0));
                     dc.DrawRectangle(historicalBrush, null, new Rect(plot.Left + labelWidth - 7, y + 3, 4, Math.Max(4, rowHeight - 7)));
+                }
+
+                if (cell.HistoricalFlowScore > 0m)
+                {
+                    byte flowAlpha = (byte)Math.Max(54, Math.Min(220, 54 + decimal.ToDouble(cell.HistoricalFlowScore) * 1.66d));
+                    Brush flowBrush = new SolidColorBrush(Color.FromArgb(flowAlpha, 88, 166, 255));
+                    dc.DrawRectangle(flowBrush, null, new Rect(plot.Left + labelWidth - 13, y + 3, 4, Math.Max(4, rowHeight - 7)));
                 }
 
                 double bidWidth = decimal.ToDouble(cell.BidLiquidity / maxBid) * sideWidth;

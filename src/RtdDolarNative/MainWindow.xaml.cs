@@ -9649,7 +9649,8 @@ namespace RtdDolarNative
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
-            AddRow(rows, "SQL hist", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | ultimas 6h por preco");
+            AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente 6h");
+            AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr));
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
@@ -9676,10 +9677,11 @@ namespace RtdDolarNative
                 row.Direction = EmptyToDash(zone.Direction);
                 row.Score = zone.Score.ToString("N0", _ptBr);
                 row.Persistence = zone.PersistenceScore.ToString("N0", _ptBr);
-                row.Historical = zone.HistoricalScore.ToString("N0", _ptBr) + " / " + zone.HistoricalSamples.ToString(_ptBr);
+                row.Historical = "B " + zone.HistoricalScore.ToString("N0", _ptBr) + "/" + zone.HistoricalSamples.ToString(_ptBr) +
+                                 " | F " + zone.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + zone.HistoricalTradeSamples.ToString(_ptBr);
                 row.Book = "C " + zone.TotalBidLiquidity.ToString("N0", _ptBr) + " / V " + zone.TotalAskLiquidity.ToString("N0", _ptBr);
                 row.Delta = zone.Delta.ToString("N0", _ptBr);
-                row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas";
+                row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas | SQLd " + zone.HistoricalDelta.ToString("N0", _ptBr);
                 rows.Add(row);
             }
 
@@ -9712,9 +9714,10 @@ namespace RtdDolarNative
                 row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
                 row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
                 row.Persistence = cell.PersistenceScore.ToString("N0", _ptBr);
-                row.Historical = cell.HistoricalScore.ToString("N0", _ptBr) + " / " + cell.HistoricalSamples.ToString(_ptBr);
+                row.Historical = "B " + cell.HistoricalScore.ToString("N0", _ptBr) + "/" + cell.HistoricalSamples.ToString(_ptBr) +
+                                 " | F " + cell.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + cell.HistoricalTradeSamples.ToString(_ptBr);
                 row.Spoof = cell.SpoofRiskScore.ToString("N0", _ptBr);
-                row.Read = EmptyToDash(cell.Read);
+                row.Read = EmptyToDash(cell.Read) + (cell.HistoricalTradeSamples > 0 ? " | SQLd " + cell.HistoricalDelta.ToString("N0", _ptBr) : string.Empty);
                 rows.Add(row);
             }
 
