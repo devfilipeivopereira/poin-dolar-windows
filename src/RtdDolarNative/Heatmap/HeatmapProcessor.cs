@@ -57,7 +57,7 @@ namespace RtdDolarNative.Heatmap
             lock (_lock)
             {
                 _currentPriceByAsset[snapshot.Asset] = snapshot.Ultimo;
-                _bookByAsset[snapshot.Asset] = ApplyBookChanges(snapshot.Asset, AggregateBook(levels));
+                _bookByAsset[snapshot.Asset] = ApplyBookChanges(snapshot.Asset, AggregateBook(levels), snapshot.LocalTimestamp);
             }
 
             if (levels.Count > 0)
@@ -136,6 +136,10 @@ namespace RtdDolarNative.Heatmap
                         target.AskLiquidity += cell.AskLiquidity;
                         target.BidChange += cell.BidChange;
                         target.AskChange += cell.AskChange;
+                        target.FirstSeen = target.FirstSeen == DateTimeOffset.MinValue || (cell.FirstSeen != DateTimeOffset.MinValue && cell.FirstSeen < target.FirstSeen) ? cell.FirstSeen : target.FirstSeen;
+                        target.LastSeen = cell.LastSeen > target.LastSeen ? cell.LastSeen : target.LastSeen;
+                        target.SeenCount = Math.Max(target.SeenCount, cell.SeenCount);
+                        target.AgeSeconds = Math.Max(target.AgeSeconds, cell.AgeSeconds);
                     }
                 }
 
@@ -192,6 +196,7 @@ namespace RtdDolarNative.Heatmap
                 snapshot.MaxAggressionScore = Math.Max(snapshot.MaxAggressionScore, cell.AggressionScore);
                 snapshot.MaxWallScore = Math.Max(snapshot.MaxWallScore, cell.WallScore);
                 snapshot.MaxSpoofRiskScore = Math.Max(snapshot.MaxSpoofRiskScore, cell.SpoofRiskScore);
+                snapshot.MaxPersistenceScore = Math.Max(snapshot.MaxPersistenceScore, cell.PersistenceScore);
             }
 
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
@@ -292,7 +297,7 @@ namespace RtdDolarNative.Heatmap
             return result;
         }
 
-        private Dictionary<decimal, HeatmapCell> ApplyBookChanges(string asset, Dictionary<decimal, HeatmapCell> current)
+        private Dictionary<decimal, HeatmapCell> ApplyBookChanges(string asset, Dictionary<decimal, HeatmapCell> current, DateTimeOffset timestamp)
         {
             Dictionary<decimal, HeatmapCell> previous;
             Dictionary<decimal, HeatmapCell> result = new Dictionary<decimal, HeatmapCell>();
@@ -308,13 +313,29 @@ namespace RtdDolarNative.Heatmap
                 {
                     copy.BidChange = copy.BidLiquidity - old.BidLiquidity;
                     copy.AskChange = copy.AskLiquidity - old.AskLiquidity;
+                    bool oldHadLiquidity = old.BidLiquidity > 0m || old.AskLiquidity > 0m;
+
+                    if (oldHadLiquidity)
+                    {
+                        copy.FirstSeen = old.FirstSeen == DateTimeOffset.MinValue ? timestamp : old.FirstSeen;
+                        copy.SeenCount = Math.Max(1, old.SeenCount) + 1;
+                    }
+                    else
+                    {
+                        copy.FirstSeen = timestamp;
+                        copy.SeenCount = 1;
+                    }
                 }
                 else
                 {
                     copy.BidChange = copy.BidLiquidity;
                     copy.AskChange = copy.AskLiquidity;
+                    copy.FirstSeen = timestamp;
+                    copy.SeenCount = 1;
                 }
 
+                copy.LastSeen = timestamp;
+                copy.AgeSeconds = Math.Max(0d, (copy.LastSeen - copy.FirstSeen).TotalSeconds);
                 result[copy.Price] = copy;
             }
 
@@ -331,6 +352,10 @@ namespace RtdDolarNative.Heatmap
                     removed.Price = old.Price;
                     removed.BidChange = -old.BidLiquidity;
                     removed.AskChange = -old.AskLiquidity;
+                    removed.FirstSeen = old.FirstSeen;
+                    removed.LastSeen = timestamp;
+                    removed.SeenCount = old.SeenCount;
+                    removed.AgeSeconds = old.FirstSeen == DateTimeOffset.MinValue ? 0d : Math.Max(0d, (timestamp - old.FirstSeen).TotalSeconds);
                     result[removed.Price] = removed;
                 }
             }
@@ -440,6 +465,7 @@ namespace RtdDolarNative.Heatmap
             zone.BuyVolume = cells.Sum(x => x.BuyVolume);
             zone.SellVolume = cells.Sum(x => x.SellVolume);
             zone.Delta = cells.Sum(x => x.Delta);
+            zone.PersistenceScore = cells.Max(x => x.PersistenceScore);
             zone.CellCount = cells.Count;
             zone.Direction = dominant.Direction;
             zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
@@ -455,6 +481,11 @@ namespace RtdDolarNative.Heatmap
             if (cells.Any(x => x.SpoofRiskScore >= 70m || (!string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("retirada", StringComparison.OrdinalIgnoreCase) >= 0)))
             {
                 return "zona retirada " + side;
+            }
+
+            if (cells.Any(x => x.PersistenceScore >= 70m || (!string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("persistente", StringComparison.OrdinalIgnoreCase) >= 0)))
+            {
+                return "zona persistente " + side;
             }
 
             if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0))
@@ -502,6 +533,8 @@ namespace RtdDolarNative.Heatmap
             decimal deltaAbs = tradeVolume <= 0m ? 0m : Math.Abs(cell.Delta) / tradeVolume;
             bool bidPulled = cell.BidChange < 0m && bidPullRatio >= 0.50m;
             bool askPulled = cell.AskChange < 0m && askPullRatio >= 0.50m;
+            decimal ageScore = ClampScore((decimal)Math.Min(1d, cell.AgeSeconds / 6d) * 55m);
+            decimal countScore = ClampScore(Math.Min(45m, Math.Max(0, cell.SeenCount - 1) * 15m));
             decimal bidAbsorption = strongBid && cell.SellVolume > cell.BuyVolume && cell.SellVolume > 0m
                 ? ClampScore((cell.BidLiquidity / maxBid) * 58m + (cell.SellVolume / maxTrade) * 32m + deltaAbs * 10m)
                 : 0m;
@@ -520,13 +553,15 @@ namespace RtdDolarNative.Heatmap
             cell.SpoofRiskScore = (bidPulled || askPulled)
                 ? ClampScore(cell.PullingScore * 0.74m + (tradeVolume <= 0m ? 26m : Math.Max(0m, 16m - tradeRatio * 16m)))
                 : 0m;
+            cell.PersistenceScore = (cell.BidLiquidity > 0m || cell.AskLiquidity > 0m) ? ClampScore(ageScore + countScore) : 0m;
             cell.DistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((cell.Price - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
             decimal baseInterest = ClampScore(
                 cell.WallScore * 0.62m +
                 tradeRatio * 100m * 0.12m +
                 cell.AbsorptionScore * 0.16m +
                 cell.AggressionScore * 0.04m +
-                Math.Max(cell.StackingScore, cell.PullingScore) * 0.06m);
+                Math.Max(cell.StackingScore, cell.PullingScore) * 0.06m +
+                cell.PersistenceScore * 0.10m);
             decimal removalInterest = ClampScore(cell.SpoofRiskScore * 0.72m + cell.PullingScore * 0.28m);
             cell.InterestScore = Math.Max(baseInterest, removalInterest);
 
@@ -569,6 +604,16 @@ namespace RtdDolarNative.Heatmap
             {
                 cell.Direction = "Venda";
                 cell.Read = "stacking venda";
+            }
+            else if (cell.PersistenceScore >= 70m && below && strongBid)
+            {
+                cell.Direction = "Compra";
+                cell.Read = "parede compra persistente";
+            }
+            else if (cell.PersistenceScore >= 70m && above && strongAsk)
+            {
+                cell.Direction = "Venda";
+                cell.Read = "parede venda persistente";
             }
             else if (bidPullRatio >= 0.50m && cell.BidChange < 0m)
             {
@@ -649,6 +694,11 @@ namespace RtdDolarNative.Heatmap
             copy.Delta = source.Delta;
             copy.BidChange = source.BidChange;
             copy.AskChange = source.AskChange;
+            copy.PersistenceScore = source.PersistenceScore;
+            copy.SeenCount = source.SeenCount;
+            copy.AgeSeconds = source.AgeSeconds;
+            copy.FirstSeen = source.FirstSeen;
+            copy.LastSeen = source.LastSeen;
             return copy;
         }
 

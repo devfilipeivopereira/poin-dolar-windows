@@ -3833,6 +3833,7 @@
                                     <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="58" />
                                     <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="66" />
                                     <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="62" />
+                                    <DataGridTextColumn Header="Pers" Binding="{Binding Persistence}" Width="54" />
                                     <DataGridTextColumn Header="Book" Binding="{Binding Book}" Width="112" />
                                     <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="64" />
                                     <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
@@ -3852,6 +3853,7 @@
                                     <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="64" />
                                     <DataGridTextColumn Header="Abs" Binding="{Binding Absorption}" Width="54" />
                                     <DataGridTextColumn Header="Stack" Binding="{Binding StackPull}" Width="62" />
+                                    <DataGridTextColumn Header="Pers" Binding="{Binding Persistence}" Width="54" />
                                     <DataGridTextColumn Header="Spoof" Binding="{Binding Spoof}" Width="58" />
                                     <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
                                 </DataGrid.Columns>

@@ -46,6 +46,7 @@ namespace QuantEngineTests
                 HeatmapScoresAbsorptionAndStackingAtBid,
                 HeatmapGroupsAdjacentInterestIntoOperationalZones,
                 HeatmapFlagsPulledLiquidityAsSpoofRisk,
+                HeatmapScoresPersistentLiquidityAsStableWall,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -904,6 +905,41 @@ namespace QuantEngineTests
                 Assert(pulledBid.SpoofRiskScore >= 80m, "Fast removal without trade should carry spoof-risk score.");
                 Assert(pulledBid.InterestScore >= 70m, "Pulled liquidity should rank high enough to remain in the interest list.");
                 Assert(pulledBid.Read.IndexOf("retirada", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that liquidity was removed.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapScoresPersistentLiquidityAsStableWall()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                DateTimeOffset start = new DateTimeOffset(2026, 6, 11, 10, 0, 0, TimeSpan.FromHours(-3));
+
+                for (int i = 0; i < 4; i++)
+                {
+                    MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+                    snapshot.LocalTimestamp = start.AddSeconds(i * 2);
+                    AddBookBid(snapshot, 0, 4999m, 2500m);
+                    AddBookAsk(snapshot, 0, 5001m, 500m);
+                    processor.PostSnapshot(snapshot);
+                }
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell stableBid = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4999m);
+                HeatmapZone support = heatmap.Zones.FirstOrDefault(x => x.Direction == "Compra");
+
+                Assert(stableBid != null, "Stable bid liquidity should stay in the interest list.");
+                AssertEqual(4, stableBid.SeenCount, "Stable bid should count consecutive book snapshots.");
+                Assert(stableBid.AgeSeconds >= 6d, "Stable bid should expose the observed age in seconds.");
+                Assert(stableBid.PersistenceScore >= 70m, "Stable repeated liquidity should receive a high persistence score.");
+                Assert(heatmap.MaxPersistenceScore >= stableBid.PersistenceScore, "Snapshot should expose the strongest persistence score.");
+                Assert(stableBid.Read.IndexOf("persistente", StringComparison.OrdinalIgnoreCase) >= 0, "Read should identify persistent liquidity explicitly.");
+                Assert(support != null && support.PersistenceScore >= 70m, "Support zone should inherit persistence from stable cells.");
             }
             finally
             {

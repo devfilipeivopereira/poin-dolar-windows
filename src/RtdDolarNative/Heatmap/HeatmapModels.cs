@@ -33,7 +33,12 @@ namespace RtdDolarNative.Heatmap
         public decimal StackingScore { get; set; }
         public decimal PullingScore { get; set; }
         public decimal SpoofRiskScore { get; set; }
+        public decimal PersistenceScore { get; set; }
         public decimal InterestScore { get; set; }
+        public int SeenCount { get; set; }
+        public double AgeSeconds { get; set; }
+        public DateTimeOffset FirstSeen { get; set; }
+        public DateTimeOffset LastSeen { get; set; }
         public int DistanceTicks { get; set; }
         public string Direction { get; set; }
         public string Read { get; set; }
@@ -50,6 +55,7 @@ namespace RtdDolarNative.Heatmap
         public decimal BuyVolume { get; set; }
         public decimal SellVolume { get; set; }
         public decimal Delta { get; set; }
+        public decimal PersistenceScore { get; set; }
         public int DistanceTicks { get; set; }
         public int CellCount { get; set; }
         public string Direction { get; set; }
@@ -77,6 +83,7 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxStackingScore { get; set; }
         public decimal MaxPullingScore { get; set; }
         public decimal MaxSpoofRiskScore { get; set; }
+        public decimal MaxPersistenceScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }

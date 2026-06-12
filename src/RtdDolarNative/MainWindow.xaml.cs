@@ -9628,6 +9628,7 @@ namespace RtdDolarNative
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
+            AddRow(rows, "Estavel", heatmap.MaxPersistenceScore.ToString("N0", _ptBr), "liquidez persistente");
             AddRow(rows, "SQLite", heatmap.StorageStatus, _heatmapProcessor.DatabasePath);
             return rows;
         }
@@ -9649,6 +9650,7 @@ namespace RtdDolarNative
                 row.Distance = zone.DistanceTicks == 0 ? "0" : zone.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
                 row.Direction = EmptyToDash(zone.Direction);
                 row.Score = zone.Score.ToString("N0", _ptBr);
+                row.Persistence = zone.PersistenceScore.ToString("N0", _ptBr);
                 row.Book = "C " + zone.TotalBidLiquidity.ToString("N0", _ptBr) + " / V " + zone.TotalAskLiquidity.ToString("N0", _ptBr);
                 row.Delta = zone.Delta.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas";
@@ -9683,6 +9685,7 @@ namespace RtdDolarNative
                 row.Delta = cell.Delta.ToString("N0", _ptBr);
                 row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
                 row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
+                row.Persistence = cell.PersistenceScore.ToString("N0", _ptBr);
                 row.Spoof = cell.SpoofRiskScore.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(cell.Read);
                 rows.Add(row);
@@ -10607,6 +10610,7 @@ namespace RtdDolarNative
             public string Delta { get; set; }
             public string Absorption { get; set; }
             public string StackPull { get; set; }
+            public string Persistence { get; set; }
             public string Spoof { get; set; }
             public string Read { get; set; }
         }
@@ -10618,6 +10622,7 @@ namespace RtdDolarNative
             public string Distance { get; set; }
             public string Direction { get; set; }
             public string Score { get; set; }
+            public string Persistence { get; set; }
             public string Book { get; set; }
             public string Delta { get; set; }
             public string Read { get; set; }
