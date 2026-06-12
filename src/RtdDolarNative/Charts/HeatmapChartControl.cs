@@ -93,7 +93,7 @@ namespace RtdDolarNative.Charts
                 }
             }
 
-            DrawText(dc, _snapshot == null ? "sem dados" : (_snapshot.Asset + " | " + _snapshot.StorageStatus), 12, statusY, muted, 11, FontWeights.Normal);
+            DrawText(dc, _snapshot == null ? "sem dados" : (_snapshot.Asset + " | " + ViewportStatus(_snapshot) + " | " + _snapshot.StorageStatus), 12, statusY, muted, 11, FontWeights.Normal);
 
             Rect plot = new Rect(12, plotTop, Math.Max(20, ActualWidth - 24), Math.Max(20, ActualHeight - plotTop - 12));
 
@@ -472,6 +472,21 @@ namespace RtdDolarNative.Charts
             }
 
             return zone.ActionScore.ToString("N0", CultureInfo.InvariantCulture);
+        }
+
+        private static string ViewportStatus(HeatmapSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return "janela -";
+            }
+
+            string mode = string.Equals(snapshot.ViewportMode, "Manual", StringComparison.OrdinalIgnoreCase) ? "MANUAL" : "AUTO";
+            string range = snapshot.VisibleBottomPrice.HasValue && snapshot.VisibleTopPrice.HasValue
+                ? snapshot.VisibleBottomPrice.Value.ToString("N2", new CultureInfo("pt-BR")) + "-" + snapshot.VisibleTopPrice.Value.ToString("N2", new CultureInfo("pt-BR"))
+                : "-";
+            int visible = snapshot.Cells == null ? 0 : snapshot.Cells.Count;
+            return mode + " " + range + " " + visible.ToString(CultureInfo.InvariantCulture) + "/" + snapshot.TotalPriceLevels.ToString(CultureInfo.InvariantCulture);
         }
 
         private Brush DirectionBrush(string direction)

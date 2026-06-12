@@ -123,6 +123,11 @@ namespace RtdDolarNative.Heatmap
 
         public HeatmapSnapshot GetSnapshot(string asset, decimal? currentPrice, int maxRows)
         {
+            return GetSnapshot(asset, currentPrice, maxRows, null);
+        }
+
+        public HeatmapSnapshot GetSnapshot(string asset, decimal? currentPrice, int maxRows, decimal? viewportAnchorPrice)
+        {
             HeatmapSnapshot snapshot = new HeatmapSnapshot();
             snapshot.Asset = asset;
             snapshot.LocalTimestamp = DateTimeOffset.Now;
@@ -131,6 +136,8 @@ namespace RtdDolarNative.Heatmap
             snapshot.StorageStatus = StorageStatus;
             snapshot.UseHistoricalContext = UseHistoricalContext;
             snapshot.HistoricalContextMinutes = HistoricalContextMinutes;
+            snapshot.ViewportMode = viewportAnchorPrice.HasValue ? "Manual" : "Auto";
+            snapshot.ViewportAnchorPrice = viewportAnchorPrice.HasValue ? Round(viewportAnchorPrice.Value) : (decimal?)null;
 
             if (string.IsNullOrWhiteSpace(asset))
             {
@@ -255,7 +262,19 @@ namespace RtdDolarNative.Heatmap
             }
 
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
-            snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows));
+            snapshot.TotalPriceLevels = allCells.Count;
+            snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows), snapshot.ViewportAnchorPrice);
+            if (snapshot.Cells.Count > 0)
+            {
+                snapshot.VisibleTopPrice = snapshot.Cells.Max(x => x.Price);
+                snapshot.VisibleBottomPrice = snapshot.Cells.Min(x => x.Price);
+                if (!snapshot.ViewportAnchorPrice.HasValue)
+                {
+                    snapshot.ViewportAnchorPrice = snapshot.CurrentPrice.HasValue
+                        ? Round(snapshot.CurrentPrice.Value)
+                        : snapshot.Cells.OrderByDescending(x => x.InterestScore).First().Price;
+                }
+            }
             snapshot.InterestCells = SelectInterestRows(allCells, snapshot.CurrentPrice, Math.Max(40, maxRows));
             snapshot.Zones = BuildZones(snapshot.InterestCells, snapshot.CurrentPrice, Math.Max(12, maxRows / 4));
             snapshot.SqlMemory = BuildSqlMemory(snapshot);
@@ -521,14 +540,16 @@ namespace RtdDolarNative.Heatmap
             return result;
         }
 
-        private List<HeatmapCell> SelectVisibleRows(List<HeatmapCell> cells, decimal? currentPrice, int maxRows)
+        private List<HeatmapCell> SelectVisibleRows(List<HeatmapCell> cells, decimal? currentPrice, int maxRows, decimal? viewportAnchorPrice)
         {
             if (cells.Count <= maxRows)
             {
                 return cells.OrderByDescending(x => x.Price).ToList();
             }
 
-            decimal anchor = currentPrice.HasValue
+            decimal anchor = viewportAnchorPrice.HasValue
+                ? viewportAnchorPrice.Value
+                : currentPrice.HasValue
                 ? Round(currentPrice.Value)
                 : cells.OrderByDescending(x => x.InterestScore).First().Price;
 

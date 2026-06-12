@@ -220,6 +220,11 @@ namespace RtdDolarNative.Heatmap
         public int HistoricalTradeLevels { get; set; }
         public int BookLevels { get; set; }
         public int TradeCount { get; set; }
+        public int TotalPriceLevels { get; set; }
+        public decimal? ViewportAnchorPrice { get; set; }
+        public decimal? VisibleTopPrice { get; set; }
+        public decimal? VisibleBottomPrice { get; set; }
+        public string ViewportMode { get; set; }
         public long Version { get; set; }
         public bool UseHistoricalContext { get; set; }
         public int HistoricalContextMinutes { get; set; }

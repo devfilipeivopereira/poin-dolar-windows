@@ -85,6 +85,9 @@ namespace RtdDolarNative
         private DateTimeOffset _lastAssetGridRefresh = DateTimeOffset.MinValue;
         private DateTimeOffset _lastDashboardChartRefresh = DateTimeOffset.MinValue;
         private long _lastFlowProcessed = -1;
+        private long _lastHeatmapVersion = -1;
+        private decimal? _heatmapViewportAnchor;
+        private string _lastHeatmapViewportAsset;
         private long _lastDashboardChartVersion = -1;
         private long _lastDashboardChartQuantVersion = -1;
         private int _lastDashboardChartBarCount = -1;
@@ -2520,6 +2523,8 @@ namespace RtdDolarNative
             bool showFlow = selectedTab == TabOrderFlow || selectedTab == TabVolumeProfile || selectedTab == TabSetups;
             bool showFlowMap = selectedTab == TabFlowMap;
             bool showHeatmap = selectedTab == TabHeatmap;
+            long heatmapVersion = _heatmapProcessor == null ? -1 : _heatmapProcessor.Version;
+            bool heatmapChanged = showHeatmap && heatmapVersion != _lastHeatmapVersion;
             bool showRisk = selectedTab == TabRisk;
             bool showAlerts = selectedTab == TabAlerts;
             bool showDiagnostics = selectedTab == TabDiagnostics;
@@ -2576,7 +2581,7 @@ namespace RtdDolarNative
                 SnapshotAgeText.Text = "-";
             }
 
-            if ((changed || flowChanged) && (now - _lastGridRefresh).TotalMilliseconds >= 500)
+            if ((changed || flowChanged || heatmapChanged) && (now - _lastGridRefresh).TotalMilliseconds >= 500)
             {
                 if (showDashboard)
                 {
@@ -3351,6 +3356,104 @@ namespace RtdDolarNative
         private void RefreshHeatmapButton_Click(object sender, RoutedEventArgs e)
         {
             RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void HeatmapViewport_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_heatmapProcessor == null)
+            {
+                return;
+            }
+
+            if (HeatmapFollowPriceCheckBox == null || HeatmapFollowPriceCheckBox.IsChecked == true)
+            {
+                _heatmapViewportAnchor = null;
+            }
+            else
+            {
+                EnsureHeatmapViewportAnchor(FocusedSnapshot() ?? _lastSnapshot);
+            }
+
+            RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void HeatmapViewportUp_Click(object sender, RoutedEventArgs e)
+        {
+            MoveHeatmapViewport(1, 8);
+        }
+
+        private void HeatmapViewportDown_Click(object sender, RoutedEventArgs e)
+        {
+            MoveHeatmapViewport(-1, 8);
+        }
+
+        private void HeatmapViewportReset_Click(object sender, RoutedEventArgs e)
+        {
+            _heatmapViewportAnchor = null;
+
+            if (HeatmapFollowPriceCheckBox != null && HeatmapFollowPriceCheckBox.IsChecked != true)
+            {
+                HeatmapFollowPriceCheckBox.IsChecked = true;
+            }
+            else
+            {
+                RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+            }
+        }
+
+        private void HeatmapChart_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            int steps = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? 24 : 6;
+            MoveHeatmapViewport(e.Delta > 0 ? 1 : -1, steps);
+            e.Handled = true;
+        }
+
+        private void MoveHeatmapViewport(int direction, int ticks)
+        {
+            if (_config == null)
+            {
+                return;
+            }
+
+            MarketSnapshot snapshot = FocusedSnapshot() ?? _lastSnapshot;
+            decimal? anchor = EnsureHeatmapViewportAnchor(snapshot);
+
+            if (!anchor.HasValue)
+            {
+                return;
+            }
+
+            decimal tickSize = _config.Rtd.TickSize <= 0m ? 0.5m : _config.Rtd.TickSize;
+            decimal next = DomLadderModel.RoundToTick(anchor.Value + direction * Math.Max(1, ticks) * tickSize, tickSize);
+            _heatmapViewportAnchor = next;
+
+            if (HeatmapFollowPriceCheckBox != null && HeatmapFollowPriceCheckBox.IsChecked == true)
+            {
+                HeatmapFollowPriceCheckBox.IsChecked = false;
+            }
+            else
+            {
+                RenderHeatmap(snapshot);
+            }
+        }
+
+        private decimal? EnsureHeatmapViewportAnchor(MarketSnapshot snapshot)
+        {
+            if (_heatmapViewportAnchor.HasValue)
+            {
+                return _heatmapViewportAnchor;
+            }
+
+            decimal? price = snapshot == null ? null : snapshot.Ultimo;
+
+            if (!price.HasValue || price.Value <= 0m)
+            {
+                return null;
+            }
+
+            decimal tickSize = _config == null || _config.Rtd.TickSize <= 0m ? 0.5m : _config.Rtd.TickSize;
+            _heatmapViewportAnchor = DomLadderModel.RoundToTick(price.Value, tickSize);
+            return _heatmapViewportAnchor;
         }
 
         private void HeatmapSqlContext_Changed(object sender, RoutedEventArgs e)
@@ -9847,6 +9950,17 @@ namespace RtdDolarNative
             string focused = FocusedAsset();
             MarketSnapshot effective = snapshot ?? FocusedSnapshot();
 
+            if (!string.Equals(_lastHeatmapViewportAsset, focused, StringComparison.OrdinalIgnoreCase))
+            {
+                _lastHeatmapViewportAsset = focused;
+                _heatmapViewportAnchor = null;
+
+                if (HeatmapFollowPriceCheckBox != null && HeatmapFollowPriceCheckBox.IsChecked != true)
+                {
+                    HeatmapFollowPriceCheckBox.IsChecked = true;
+                }
+            }
+
             if (effective == null &&
                 _lastSnapshot != null &&
                 (string.IsNullOrWhiteSpace(focused) || string.Equals(_lastSnapshot.Asset, focused, StringComparison.OrdinalIgnoreCase)))
@@ -9854,7 +9968,12 @@ namespace RtdDolarNative
                 effective = _lastSnapshot;
             }
 
-            HeatmapSnapshot heatmap = _heatmapProcessor.GetSnapshot(focused, effective == null ? (decimal?)null : effective.Ultimo, 72);
+            decimal? viewportAnchor = HeatmapIsFollowingPrice()
+                ? (decimal?)null
+                : EnsureHeatmapViewportAnchor(effective);
+            int visibleRows = HeatmapVisibleRowCount();
+            HeatmapSnapshot heatmap = _heatmapProcessor.GetSnapshot(focused, effective == null ? (decimal?)null : effective.Ultimo, visibleRows, viewportAnchor);
+            _lastHeatmapVersion = _heatmapProcessor.Version;
 
             if (HeatmapChart != null)
             {
@@ -9879,13 +9998,44 @@ namespace RtdDolarNative
             if (HeatmapStateText != null)
             {
                 string age = effective == null ? "sem snapshot" : "snapshot " + AgeText(effective.LocalTimestamp);
+                string range = FormatHeatmapViewport(heatmap);
                 HeatmapStateText.Text = EmptyToDash(focused) +
                                         " | " + age +
                                         " | book " + heatmap.BookLevels.ToString(_ptBr) +
                                         " | trades " + heatmap.TradeCount.ToString(_ptBr) +
                                         " | zonas " + (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr) +
+                                        " | " + range +
                                         " | " + heatmap.StorageStatus;
             }
+        }
+
+        private bool HeatmapIsFollowingPrice()
+        {
+            return HeatmapFollowPriceCheckBox == null || HeatmapFollowPriceCheckBox.IsChecked == true;
+        }
+
+        private int HeatmapVisibleRowCount()
+        {
+            double height = HeatmapChart == null || HeatmapChart.ActualHeight <= 0d ? 620d : HeatmapChart.ActualHeight;
+            double plotHeight = Math.Max(220d, height - 92d);
+            return Math.Max(20, Math.Min(96, (int)Math.Floor(plotHeight / 16d)));
+        }
+
+        private string FormatHeatmapViewport(HeatmapSnapshot heatmap)
+        {
+            if (heatmap == null)
+            {
+                return "janela -";
+            }
+
+            string mode = string.Equals(heatmap.ViewportMode, "Manual", StringComparison.OrdinalIgnoreCase) ? "manual" : "auto";
+            string visible = heatmap.VisibleBottomPrice.HasValue && heatmap.VisibleTopPrice.HasValue
+                ? heatmap.VisibleBottomPrice.Value.ToString("N2", _ptBr) + "-" + heatmap.VisibleTopPrice.Value.ToString("N2", _ptBr)
+                : "-";
+            string count = heatmap.Cells == null
+                ? "0/" + heatmap.TotalPriceLevels.ToString(_ptBr)
+                : heatmap.Cells.Count.ToString(_ptBr) + "/" + heatmap.TotalPriceLevels.ToString(_ptBr);
+            return "janela " + mode + " " + visible + " (" + count + ")";
         }
 
         private List<NameValueRow> BuildHeatmapSummaryRows(HeatmapSnapshot heatmap, MarketSnapshot snapshot)

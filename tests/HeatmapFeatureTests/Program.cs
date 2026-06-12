@@ -25,7 +25,9 @@ namespace HeatmapFeatureTests
                 OperationalPlanWaitsWhenLiveAndSqlConflict,
                 OperationalPlanCalculatesBuyDefenseRiskReward,
                 OperationalPlanCalculatesSellDefenseRiskReward,
-                HeatmapDoesNotCrashWhenPriceDistanceOverflowsIntTicks
+                HeatmapDoesNotCrashWhenPriceDistanceOverflowsIntTicks,
+                HeatmapAutoViewportTracksCurrentPrice,
+                HeatmapManualViewportCanNavigateAwayFromCurrentPrice
             };
 
             int failed = 0;
@@ -391,6 +393,53 @@ namespace HeatmapFeatureTests
             }
         }
 
+        private static void HeatmapAutoViewportTracksCurrentPrice()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000m);
+                AddDenseBook(snapshot, 4980m, 0.5m, 60);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 12, null);
+
+                AssertEqual("Auto", heatmap.ViewportMode, "Default heatmap viewport should follow current price.");
+                Assert(heatmap.TotalPriceLevels > heatmap.Cells.Count, "Snapshot should expose the total available price levels.");
+                Assert(heatmap.Cells.Any(x => x.Price == 5000m), "Auto viewport should include the current price region.");
+                Assert(!heatmap.Cells.Any(x => x.Price == 4980m), "Auto viewport should not be stuck at the oldest visible level.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapManualViewportCanNavigateAwayFromCurrentPrice()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000m);
+                AddDenseBook(snapshot, 4980m, 0.5m, 60);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 12, 4985m);
+
+                AssertEqual("Manual", heatmap.ViewportMode, "Manual heatmap viewport should be explicit.");
+                AssertEqual(4985m, heatmap.ViewportAnchorPrice.Value, "Manual viewport should remember the requested anchor.");
+                Assert(heatmap.Cells.Any(x => x.Price == 4985m), "Manual viewport should include the requested price region.");
+                Assert(!heatmap.Cells.Any(x => x.Price == 5000m), "Manual viewport should be able to leave the current price region.");
+                Assert(heatmap.VisibleTopPrice.HasValue && heatmap.VisibleBottomPrice.HasValue, "Manual viewport should expose the visible price range.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
         private static HeatmapProcessor BuildProcessor()
         {
             HeatmapProcessor processor = BuildProcessor(BuildDatabasePath(), false);
@@ -429,6 +478,23 @@ namespace HeatmapFeatureTests
         {
             snapshot.Rtd["BOOK_OVD_" + index.ToString(CultureInfo.InvariantCulture)] = price;
             snapshot.Rtd["BOOK_VOV_" + index.ToString(CultureInfo.InvariantCulture)] = quantity;
+        }
+
+        private static void AddDenseBook(MarketSnapshot snapshot, decimal firstPrice, decimal step, int levels)
+        {
+            for (int i = 0; i < levels && i < 50; i++)
+            {
+                decimal price = firstPrice + i * step;
+
+                if (price <= 5000m)
+                {
+                    AddBid(snapshot, i, price, 1000m + i * 10m);
+                }
+                else
+                {
+                    AddAsk(snapshot, i, price, 1000m + i * 10m);
+                }
+            }
         }
 
         private static void Assert(bool condition, string message)

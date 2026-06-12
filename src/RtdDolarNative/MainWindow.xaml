@@ -3867,6 +3867,26 @@
                                           Style="{StaticResource TopNavChartLineCheckBoxStyle}"
                                           Checked="HeatmapSqlContext_Changed"
                                           Unchecked="HeatmapSqlContext_Changed" />
+                                <CheckBox x:Name="HeatmapFollowPriceCheckBox"
+                                          Content="Seguir preco"
+                                          ToolTip="Mantem o heatmap centralizado no preco atual"
+                                          IsChecked="True"
+                                          Tag="{StaticResource ChartLineCurrentBrush}"
+                                          Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                          Checked="HeatmapViewport_Changed"
+                                          Unchecked="HeatmapViewport_Changed" />
+                                <Button Content="Acima"
+                                        ToolTip="Mover a janela do heatmap para precos acima"
+                                        Click="HeatmapViewportUp_Click"
+                                        Margin="0,0,4,2" />
+                                <Button Content="Abaixo"
+                                        ToolTip="Mover a janela do heatmap para precos abaixo"
+                                        Click="HeatmapViewportDown_Click"
+                                        Margin="0,0,4,2" />
+                                <Button Content="Atual"
+                                        ToolTip="Voltar a seguir o preco atual"
+                                        Click="HeatmapViewportReset_Click"
+                                        Margin="0,0,8,2" />
                                 <ComboBox x:Name="HeatmapSqlWindowComboBox"
                                           Width="72"
                                           Margin="0,0,8,2"
@@ -3891,7 +3911,10 @@
                             <ColumnDefinition Width="1.45*" />
                             <ColumnDefinition Width="0.85*" />
                         </Grid.ColumnDefinitions>
-                        <charts:HeatmapChartControl x:Name="HeatmapChart" Margin="0,0,10,0" />
+                        <charts:HeatmapChartControl x:Name="HeatmapChart"
+                                                    Margin="0,0,10,0"
+                                                    Focusable="True"
+                                                    MouseWheel="HeatmapChart_MouseWheel" />
 
                         <Grid Grid.Column="1">
                             <Grid.RowDefinitions>
