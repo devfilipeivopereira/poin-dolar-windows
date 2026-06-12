@@ -261,6 +261,7 @@ namespace RtdDolarNative.Heatmap
             snapshot.SqlMemory = BuildSqlMemory(snapshot);
             snapshot.Corridor = BuildCorridor(snapshot);
             snapshot.Bias = BuildBias(snapshot);
+            snapshot.Plan = BuildOperationalPlan(snapshot);
             ApplyDominantRead(snapshot);
             return snapshot;
         }
@@ -1003,6 +1004,217 @@ namespace RtdDolarNative.Heatmap
             }
 
             return flowSign;
+        }
+
+        private HeatmapOperationalPlan BuildOperationalPlan(HeatmapSnapshot snapshot)
+        {
+            HeatmapOperationalPlan plan = new HeatmapOperationalPlan();
+            plan.State = "Sem plano";
+            plan.Direction = "Neutro";
+            plan.Trigger = "aguardar book/times";
+            plan.Invalidation = "-";
+            plan.Read = "sem contexto operacional suficiente";
+
+            if (snapshot == null)
+            {
+                return plan;
+            }
+
+            HeatmapZone actionZone = BestActionZone(snapshot);
+            bool hasConflict =
+                snapshot.MaxConflictScore >= 50m ||
+                (actionZone != null && (string.Equals(actionZone.Action, "Aguardar", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(actionZone.Quality, "Conflito", StringComparison.OrdinalIgnoreCase))) ||
+                DirectionConflict(actionZone == null ? null : actionZone.Direction, snapshot.SqlMemory == null ? null : snapshot.SqlMemory.Direction, snapshot.SqlMemory == null ? 0m : snapshot.SqlMemory.ConfidenceScore);
+
+            if (hasConflict)
+            {
+                plan.State = "Aguardar conflito";
+                plan.Direction = "Neutro";
+                plan.ConfidenceScore = ClampScore(Math.Max(snapshot.MaxConflictScore, actionZone == null ? 0m : actionZone.ConflictScore));
+                plan.AnchorPrice = actionZone == null ? (decimal?)null : actionZone.CenterPrice;
+                plan.AnchorDistanceTicks = actionZone == null ? 0 : actionZone.DistanceTicks;
+                plan.Trigger = actionZone == null ? "esperar conflito do SQL/book limpar" : "esperar " + FormatPlanPrice(actionZone.CenterPrice) + " definir";
+                plan.Invalidation = "sem operacao enquanto os sinais divergirem";
+                plan.Read = "conflito entre liquidez ao vivo, memoria SQL ou fluxo; aguardar confirmacao";
+                return plan;
+            }
+
+            if (actionZone != null && !string.IsNullOrWhiteSpace(actionZone.Action) && actionZone.Action.IndexOf("defesa", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                plan.State = actionZone.Action;
+                plan.Direction = actionZone.Direction;
+                plan.AnchorPrice = actionZone.CenterPrice;
+                plan.AnchorDistanceTicks = actionZone.DistanceTicks;
+                plan.ConfidenceScore = PlanConfidence(actionZone, snapshot);
+                plan.Trigger = "defender " + FormatPlanPrice(actionZone.CenterPrice) + " (" + FormatTicks(actionZone.DistanceTicks) + ")";
+                plan.Invalidation = PlanInvalidation(actionZone, snapshot);
+                plan.Read = "prioridade na defesa da zona; " + Empty(actionZone.ActionRead) + " | " + PlanContext(snapshot);
+                return plan;
+            }
+
+            if (snapshot.Corridor != null &&
+                snapshot.Corridor.IsAvailable &&
+                string.Equals(snapshot.Corridor.Phase, "Comprimido", StringComparison.OrdinalIgnoreCase) &&
+                snapshot.Bias != null &&
+                DirectionSign(snapshot.Bias.Direction) != 0m &&
+                snapshot.Bias.Confidence >= 45m)
+            {
+                plan.Direction = snapshot.Bias.Direction;
+                plan.State = string.Equals(plan.Direction, "Compra", StringComparison.OrdinalIgnoreCase) ? "Rompimento compra" : "Rompimento venda";
+                plan.AnchorPrice = string.Equals(plan.Direction, "Compra", StringComparison.OrdinalIgnoreCase)
+                    ? snapshot.Corridor.ResistancePrice
+                    : snapshot.Corridor.SupportPrice;
+                plan.AnchorDistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((plan.AnchorPrice.Value - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
+                plan.ConfidenceScore = ClampScore(snapshot.Bias.Confidence * 0.62m + Math.Abs(snapshot.Bias.Score) * 0.24m + Math.Max(snapshot.Corridor.SupportActionScore, snapshot.Corridor.ResistanceActionScore) * 0.14m);
+                plan.Trigger = string.Equals(plan.Direction, "Compra", StringComparison.OrdinalIgnoreCase)
+                    ? "romper " + FormatPlanPrice(snapshot.Corridor.ResistancePrice)
+                    : "perder " + FormatPlanPrice(snapshot.Corridor.SupportPrice);
+                plan.Invalidation = "voltar para dentro do corredor";
+                plan.Read = "corredor comprimido com vies " + plan.Direction.ToLowerInvariant() + "; preparar ruptura apenas com confirmacao";
+                return plan;
+            }
+
+            if (actionZone != null)
+            {
+                plan.State = string.IsNullOrWhiteSpace(actionZone.Action) ? "Observar" : actionZone.Action;
+                plan.Direction = string.IsNullOrWhiteSpace(actionZone.Direction) ? "Neutro" : actionZone.Direction;
+                plan.AnchorPrice = actionZone.CenterPrice;
+                plan.AnchorDistanceTicks = actionZone.DistanceTicks;
+                plan.ConfidenceScore = PlanConfidence(actionZone, snapshot);
+                plan.Trigger = "monitorar " + FormatPlanPrice(actionZone.CenterPrice) + " (" + FormatTicks(actionZone.DistanceTicks) + ")";
+                plan.Invalidation = "perder leitura da zona";
+                plan.Read = Empty(actionZone.ActionRead) + " | " + PlanContext(snapshot);
+                return plan;
+            }
+
+            if (snapshot.Bias != null && DirectionSign(snapshot.Bias.Direction) != 0m)
+            {
+                plan.State = "Observar " + snapshot.Bias.Direction.ToLowerInvariant();
+                plan.Direction = snapshot.Bias.Direction;
+                plan.ConfidenceScore = ClampScore(snapshot.Bias.Confidence * 0.70m);
+                plan.Trigger = "aguardar zona proxima confirmar";
+                plan.Invalidation = "vies perder forca";
+                plan.Read = Empty(snapshot.Bias.Read);
+                return plan;
+            }
+
+            plan.State = "Observar";
+            plan.Read = "sem zona acionavel clara";
+            return plan;
+        }
+
+        private HeatmapZone BestActionZone(HeatmapSnapshot snapshot)
+        {
+            if (snapshot == null || snapshot.Zones == null || snapshot.Zones.Count == 0)
+            {
+                return null;
+            }
+
+            return snapshot.Zones
+                .OrderByDescending(x => x.ActionScore)
+                .ThenBy(x => Math.Abs(x.DistanceTicks))
+                .ThenByDescending(x => x.Score)
+                .FirstOrDefault();
+        }
+
+        private static bool DirectionConflict(string primaryDirection, string sqlDirection, decimal sqlConfidence)
+        {
+            if (sqlConfidence < 45m)
+            {
+                return false;
+            }
+
+            decimal primary = DirectionSign(primaryDirection);
+            decimal sql = DirectionSign(sqlDirection);
+            return primary != 0m && sql != 0m && primary != sql;
+        }
+
+        private static decimal PlanConfidence(HeatmapZone zone, HeatmapSnapshot snapshot)
+        {
+            if (zone == null)
+            {
+                return 0m;
+            }
+
+            decimal confidence = zone.ActionScore * 0.58m + zone.ConfidenceScore * 0.24m + zone.Score * 0.12m;
+
+            if (snapshot != null && snapshot.SqlMemory != null && DirectionSign(zone.Direction) == DirectionSign(snapshot.SqlMemory.Direction))
+            {
+                confidence += Math.Min(14m, snapshot.SqlMemory.ConfidenceScore * 0.18m);
+            }
+
+            if (snapshot != null && snapshot.Bias != null && DirectionSign(zone.Direction) == DirectionSign(snapshot.Bias.Direction))
+            {
+                confidence += Math.Min(10m, snapshot.Bias.Confidence * 0.12m);
+            }
+
+            confidence -= zone.ConflictScore * 0.35m;
+            return ClampScore(confidence);
+        }
+
+        private string PlanInvalidation(HeatmapZone zone, HeatmapSnapshot snapshot)
+        {
+            if (zone == null)
+            {
+                return "-";
+            }
+
+            if (string.Equals(zone.Direction, "Compra", StringComparison.OrdinalIgnoreCase))
+            {
+                return "perder " + FormatPlanPrice(Round(zone.LowPrice - _tickSize));
+            }
+
+            if (string.Equals(zone.Direction, "Venda", StringComparison.OrdinalIgnoreCase))
+            {
+                return "romper " + FormatPlanPrice(Round(zone.HighPrice + _tickSize));
+            }
+
+            return snapshot != null && snapshot.Corridor != null && snapshot.Corridor.IsAvailable
+                ? "sair do corredor"
+                : "perder zona";
+        }
+
+        private static string PlanContext(HeatmapSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return "-";
+            }
+
+            List<string> parts = new List<string>();
+
+            if (snapshot.Corridor != null && snapshot.Corridor.IsAvailable)
+            {
+                parts.Add("corredor " + snapshot.Corridor.WidthTicks.ToString() + "t " + Empty(snapshot.Corridor.Location).ToLowerInvariant());
+            }
+
+            if (snapshot.SqlMemory != null && snapshot.SqlMemory.IsAvailable)
+            {
+                parts.Add("SQL " + Empty(snapshot.SqlMemory.Direction).ToLowerInvariant() + " " + snapshot.SqlMemory.PressureScore.ToString("+0;-0;0"));
+            }
+
+            if (snapshot.Bias != null && !string.IsNullOrWhiteSpace(snapshot.Bias.Direction))
+            {
+                parts.Add("vies " + snapshot.Bias.Direction.ToLowerInvariant());
+            }
+
+            return parts.Count == 0 ? "-" : string.Join(" | ", parts.ToArray());
+        }
+
+        private static string FormatTicks(int ticks)
+        {
+            return ticks == 0 ? "0t" : ticks.ToString("+0;-0;0") + "t";
+        }
+
+        private static string FormatPlanPrice(decimal price)
+        {
+            return price.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static string Empty(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value;
         }
 
         private void ScoreAndClassify(HeatmapCell cell, HeatmapSnapshot snapshot)

@@ -9905,6 +9905,7 @@ namespace RtdDolarNative
             AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
+            AddRow(rows, "Plano", heatmap.Plan == null ? "-" : EmptyToDash(heatmap.Plan.State), heatmap.Plan == null ? "-" : "conf " + heatmap.Plan.ConfidenceScore.ToString("N0", _ptBr) + " | gatilho " + EmptyToDash(heatmap.Plan.Trigger) + " | invalida " + EmptyToDash(heatmap.Plan.Invalidation));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => Math.Abs(x.DistanceTicks)).FirstOrDefault();
             AddRow(rows, "Acao", actionZone == null ? "-" : EmptyToDash(actionZone.Action), actionZone == null ? "-" : "urg " + actionZone.ActionScore.ToString("N0", _ptBr) + " | " + EmptyToDash(actionZone.ActionRead));

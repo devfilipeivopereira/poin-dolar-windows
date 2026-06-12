@@ -20,7 +20,9 @@ namespace HeatmapFeatureTests
                 CorridorClassifiesCompressionNearResistance,
                 CorridorClassifiesWideMiddleRange,
                 SqlMemoryFramesHistoricalSupportAndResistanceAfterRestart,
-                SqlMemoryBiasesTowardStrongerHistoricalSupport
+                SqlMemoryBiasesTowardStrongerHistoricalSupport,
+                OperationalPlanPromotesAlignedSupportDefense,
+                OperationalPlanWaitsWhenLiveAndSqlConflict
             };
 
             int failed = 0;
@@ -212,6 +214,94 @@ namespace HeatmapFeatureTests
                 AssertEqual("Compra", heatmap.SqlMemory.Direction, "SQL memory should bias toward the stronger historical support side.");
                 Assert(heatmap.SqlMemory.PressureScore > 10m, "SQL memory pressure should be positive when historical support dominates.");
                 Assert(heatmap.SqlMemory.Read.IndexOf("sup", StringComparison.OrdinalIgnoreCase) >= 0, "SQL memory read should name the support anchor.");
+            }
+            finally
+            {
+                reader.Dispose();
+            }
+        }
+
+        private static void OperationalPlanPromotesAlignedSupportDefense()
+        {
+            string path = BuildDatabasePath();
+            HeatmapProcessor writer = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot historical = BuildSnapshot(5000m);
+                historical.LocalTimestamp = DateTimeOffset.Now.AddMinutes(-3);
+                AddBid(historical, 0, 4999.5m, 8200m);
+                AddAsk(historical, 0, 5002m, 3600m);
+
+                writer.Start();
+                writer.PostSnapshot(historical);
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 2", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist aligned SQL support.");
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+
+            HeatmapProcessor reader = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot live = BuildSnapshot(5000m);
+                AddBid(live, 0, 4999.5m, 6200m);
+                AddAsk(live, 0, 5002m, 3500m);
+                reader.PostSnapshot(live);
+
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.Plan != null, "Heatmap should expose an operational plan.");
+                AssertEqual("Compra defesa", heatmap.Plan.State, "Aligned nearby support should become the primary operational plan.");
+                AssertEqual("Compra", heatmap.Plan.Direction, "Aligned support plan should point to the buy side.");
+                Assert(heatmap.Plan.ConfidenceScore >= 70m, "Aligned support plan should carry high confidence.");
+                Assert(heatmap.Plan.Trigger.IndexOf("4999,50", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       heatmap.Plan.Trigger.IndexOf("4999.50", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Plan trigger should expose the support price.");
+            }
+            finally
+            {
+                reader.Dispose();
+            }
+        }
+
+        private static void OperationalPlanWaitsWhenLiveAndSqlConflict()
+        {
+            string path = BuildDatabasePath();
+            HeatmapProcessor writer = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot historical = BuildSnapshot(5000m);
+                historical.LocalTimestamp = DateTimeOffset.Now.AddMinutes(-3);
+                AddAsk(historical, 0, 4999.5m, 8600m);
+
+                writer.Start();
+                writer.PostSnapshot(historical);
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 1", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist conflicting SQL resistance.");
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+
+            HeatmapProcessor reader = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot live = BuildSnapshot(5000m);
+                AddBid(live, 0, 4999.5m, 6200m);
+                AddAsk(live, 0, 5002m, 2800m);
+                reader.PostSnapshot(live);
+
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.Plan != null, "Heatmap should expose an operational plan even under conflict.");
+                AssertEqual("Aguardar conflito", heatmap.Plan.State, "Conflicting live/SQL context should block directional action.");
+                AssertEqual("Neutro", heatmap.Plan.Direction, "Conflict plan should be neutral.");
+                Assert(heatmap.Plan.Read.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) >= 0, "Conflict plan should explain why it is waiting.");
             }
             finally
             {

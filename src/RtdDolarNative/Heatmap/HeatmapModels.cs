@@ -157,6 +157,18 @@ namespace RtdDolarNative.Heatmap
         public string Read { get; set; }
     }
 
+    public sealed class HeatmapOperationalPlan
+    {
+        public string State { get; set; }
+        public string Direction { get; set; }
+        public decimal ConfidenceScore { get; set; }
+        public decimal? AnchorPrice { get; set; }
+        public int AnchorDistanceTicks { get; set; }
+        public string Trigger { get; set; }
+        public string Invalidation { get; set; }
+        public string Read { get; set; }
+    }
+
     public sealed class HeatmapSnapshot
     {
         public HeatmapSnapshot()
@@ -167,6 +179,7 @@ namespace RtdDolarNative.Heatmap
             Bias = new HeatmapBias();
             Corridor = new HeatmapCorridor();
             SqlMemory = new HeatmapSqlMemory();
+            Plan = new HeatmapOperationalPlan();
         }
 
         public string Asset { get; set; }
@@ -209,6 +222,7 @@ namespace RtdDolarNative.Heatmap
         public HeatmapBias Bias { get; set; }
         public HeatmapCorridor Corridor { get; set; }
         public HeatmapSqlMemory SqlMemory { get; set; }
+        public HeatmapOperationalPlan Plan { get; set; }
         public string StorageStatus { get; set; }
         public List<HeatmapCell> Cells { get; set; }
         public List<HeatmapCell> InterestCells { get; set; }

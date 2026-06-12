@@ -50,6 +50,9 @@ namespace RtdDolarNative.Charts
             {
                 string[] badgeValues = new[]
                 {
+                    _snapshot.Plan != null
+                        ? "PLAN " + Empty(_snapshot.Plan.State) + " " + _snapshot.Plan.ConfidenceScore.ToString("N0", CultureInfo.InvariantCulture)
+                        : "PLAN -",
                     "CONF " + _snapshot.MaxConfidenceScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxConflictScore.ToString("N0", CultureInfo.InvariantCulture),
                     _snapshot.SqlMemory != null && _snapshot.SqlMemory.IsAvailable
                         ? "SQL " + Empty(_snapshot.SqlMemory.Direction) + " " + _snapshot.SqlMemory.PressureScore.ToString("+0;-0;0", CultureInfo.InvariantCulture)
@@ -62,6 +65,7 @@ namespace RtdDolarNative.Charts
                 };
                 Brush[] badgeBrushes = new[]
                 {
+                    _snapshot.Plan != null ? DirectionBrush(_snapshot.Plan.Direction) : muted,
                     _snapshot.MaxConflictScore >= 50m ? sell : _snapshot.MaxConfidenceScore >= 70m ? buy : muted,
                     _snapshot.SqlMemory != null && _snapshot.SqlMemory.IsAvailable ? DirectionBrush(_snapshot.SqlMemory.Direction) : _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted,
                     _snapshot.CumulativeDelta >= 0m ? buy : sell,
