@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -42,20 +43,53 @@ namespace RtdDolarNative.Charts
             }
 
             DrawText(dc, "HEATMAP OPERACIONAL", 12, 12, text, 14, FontWeights.Bold);
-            DrawText(dc, _snapshot == null ? "sem dados" : (_snapshot.Asset + " | " + _snapshot.StorageStatus), 12, 32, muted, 11, FontWeights.Normal);
+            double statusY = 32d;
+            double plotTop = 56d;
 
             if (_snapshot != null)
             {
-                DrawBadge(dc, "CONF " + _snapshot.MaxConfidenceScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxConflictScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 786, 12, _snapshot.MaxConflictScore >= 50m ? sell : _snapshot.MaxConfidenceScore >= 70m ? buy : muted);
-                DrawBadge(dc, "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 678, 12, _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted);
-                DrawBadge(dc, "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 570, 12, _snapshot.CumulativeDelta >= 0m ? buy : sell);
-                DrawBadge(dc, "STAB " + _snapshot.MaxPersistenceScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 462, 12, _snapshot.MaxPersistenceScore >= 70m ? buy : muted);
-                DrawBadge(dc, "SPOOF " + _snapshot.MaxSpoofRiskScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 354, 12, _snapshot.MaxSpoofRiskScore >= 70m ? sell : muted);
-                DrawBadge(dc, "TOP " + Empty(_snapshot.DominantRead), ActualWidth - 246, 12, DirectionBrush(_snapshot.DominantSide));
-                DrawBadge(dc, "WALL " + _snapshot.MaxWallScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 112, 12, accent);
+                string[] badgeValues = new[]
+                {
+                    "CONF " + _snapshot.MaxConfidenceScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxConflictScore.ToString("N0", CultureInfo.InvariantCulture),
+                    "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture),
+                    "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture),
+                    "STAB " + _snapshot.MaxPersistenceScore.ToString("N0", CultureInfo.InvariantCulture),
+                    "SPOOF " + _snapshot.MaxSpoofRiskScore.ToString("N0", CultureInfo.InvariantCulture),
+                    "TOP " + Empty(_snapshot.DominantRead),
+                    "WALL " + _snapshot.MaxWallScore.ToString("N0", CultureInfo.InvariantCulture)
+                };
+                Brush[] badgeBrushes = new[]
+                {
+                    _snapshot.MaxConflictScore >= 50m ? sell : _snapshot.MaxConfidenceScore >= 70m ? buy : muted,
+                    _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted,
+                    _snapshot.CumulativeDelta >= 0m ? buy : sell,
+                    _snapshot.MaxPersistenceScore >= 70m ? buy : muted,
+                    _snapshot.MaxSpoofRiskScore >= 70m ? sell : muted,
+                    DirectionBrush(_snapshot.DominantSide),
+                    accent
+                };
+                List<Rect> badgeRects = HeatmapBadgeLayout.Calculate(ActualWidth, badgeValues.Length, 96d, 24d, 6d, 12d, 300d);
+
+                for (int i = 0; i < badgeValues.Length && i < badgeRects.Count; i++)
+                {
+                    DrawBadge(dc, badgeValues[i], badgeRects[i], badgeBrushes[i]);
+                }
+
+                if (badgeRects.Count > 0)
+                {
+                    double badgeBottom = badgeRects.Max(x => x.Bottom);
+
+                    if (badgeBottom > 36d)
+                    {
+                        statusY = badgeBottom + 4d;
+                        plotTop = statusY + 22d;
+                    }
+                }
             }
 
-            Rect plot = new Rect(12, 56, Math.Max(20, ActualWidth - 24), Math.Max(20, ActualHeight - 68));
+            DrawText(dc, _snapshot == null ? "sem dados" : (_snapshot.Asset + " | " + _snapshot.StorageStatus), 12, statusY, muted, 11, FontWeights.Normal);
+
+            Rect plot = new Rect(12, plotTop, Math.Max(20, ActualWidth - 24), Math.Max(20, ActualHeight - plotTop - 12));
 
             if (_snapshot == null || _snapshot.Cells == null || _snapshot.Cells.Count == 0)
             {
@@ -219,16 +253,15 @@ namespace RtdDolarNative.Charts
                 : new SolidColorBrush(Color.FromArgb(alpha, 255, 82, 82));
         }
 
-        private void DrawBadge(DrawingContext dc, string value, double x, double y, Brush brush)
+        private void DrawBadge(DrawingContext dc, string value, Rect rect, Brush brush)
         {
-            if (x < 12)
+            if (rect.Width <= 0d || rect.Height <= 0d)
             {
                 return;
             }
 
-            Rect rect = new Rect(x, y, 96, 24);
             dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(20, 24, 29)), new Pen(brush, 1), rect, 4, 4);
-            DrawText(dc, value, x + 8, y + 6, brush, 10, FontWeights.Bold);
+            DrawText(dc, value, rect.Left + 8, rect.Top + 6, brush, 10, FontWeights.Bold);
         }
 
         private string Empty(string value)

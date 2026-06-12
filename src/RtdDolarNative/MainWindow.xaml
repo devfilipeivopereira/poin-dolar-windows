@@ -3794,9 +3794,31 @@
                                            TextWrapping="Wrap"
                                            Margin="0,4,0,0" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Content="Atualizar" Click="RefreshHeatmapButton_Click" Margin="0" />
-                            </StackPanel>
+                            <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <CheckBox x:Name="HeatmapSqlContextCheckBox"
+                                          Content="SQL"
+                                          ToolTip="Usar contexto historico salvo no SQLite do heatmap"
+                                          IsChecked="True"
+                                          Tag="{StaticResource Accent}"
+                                          Style="{StaticResource TopNavChartLineCheckBoxStyle}"
+                                          Checked="HeatmapSqlContext_Changed"
+                                          Unchecked="HeatmapSqlContext_Changed" />
+                                <ComboBox x:Name="HeatmapSqlWindowComboBox"
+                                          Width="72"
+                                          Margin="0,0,8,2"
+                                          SelectedIndex="3"
+                                          ToolTip="Janela historica do SQLite usada no calculo do heatmap"
+                                          Style="{StaticResource TopNavComboBoxStyle}"
+                                          SelectionChanged="HeatmapSqlWindowComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="30m" Tag="30" />
+                                    <ComboBoxItem Content="1h" Tag="60" />
+                                    <ComboBoxItem Content="3h" Tag="180" />
+                                    <ComboBoxItem Content="6h" Tag="360" />
+                                    <ComboBoxItem Content="12h" Tag="720" />
+                                    <ComboBoxItem Content="1d" Tag="1440" />
+                                </ComboBox>
+                                <Button Content="Atualizar" Click="RefreshHeatmapButton_Click" Margin="0,0,0,2" />
+                            </WrapPanel>
                         </Grid>
                     </Border>
 

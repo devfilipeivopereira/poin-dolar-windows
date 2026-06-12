@@ -165,6 +165,8 @@ namespace RtdDolarNative.Heatmap
         public int BookLevels { get; set; }
         public int TradeCount { get; set; }
         public long Version { get; set; }
+        public bool UseHistoricalContext { get; set; }
+        public int HistoricalContextMinutes { get; set; }
         public string DominantSide { get; set; }
         public string DominantRead { get; set; }
         public HeatmapBias Bias { get; set; }

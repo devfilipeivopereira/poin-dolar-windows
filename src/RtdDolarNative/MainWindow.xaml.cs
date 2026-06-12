@@ -156,6 +156,7 @@ namespace RtdDolarNative
             InitializeChartCandleSpacingSelection();
             InitializeChartLineVisibilitySelection();
             InitializeDomAnnotationSelection();
+            InitializeHeatmapSqlContextSelection();
             InitializePtaxEditor();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
@@ -3341,6 +3342,74 @@ namespace RtdDolarNative
         private void RefreshHeatmapButton_Click(object sender, RoutedEventArgs e)
         {
             RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void HeatmapSqlContext_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_heatmapProcessor == null)
+            {
+                return;
+            }
+
+            ApplyHeatmapSqlContextSelection();
+            RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void HeatmapSqlWindowComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_heatmapProcessor == null)
+            {
+                return;
+            }
+
+            ApplyHeatmapSqlContextSelection();
+            RenderHeatmap(FocusedSnapshot() ?? _lastSnapshot);
+        }
+
+        private void InitializeHeatmapSqlContextSelection()
+        {
+            if (HeatmapSqlContextCheckBox != null)
+            {
+                HeatmapSqlContextCheckBox.IsChecked = true;
+            }
+
+            if (HeatmapSqlWindowComboBox != null && HeatmapSqlWindowComboBox.SelectedIndex < 0)
+            {
+                HeatmapSqlWindowComboBox.SelectedIndex = 3;
+            }
+
+            ApplyHeatmapSqlContextSelection();
+        }
+
+        private void ApplyHeatmapSqlContextSelection()
+        {
+            if (_heatmapProcessor == null)
+            {
+                return;
+            }
+
+            bool useSql = HeatmapSqlContextCheckBox == null || HeatmapSqlContextCheckBox.IsChecked == true;
+            int minutes = 360;
+
+            ComboBoxItem item = HeatmapSqlWindowComboBox == null ? null : HeatmapSqlWindowComboBox.SelectedItem as ComboBoxItem;
+
+            if (item != null && item.Tag != null)
+            {
+                int parsed;
+
+                if (int.TryParse(item.Tag.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+                {
+                    minutes = parsed;
+                }
+            }
+
+            _heatmapProcessor.UseHistoricalContext = useSql;
+            _heatmapProcessor.HistoricalContextMinutes = minutes;
+
+            if (HeatmapSqlWindowComboBox != null)
+            {
+                HeatmapSqlWindowComboBox.IsEnabled = useSql;
+            }
         }
 
         private void RefreshGarchButton_Click(object sender, RoutedEventArgs e)
@@ -9587,6 +9656,8 @@ namespace RtdDolarNative
 
         private void RenderHeatmap(MarketSnapshot snapshot)
         {
+            ApplyHeatmapSqlContextSelection();
+
             string focused = FocusedAsset();
             MarketSnapshot effective = snapshot ?? FocusedSnapshot();
 
@@ -9650,8 +9721,10 @@ namespace RtdDolarNative
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
-            AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente 6h com frescor");
-            AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr) + " com frescor");
+            AddRow(rows, "Contexto SQL", heatmap.UseHistoricalContext ? FormatHeatmapWindow(heatmap.HistoricalContextMinutes) : "Desligado", heatmap.UseHistoricalContext ? "book e fluxo historicos entram no score" : "somente book e negocios ao vivo");
+            string sqlWindow = FormatHeatmapWindow(heatmap.HistoricalContextMinutes);
+            AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente " + sqlWindow + " com frescor");
+            AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr) + " em " + sqlWindow);
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
@@ -9773,6 +9846,21 @@ namespace RtdDolarNative
             }
 
             return (minutes / 60d).ToString("N1", _ptBr) + "h";
+        }
+
+        private string FormatHeatmapWindow(int minutes)
+        {
+            if (minutes < 60)
+            {
+                return minutes.ToString(_ptBr) + "m";
+            }
+
+            if (minutes % 60 == 0)
+            {
+                return (minutes / 60).ToString(_ptBr) + "h";
+            }
+
+            return (minutes / 60m).ToString("N1", _ptBr) + "h";
         }
 
         private string FlowMapZone(decimal price, decimal center, bool hasLevel)

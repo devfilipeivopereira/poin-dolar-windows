@@ -11,20 +11,25 @@ namespace RtdDolarNative.Heatmap
 {
     public sealed class HeatmapProcessor : IDisposable
     {
-        private const int HistoricalContextMinutes = 360;
-        private const int HistoricalContextRows = 180;
+        private const int DefaultHistoricalContextMinutes = 360;
+        private const int DefaultHistoricalContextRows = 180;
         private readonly object _lock = new object();
         private readonly decimal _tickSize;
         private readonly MarketHeatmapSqliteStore _store;
         private readonly Dictionary<string, Dictionary<decimal, HeatmapCell>> _bookByAsset = new Dictionary<string, Dictionary<decimal, HeatmapCell>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<TradePrint>> _tradesByAsset = new Dictionary<string, List<TradePrint>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, decimal?> _currentPriceByAsset = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        private int _historicalContextMinutes;
+        private int _historicalContextRows;
         private long _version;
 
         public HeatmapProcessor(decimal tickSize, string databasePath, Logger log)
         {
             _tickSize = tickSize <= 0m ? 0.5m : tickSize;
             _store = new MarketHeatmapSqliteStore(databasePath, log);
+            UseHistoricalContext = true;
+            HistoricalContextMinutes = DefaultHistoricalContextMinutes;
+            HistoricalContextRows = DefaultHistoricalContextRows;
         }
 
         public long Version
@@ -40,6 +45,20 @@ namespace RtdDolarNative.Heatmap
         public string DatabasePath
         {
             get { return _store.DatabasePath; }
+        }
+
+        public bool UseHistoricalContext { get; set; }
+
+        public int HistoricalContextMinutes
+        {
+            get { return _historicalContextMinutes; }
+            set { _historicalContextMinutes = Math.Max(5, Math.Min(1440, value)); }
+        }
+
+        public int HistoricalContextRows
+        {
+            get { return _historicalContextRows; }
+            set { _historicalContextRows = Math.Max(20, Math.Min(2000, value)); }
         }
 
         public void Start()
@@ -110,6 +129,8 @@ namespace RtdDolarNative.Heatmap
             snapshot.CurrentPrice = currentPrice;
             snapshot.Version = Version;
             snapshot.StorageStatus = StorageStatus;
+            snapshot.UseHistoricalContext = UseHistoricalContext;
+            snapshot.HistoricalContextMinutes = HistoricalContextMinutes;
 
             if (string.IsNullOrWhiteSpace(asset))
             {
@@ -175,7 +196,14 @@ namespace RtdDolarNative.Heatmap
                 }
             }
 
-            MergeHistoricalContext(asset, snapshot, combined);
+            if (UseHistoricalContext)
+            {
+                MergeHistoricalContext(asset, snapshot, combined);
+            }
+            else
+            {
+                snapshot.StorageStatus = "sqlite desligado | " + StorageStatus;
+            }
 
             List<HeatmapCell> allCells = combined.Values.ToList();
 
@@ -361,7 +389,10 @@ namespace RtdDolarNative.Heatmap
 
         private void MergeHistoricalContext(string asset, HeatmapSnapshot snapshot, Dictionary<decimal, HeatmapCell> combined)
         {
-            List<HeatmapHistoricalLevel> levels = _store.LoadRecentBookContext(asset, DateTimeOffset.Now.AddMinutes(-HistoricalContextMinutes), HistoricalContextRows);
+            int minutes = HistoricalContextMinutes;
+            int rows = HistoricalContextRows;
+            DateTimeOffset since = DateTimeOffset.Now.AddMinutes(-minutes);
+            List<HeatmapHistoricalLevel> levels = _store.LoadRecentBookContext(asset, since, rows);
 
             foreach (HeatmapHistoricalLevel level in levels)
             {
@@ -381,7 +412,7 @@ namespace RtdDolarNative.Heatmap
                 }
             }
 
-            List<HeatmapHistoricalTradeLevel> trades = _store.LoadRecentTradeContext(asset, DateTimeOffset.Now.AddMinutes(-HistoricalContextMinutes), HistoricalContextRows);
+            List<HeatmapHistoricalTradeLevel> trades = _store.LoadRecentTradeContext(asset, since, rows);
 
             foreach (HeatmapHistoricalTradeLevel trade in trades)
             {
@@ -403,7 +434,22 @@ namespace RtdDolarNative.Heatmap
                 }
             }
 
-            snapshot.StorageStatus = StorageStatus;
+            snapshot.StorageStatus = StorageStatus + " | hist " + FormatHistoricalWindow(minutes);
+        }
+
+        private static string FormatHistoricalWindow(int minutes)
+        {
+            if (minutes < 60)
+            {
+                return minutes.ToString() + "m";
+            }
+
+            if (minutes % 60 == 0)
+            {
+                return (minutes / 60).ToString() + "h";
+            }
+
+            return (minutes / 60m).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "h";
         }
 
         private Dictionary<decimal, HeatmapCell> ApplyBookChanges(string asset, Dictionary<decimal, HeatmapCell> current, DateTimeOffset timestamp)
@@ -696,11 +742,12 @@ namespace RtdDolarNative.Heatmap
             decimal historicalFreshness = 0m;
             double historicalTradeAge = 0d;
             decimal historicalFlowFreshness = 0m;
+            int historicalWindowMinutes = snapshot.HistoricalContextMinutes <= 0 ? DefaultHistoricalContextMinutes : snapshot.HistoricalContextMinutes;
             decimal historicalFreshnessFactor = cell.HistoricalSamples > 0
-                ? HistoricalFreshnessFactor(cell.HistoricalLastSeen, snapshot.LocalTimestamp, out historicalAge, out historicalFreshness)
+                ? HistoricalFreshnessFactor(cell.HistoricalLastSeen, snapshot.LocalTimestamp, historicalWindowMinutes, out historicalAge, out historicalFreshness)
                 : 0m;
             decimal historicalFlowFreshnessFactor = cell.HistoricalTradeSamples > 0
-                ? HistoricalFreshnessFactor(cell.HistoricalTradeLastSeen, snapshot.LocalTimestamp, out historicalTradeAge, out historicalFlowFreshness)
+                ? HistoricalFreshnessFactor(cell.HistoricalTradeLastSeen, snapshot.LocalTimestamp, historicalWindowMinutes, out historicalTradeAge, out historicalFlowFreshness)
                 : 0m;
             cell.HistoricalScore = cell.HistoricalSamples > 0
                 ? ClampScore((historicalRatio * 70m + Math.Min(30m, cell.HistoricalSamples * 6m)) * historicalFreshnessFactor)
@@ -1214,18 +1261,20 @@ namespace RtdDolarNative.Heatmap
             return value;
         }
 
-        private static decimal HistoricalFreshnessFactor(DateTimeOffset lastSeen, DateTimeOffset reference, out double ageMinutes, out decimal freshnessScore)
+        private static decimal HistoricalFreshnessFactor(DateTimeOffset lastSeen, DateTimeOffset reference, int contextMinutes, out double ageMinutes, out decimal freshnessScore)
         {
+            int safeContextMinutes = Math.Max(5, contextMinutes);
+
             if (lastSeen == DateTimeOffset.MinValue)
             {
-                ageMinutes = HistoricalContextMinutes;
+                ageMinutes = safeContextMinutes;
                 freshnessScore = 0m;
                 return 0m;
             }
 
             DateTimeOffset effectiveReference = reference == DateTimeOffset.MinValue ? DateTimeOffset.Now : reference;
             ageMinutes = Math.Max(0d, (effectiveReference - lastSeen).TotalMinutes);
-            double freshnessRatio = Math.Max(0d, 1d - ageMinutes / HistoricalContextMinutes);
+            double freshnessRatio = Math.Max(0d, 1d - ageMinutes / safeContextMinutes);
             decimal factor = 0.25m + (decimal)freshnessRatio * 0.75m;
             freshnessScore = ClampScore(factor * 100m);
             return factor;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Windows;
 using RtdDolarNative.Charts;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
@@ -60,6 +61,9 @@ namespace QuantEngineTests
                 HeatmapSqlHistoryScoresRecentLevelsAboveStaleLevels,
                 HeatmapConfluencePromotesAlignedLiveAndSqlSupport,
                 HeatmapConfluenceFlagsConflictingHistoricalBookAndFlow,
+                HeatmapSqlContextWindowIsConfigurable,
+                HeatmapSqlContextCanBeDisabled,
+                HeatmapHeaderBadgesWrapWithinAvailableWidth,
                 GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
@@ -1491,6 +1495,122 @@ namespace QuantEngineTests
             finally
             {
                 TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapSqlContextWindowIsConfigurable()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-window-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot oldBook = BuildHeatmapSnapshot(5000m);
+                oldBook.LocalTimestamp = now.AddMinutes(-45);
+                AddBookBid(oldBook, 0, 4998.5m, 2600m);
+                writer.PostSnapshot(oldBook);
+
+                MarketSnapshot recentBook = BuildHeatmapSnapshot(5000m);
+                recentBook.LocalTimestamp = now.AddMinutes(-5);
+                AddBookBid(recentBook, 0, 4999m, 2600m);
+                writer.PostSnapshot(recentBook);
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 2", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist old and recent SQL book rows.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                reader.HistoricalContextMinutes = 30;
+
+                HeatmapSnapshot shortWindow = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(shortWindow.InterestCells.Any(x => x.Price == 4999m), "Short SQL window should keep recent historical levels.");
+                Assert(!shortWindow.InterestCells.Any(x => x.Price == 4998.5m), "Short SQL window should ignore historical levels older than the selected window.");
+
+                reader.HistoricalContextMinutes = 60;
+                HeatmapSnapshot longWindow = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(longWindow.InterestCells.Any(x => x.Price == 4998.5m), "Long SQL window should include older historical levels again.");
+                Assert(longWindow.HistoricalLevels >= 2, "Long SQL window should expose both historical SQL levels.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapSqlContextCanBeDisabled()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-disable-sql-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot historicalBook = BuildHeatmapSnapshot(5000m);
+                historicalBook.LocalTimestamp = now.AddMinutes(-5);
+                AddBookBid(historicalBook, 0, 4999m, 2600m);
+                writer.PostSnapshot(historicalBook);
+
+                writer.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-4),
+                    Price = 4999m,
+                    Quantity = 300m,
+                    Delta = 300m,
+                    Aggressor = "Buy"
+                });
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 1", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                       writer.StorageStatus.IndexOf("trades 1", StringComparison.OrdinalIgnoreCase) >= 0, 3000),
+                    "Writer should persist SQL context before disabling it.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                reader.UseHistoricalContext = false;
+
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                AssertEqual(0, heatmap.HistoricalLevels, "Disabled SQL context should not merge historical book rows.");
+                AssertEqual(0, heatmap.HistoricalTradeLevels, "Disabled SQL context should not merge historical trade rows.");
+                Assert(!heatmap.InterestCells.Any(x => x.Price == 4999m), "Disabled SQL context should leave SQL-only levels out of the interest list.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapHeaderBadgesWrapWithinAvailableWidth()
+        {
+            List<Rect> badges = HeatmapBadgeLayout.Calculate(520d, 7, 96d, 24d, 6d, 12d, 300d);
+
+            AssertEqual(7, badges.Count, "Heatmap header should keep every badge visible.");
+            Assert(badges.Select(x => Math.Round(x.Top)).Distinct().Count() >= 2, "Narrow heatmap header should wrap badges to additional rows.");
+
+            for (int i = 0; i < badges.Count; i++)
+            {
+                Assert(badges[i].Left >= 12d, "Badge should stay inside the left padding.");
+                Assert(badges[i].Right <= 508d, "Badge should stay inside the right padding.");
+
+                for (int j = i + 1; j < badges.Count; j++)
+                {
+                    bool sameRow = Math.Abs(badges[i].Top - badges[j].Top) < 0.01d;
+                    bool separated = badges[i].Right <= badges[j].Left || badges[j].Right <= badges[i].Left;
+
+                    Assert(!sameRow || separated, "Heatmap header badges should not overlap on the same row.");
+                }
             }
         }
 
