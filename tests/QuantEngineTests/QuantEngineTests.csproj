@@ -56,6 +56,9 @@
     <Compile Include="..\..\src\RtdDolarNative\Charts\HeatmapBadgeLayout.cs">
       <Link>Charts\HeatmapBadgeLayout.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Charts\HeatmapPlanOverlay.cs">
+      <Link>Charts\HeatmapPlanOverlay.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Csv\DailyBar.cs">
       <Link>Csv\DailyBar.cs</Link>
     </Compile>

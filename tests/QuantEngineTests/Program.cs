@@ -76,6 +76,7 @@ namespace QuantEngineTests
                 HeatmapSqlContextWindowIsConfigurable,
                 HeatmapSqlContextCanBeDisabled,
                 HeatmapHeaderBadgesWrapWithinAvailableWidth,
+                HeatmapPlanOverlayBuildsActionablePlanLabels,
                 GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
@@ -2067,6 +2068,33 @@ namespace QuantEngineTests
                     Assert(!sameRow || separated, "Heatmap header badges should not overlap on the same row.");
                 }
             }
+        }
+
+        private static void HeatmapPlanOverlayBuildsActionablePlanLabels()
+        {
+            HeatmapOperationalPlan plan = new HeatmapOperationalPlan();
+            plan.State = "Compra defesa";
+            plan.Direction = "Compra";
+            plan.ConfidenceScore = 82m;
+            plan.AnchorPrice = 4999.5m;
+            plan.AnchorDistanceTicks = -1;
+            plan.TargetPrice = 5002m;
+            plan.StopPrice = 4999m;
+            plan.RiskTicks = 1;
+            plan.RewardTicks = 5;
+            plan.RiskReward = 5m;
+
+            HeatmapPlanOverlay overlay = HeatmapPlanOverlay.Build(plan);
+
+            Assert(overlay.IsAvailable, "Actionable heatmap plan should produce a chart overlay.");
+            AssertEqual("COMPRA DEFESA | CONF 82 | R/R 5.00", overlay.Summary, "Overlay summary should make direction, confidence and risk/reward visible.");
+            AssertEqual(3, overlay.Lines.Count, "Overlay should expose entry, target and stop lines.");
+            AssertEqual("ENT", overlay.Lines[0].Role, "First overlay line should be the entry anchor.");
+            AssertEqual("ALVO", overlay.Lines[1].Role, "Second overlay line should be the target.");
+            AssertEqual("STOP", overlay.Lines[2].Role, "Third overlay line should be the stop.");
+            Assert(overlay.Lines[1].Label.IndexOf("5.002,00", StringComparison.OrdinalIgnoreCase) >= 0, "Target label should include formatted target price.");
+            Assert(overlay.Lines[1].Label.IndexOf("+5t", StringComparison.OrdinalIgnoreCase) >= 0, "Target label should include reward ticks.");
+            Assert(overlay.Lines[2].Label.IndexOf("R1t", StringComparison.OrdinalIgnoreCase) >= 0, "Stop label should include risk ticks.");
         }
 
         private static void TryDelete(string folder)

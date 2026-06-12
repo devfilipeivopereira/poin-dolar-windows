@@ -204,6 +204,7 @@ namespace RtdDolarNative.Charts
             DrawZoneOverlays(dc, plot, rowHeight, readWidth);
             DrawSqlMemoryOverlay(dc, plot, rowHeight, labelWidth, flowSql, muted);
             DrawCorridorOverlay(dc, plot, rowHeight, labelWidth, accent, muted);
+            DrawPlanOverlay(dc, plot, rowHeight, labelWidth, text, muted);
         }
 
         private void DrawZoneOverlays(DrawingContext dc, Rect plot, double rowHeight, double readWidth)
@@ -321,6 +322,131 @@ namespace RtdDolarNative.Charts
             dc.DrawLine(pen, new Point(bracketX - 8, bottom), new Point(bracketX + 8, bottom));
             DrawText(dc, "COR " + _snapshot.Corridor.WidthTicks.ToString("N0", CultureInfo.InvariantCulture) + "t " + Empty(_snapshot.Corridor.Phase), bracketX + 12, top + 2, accent, 10, FontWeights.Bold);
             DrawText(dc, Empty(_snapshot.Corridor.Location) + " " + _snapshot.Corridor.CurrentPositionPct.ToString("N0", CultureInfo.InvariantCulture) + "%", bracketX + 12, bottom - 14, muted, 10, FontWeights.Normal);
+        }
+
+        private void DrawPlanOverlay(DrawingContext dc, Rect plot, double rowHeight, double labelWidth, Brush text, Brush muted)
+        {
+            if (_snapshot == null || _snapshot.Cells == null || _snapshot.Cells.Count == 0)
+            {
+                return;
+            }
+
+            HeatmapPlanOverlay overlay = HeatmapPlanOverlay.Build(_snapshot.Plan);
+
+            if (overlay == null || !overlay.IsAvailable || overlay.Lines == null || overlay.Lines.Count == 0)
+            {
+                return;
+            }
+
+            Brush planBrush = DirectionBrush(_snapshot.Plan == null ? null : _snapshot.Plan.Direction);
+            double panelWidth = Math.Min(390d, Math.Max(210d, plot.Width - labelWidth - 20d));
+            Rect panel = new Rect(plot.Left + Math.Max(88d, labelWidth + 8d), plot.Top + 8d, panelWidth, 30d);
+            Brush panelFill = new SolidColorBrush(Color.FromArgb(214, 10, 13, 15));
+            Pen panelPen = new Pen(planBrush, 1.2);
+
+            dc.DrawRoundedRectangle(panelFill, panelPen, panel, 4d, 4d);
+            DrawText(dc, overlay.Summary, panel.Left + 10d, panel.Top + 8d, planBrush, 10, FontWeights.Bold);
+
+            foreach (HeatmapPlanOverlayLine line in overlay.Lines)
+            {
+                if (line == null)
+                {
+                    continue;
+                }
+
+                bool clamped;
+                double y = ResolvePriceY(line.Price, plot, rowHeight, out clamped);
+
+                if (double.IsNaN(y))
+                {
+                    continue;
+                }
+
+                Brush brush = PlanLineBrush(line);
+                Pen guide = new Pen(brush, string.Equals(line.Role, "ENT", StringComparison.OrdinalIgnoreCase) ? 2.2d : 1.6d);
+
+                if (string.Equals(line.Role, "STOP", StringComparison.OrdinalIgnoreCase))
+                {
+                    guide.DashStyle = DashStyles.Dash;
+                }
+                else if (clamped)
+                {
+                    guide.DashStyle = DashStyles.Dot;
+                }
+
+                double x1 = plot.Left + 2d;
+                double x2 = plot.Right - 2d;
+                dc.DrawLine(guide, new Point(x1, y), new Point(x2, y));
+
+                string label = clamped ? line.Label + (line.Price > MaxVisiblePrice() ? " acima" : " abaixo") : line.Label;
+                Rect labelRect = new Rect(panel.Left, Math.Max(plot.Top + 2d, Math.Min(plot.Bottom - 22d, y - 11d)), Math.Min(240d, Math.Max(124d, plot.Width - labelWidth - 36d)), 21d);
+                dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(226, 0, 0, 0)), new Pen(brush, 1d), labelRect, 3d, 3d);
+                DrawText(dc, label, labelRect.Left + 8d, labelRect.Top + 5d, brush, 10, FontWeights.Bold);
+            }
+        }
+
+        private double ResolvePriceY(decimal price, Rect plot, double rowHeight, out bool clamped)
+        {
+            clamped = false;
+
+            if (_snapshot == null || _snapshot.Cells == null || _snapshot.Cells.Count == 0)
+            {
+                return double.NaN;
+            }
+
+            decimal maxVisible = MaxVisiblePrice();
+            decimal minVisible = MinVisiblePrice();
+
+            if (price > maxVisible)
+            {
+                clamped = true;
+                return plot.Top + 6d;
+            }
+
+            if (price < minVisible)
+            {
+                clamped = true;
+                return plot.Bottom - 6d;
+            }
+
+            var target = _snapshot.Cells
+                .Select((x, i) => new { Cell = x, Index = i })
+                .OrderBy(x => Math.Abs(x.Cell.Price - price))
+                .FirstOrDefault();
+
+            return target == null
+                ? double.NaN
+                : plot.Top + target.Index * rowHeight + rowHeight / 2d;
+        }
+
+        private decimal MaxVisiblePrice()
+        {
+            return _snapshot == null || _snapshot.Cells == null || _snapshot.Cells.Count == 0
+                ? 0m
+                : _snapshot.Cells.Max(x => x.Price);
+        }
+
+        private decimal MinVisiblePrice()
+        {
+            return _snapshot == null || _snapshot.Cells == null || _snapshot.Cells.Count == 0
+                ? 0m
+                : _snapshot.Cells.Min(x => x.Price);
+        }
+
+        private Brush PlanLineBrush(HeatmapPlanOverlayLine line)
+        {
+            if (line == null)
+            {
+                return new SolidColorBrush(Color.FromRgb(230, 237, 243));
+            }
+
+            if (string.Equals(line.Role, "STOP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(line.Direction, "Risco", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SolidColorBrush(Color.FromRgb(255, 184, 0));
+            }
+
+            return DirectionBrush(line.Direction);
         }
 
         private static string ActionShort(HeatmapZone zone)

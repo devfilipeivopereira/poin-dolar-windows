@@ -106,6 +106,7 @@
     <Compile Include="Charts\NativeChartControl.cs" />
     <Compile Include="Charts\ChartTimeframe.cs" />
     <Compile Include="Charts\HeatmapBadgeLayout.cs" />
+    <Compile Include="Charts\HeatmapPlanOverlay.cs" />
     <Compile Include="Charts\HeatmapChartControl.cs" />
     <Compile Include="Charts\VolumeProfileChartControl.cs" />
     <Compile Include="Csv\DailyBar.cs" />
