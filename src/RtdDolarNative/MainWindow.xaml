@@ -3816,8 +3816,8 @@
                                       AutoGenerateColumns="False"
                                       Margin="0,0,0,10">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="110" />
-                                    <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="130" />
+                                    <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="118" />
+                                    <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="132" />
                                     <DataGridTextColumn Header="Detalhe" Binding="{Binding Detail}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -3826,12 +3826,15 @@
                                       AutoGenerateColumns="False"
                                       CellStyle="{StaticResource DirectionalDataGridCellStyle}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="90" />
-                                    <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="70" />
-                                    <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="70" />
-                                    <DataGridTextColumn Header="Book" Binding="{Binding Book}" Width="135" />
-                                    <DataGridTextColumn Header="Trades" Binding="{Binding Trades}" Width="135" />
-                                    <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="70" />
+                                    <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="82" />
+                                    <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="58" />
+                                    <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="66" />
+                                    <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="62" />
+                                    <DataGridTextColumn Header="Book" Binding="{Binding Book}" Width="126" />
+                                    <DataGridTextColumn Header="Flow" Binding="{Binding Trades}" Width="126" />
+                                    <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="64" />
+                                    <DataGridTextColumn Header="Abs" Binding="{Binding Absorption}" Width="54" />
+                                    <DataGridTextColumn Header="Stack" Binding="{Binding StackPull}" Width="62" />
                                     <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>

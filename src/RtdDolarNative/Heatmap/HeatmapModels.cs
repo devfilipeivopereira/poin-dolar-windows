@@ -22,7 +22,18 @@ namespace RtdDolarNative.Heatmap
         public decimal SellVolume { get; set; }
         public decimal NeutralVolume { get; set; }
         public decimal Delta { get; set; }
+        public decimal BidChange { get; set; }
+        public decimal AskChange { get; set; }
+        public decimal NetLiquidity { get; set; }
+        public decimal LiquidityImbalance { get; set; }
+        public decimal TradeImbalance { get; set; }
+        public decimal WallScore { get; set; }
+        public decimal AbsorptionScore { get; set; }
+        public decimal AggressionScore { get; set; }
+        public decimal StackingScore { get; set; }
+        public decimal PullingScore { get; set; }
         public decimal InterestScore { get; set; }
+        public int DistanceTicks { get; set; }
         public string Direction { get; set; }
         public string Read { get; set; }
     }
@@ -32,6 +43,7 @@ namespace RtdDolarNative.Heatmap
         public HeatmapSnapshot()
         {
             Cells = new List<HeatmapCell>();
+            InterestCells = new List<HeatmapCell>();
         }
 
         public string Asset { get; set; }
@@ -40,6 +52,11 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxBidLiquidity { get; set; }
         public decimal MaxAskLiquidity { get; set; }
         public decimal MaxTradeVolume { get; set; }
+        public decimal MaxAbsorptionScore { get; set; }
+        public decimal MaxAggressionScore { get; set; }
+        public decimal MaxWallScore { get; set; }
+        public decimal MaxStackingScore { get; set; }
+        public decimal MaxPullingScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }
@@ -48,7 +65,10 @@ namespace RtdDolarNative.Heatmap
         public int BookLevels { get; set; }
         public int TradeCount { get; set; }
         public long Version { get; set; }
+        public string DominantSide { get; set; }
+        public string DominantRead { get; set; }
         public string StorageStatus { get; set; }
         public List<HeatmapCell> Cells { get; set; }
+        public List<HeatmapCell> InterestCells { get; set; }
     }
 }

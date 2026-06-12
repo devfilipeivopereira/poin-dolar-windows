@@ -9617,6 +9617,9 @@ namespace RtdDolarNative
             AddRow(rows, "Negocios compra", heatmap.TotalBuyVolume.ToString("N0", _ptBr), "agressoes compra");
             AddRow(rows, "Negocios venda", heatmap.TotalSellVolume.ToString("N0", _ptBr), "agressoes venda");
             AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
+            AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
+            AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
+            AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "SQLite", heatmap.StorageStatus, _heatmapProcessor.DatabasePath);
             return rows;
         }
@@ -9625,20 +9628,27 @@ namespace RtdDolarNative
         {
             List<HeatmapInterestRow> rows = new List<HeatmapInterestRow>();
 
-            if (heatmap == null || heatmap.Cells == null)
+            if (heatmap == null)
             {
                 return rows;
             }
 
-            foreach (HeatmapCell cell in heatmap.Cells.OrderByDescending(x => x.InterestScore).ThenBy(x => Math.Abs(x.Price - (heatmap.CurrentPrice ?? x.Price))))
+            IEnumerable<HeatmapCell> source = heatmap.InterestCells != null && heatmap.InterestCells.Count > 0
+                ? heatmap.InterestCells
+                : (heatmap.Cells ?? new List<HeatmapCell>());
+
+            foreach (HeatmapCell cell in source.OrderByDescending(x => x.InterestScore).ThenBy(x => Math.Abs(x.DistanceTicks)))
             {
                 HeatmapInterestRow row = new HeatmapInterestRow();
                 row.Price = cell.Price.ToString("N2", _ptBr);
+                row.Distance = cell.DistanceTicks == 0 ? "0" : cell.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
                 row.Direction = string.IsNullOrWhiteSpace(cell.Direction) ? "Neutro" : cell.Direction;
                 row.Score = cell.InterestScore.ToString("N0", _ptBr);
                 row.Book = "C " + cell.BidLiquidity.ToString("N0", _ptBr) + " / V " + cell.AskLiquidity.ToString("N0", _ptBr);
                 row.Trades = "C " + cell.BuyVolume.ToString("N0", _ptBr) + " / V " + cell.SellVolume.ToString("N0", _ptBr);
                 row.Delta = cell.Delta.ToString("N0", _ptBr);
+                row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
+                row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(cell.Read);
                 rows.Add(row);
             }
@@ -10554,11 +10564,14 @@ namespace RtdDolarNative
         private sealed class HeatmapInterestRow
         {
             public string Price { get; set; }
+            public string Distance { get; set; }
             public string Direction { get; set; }
             public string Score { get; set; }
             public string Book { get; set; }
             public string Trades { get; set; }
             public string Delta { get; set; }
+            public string Absorption { get; set; }
+            public string StackPull { get; set; }
             public string Read { get; set; }
         }
 

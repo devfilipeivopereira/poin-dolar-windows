@@ -6,6 +6,9 @@ using System.Linq;
 using RtdDolarNative.Charts;
 using RtdDolarNative.Csv;
 using RtdDolarNative.Dom;
+using RtdDolarNative.Flow;
+using RtdDolarNative.Heatmap;
+using RtdDolarNative.Logging;
 using RtdDolarNative.MarketData;
 using RtdDolarNative.Quant;
 
@@ -39,6 +42,8 @@ namespace QuantEngineTests
                 DomAnnotationFilterKeepsAllCategoriesVisibleByDefault,
                 DomAnnotationFilterHidesUncheckedCategoriesFromDomMarkings,
                 DomAnnotationFilterKeepsProfilePercentLabelsWhenPercentIsUnchecked,
+                HeatmapKeepsDistantLiquidityWallsInInterestList,
+                HeatmapScoresAbsorptionAndStackingAtBid,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -760,6 +765,78 @@ namespace QuantEngineTests
             }
         }
 
+        private static void HeatmapKeepsDistantLiquidityWallsInInterestList()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+
+                for (int i = 0; i < 50; i++)
+                {
+                    AddBookAsk(snapshot, i, 5000.5m + i * 0.5m, i == 49 ? 120000m : 120m);
+                }
+
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 20);
+                HeatmapCell farWall = heatmap.InterestCells.FirstOrDefault(x => x.Price == 5025m);
+
+                Assert(heatmap.Cells.Count <= 20, "Chart heatmap rows should stay bounded and centered for readability.");
+                Assert(farWall != null, "A distant high-liquidity CSV/book wall should still appear in the interest list.");
+                AssertEqual("Venda", farWall.Direction, "Large ask wall above price should be classified as sell-side liquidity.");
+                Assert(farWall.WallScore >= 95m, "Distant wall should carry a strong wall score.");
+                Assert(farWall.InterestScore > 60m && farWall.InterestScore <= 100m, "Interest score should be normalized and high for a dominant wall.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapScoresAbsorptionAndStackingAtBid()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                MarketSnapshot first = BuildHeatmapSnapshot(5000m);
+                AddBookBid(first, 0, 4999m, 100m);
+                AddBookAsk(first, 0, 5001m, 100m);
+                processor.PostSnapshot(first);
+
+                MarketSnapshot second = BuildHeatmapSnapshot(5000m);
+                AddBookBid(second, 0, 4999m, 1000m);
+                AddBookAsk(second, 0, 5001m, 100m);
+                processor.PostSnapshot(second);
+
+                processor.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = DateTimeOffset.Now,
+                    Price = 4999m,
+                    Quantity = 300m,
+                    Delta = -300m,
+                    Aggressor = "Sell"
+                });
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell bid = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4999m);
+
+                Assert(bid != null, "Bid absorption level should appear in the interest list.");
+                AssertEqual("Compra", bid.Direction, "Sell aggression absorbed by a stacked bid should be classified as buy support.");
+                Assert(bid.BidChange >= 900m, "Heatmap should track stacking change at the bid.");
+                Assert(bid.StackingScore >= 70m, "Stacking score should be high after a large bid increase.");
+                Assert(bid.AbsorptionScore >= 70m, "Absorption score should be high when sell aggression trades into a strong bid.");
+                Assert(bid.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0, "Read should name absorption explicitly.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
         private static void TryDelete(string folder)
         {
             try
@@ -772,6 +849,34 @@ namespace QuantEngineTests
             catch
             {
             }
+        }
+
+        private static HeatmapProcessor BuildHeatmapProcessor()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+            return new HeatmapProcessor(0.5m, path, new Logger(null));
+        }
+
+        private static MarketSnapshot BuildHeatmapSnapshot(decimal currentPrice)
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Asset = "WDOFUT_F_0";
+            snapshot.LocalTimestamp = DateTimeOffset.Now;
+            snapshot.Rtd["ULT"] = currentPrice;
+            return snapshot;
+        }
+
+        private static void AddBookBid(MarketSnapshot snapshot, int index, decimal price, decimal quantity)
+        {
+            snapshot.Rtd["BOOK_OCP_" + index.ToString(CultureInfo.InvariantCulture)] = price;
+            snapshot.Rtd["BOOK_VOC_" + index.ToString(CultureInfo.InvariantCulture)] = quantity;
+        }
+
+        private static void AddBookAsk(MarketSnapshot snapshot, int index, decimal price, decimal quantity)
+        {
+            snapshot.Rtd["BOOK_OVD_" + index.ToString(CultureInfo.InvariantCulture)] = price;
+            snapshot.Rtd["BOOK_VOV_" + index.ToString(CultureInfo.InvariantCulture)] = quantity;
         }
     }
 }

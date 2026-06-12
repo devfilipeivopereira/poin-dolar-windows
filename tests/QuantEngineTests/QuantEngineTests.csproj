@@ -65,6 +65,27 @@
     <Compile Include="..\..\src\RtdDolarNative\Dom\DomAnnotationOptions.cs">
       <Link>Dom\DomAnnotationOptions.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomLadderModel.cs">
+      <Link>Dom\DomLadderModel.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Dom\DomRow.cs">
+      <Link>Dom\DomRow.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Flow\FlowModels.cs">
+      <Link>Flow\FlowModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapModels.cs">
+      <Link>Heatmap\HeatmapModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapProcessor.cs">
+      <Link>Heatmap\HeatmapProcessor.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Heatmap\MarketHeatmapSqliteStore.cs">
+      <Link>Heatmap\MarketHeatmapSqliteStore.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Logging\Logger.cs">
+      <Link>Logging\Logger.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\MarketData\MarketSnapshot.cs">
       <Link>MarketData\MarketSnapshot.cs</Link>
     </Compile>
