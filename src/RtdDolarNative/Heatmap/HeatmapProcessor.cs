@@ -196,6 +196,7 @@ namespace RtdDolarNative.Heatmap
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
             snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows));
             snapshot.InterestCells = SelectInterestRows(allCells, snapshot.CurrentPrice, Math.Max(40, maxRows));
+            snapshot.Zones = BuildZones(snapshot.InterestCells, snapshot.CurrentPrice, Math.Max(12, maxRows / 4));
             ApplyDominantRead(snapshot);
             return snapshot;
         }
@@ -368,6 +369,111 @@ namespace RtdDolarNative.Heatmap
                 .ToList();
         }
 
+        private List<HeatmapZone> BuildZones(List<HeatmapCell> cells, decimal? currentPrice, int maxZones)
+        {
+            List<HeatmapZone> zones = new List<HeatmapZone>();
+
+            if (cells == null || cells.Count == 0)
+            {
+                return zones;
+            }
+
+            List<HeatmapCell> ordered = cells
+                .Where(x => x.InterestScore >= 45m && !string.Equals(x.Direction, "Neutro", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Price)
+                .ToList();
+            List<HeatmapCell> group = new List<HeatmapCell>();
+
+            foreach (HeatmapCell cell in ordered)
+            {
+                if (group.Count == 0)
+                {
+                    group.Add(cell);
+                    continue;
+                }
+
+                HeatmapCell last = group[group.Count - 1];
+                bool sameDirection = string.Equals(last.Direction, cell.Direction, StringComparison.OrdinalIgnoreCase);
+                bool adjacent = cell.Price - last.Price <= _tickSize * 2m;
+
+                if (sameDirection && adjacent)
+                {
+                    group.Add(cell);
+                }
+                else
+                {
+                    AddZone(zones, group, currentPrice);
+                    group = new List<HeatmapCell>();
+                    group.Add(cell);
+                }
+            }
+
+            AddZone(zones, group, currentPrice);
+
+            return zones
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => Math.Abs(x.DistanceTicks))
+                .Take(maxZones)
+                .ToList();
+        }
+
+        private void AddZone(List<HeatmapZone> zones, List<HeatmapCell> cells, decimal? currentPrice)
+        {
+            if (zones == null || cells == null || cells.Count == 0)
+            {
+                return;
+            }
+
+            decimal totalWeight = cells.Sum(x => Math.Max(1m, x.InterestScore));
+            decimal weightedPrice = totalWeight <= 0m
+                ? cells.Average(x => x.Price)
+                : cells.Sum(x => x.Price * Math.Max(1m, x.InterestScore)) / totalWeight;
+            HeatmapCell dominant = cells.OrderByDescending(x => x.InterestScore).First();
+            HeatmapZone zone = new HeatmapZone();
+            zone.LowPrice = cells.Min(x => x.Price);
+            zone.HighPrice = cells.Max(x => x.Price);
+            zone.CenterPrice = Round(weightedPrice);
+            zone.Score = ClampScore(cells.Max(x => x.InterestScore) * 0.72m + cells.Average(x => x.InterestScore) * 0.28m + Math.Min(12m, cells.Count * 2m));
+            zone.TotalBidLiquidity = cells.Sum(x => x.BidLiquidity);
+            zone.TotalAskLiquidity = cells.Sum(x => x.AskLiquidity);
+            zone.BuyVolume = cells.Sum(x => x.BuyVolume);
+            zone.SellVolume = cells.Sum(x => x.SellVolume);
+            zone.Delta = cells.Sum(x => x.Delta);
+            zone.CellCount = cells.Count;
+            zone.Direction = dominant.Direction;
+            zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
+            zone.Read = ZoneRead(zone.Direction, cells);
+            zones.Add(zone);
+        }
+
+        private static string ZoneRead(string direction, List<HeatmapCell> cells)
+        {
+            string side = string.Equals(direction, "Compra", StringComparison.OrdinalIgnoreCase) ? "compra" :
+                string.Equals(direction, "Venda", StringComparison.OrdinalIgnoreCase) ? "venda" : "neutra";
+
+            if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return "zona absorcao " + side;
+            }
+
+            if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("stacking", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return "zona stacking " + side;
+            }
+
+            if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && (x.Read.IndexOf("parede", StringComparison.OrdinalIgnoreCase) >= 0 || x.WallScore >= 70m)))
+            {
+                return "zona parede " + side;
+            }
+
+            if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("agressao", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return "zona agressao " + side;
+            }
+
+            return "zona " + side;
+        }
+
         private void ScoreAndClassify(HeatmapCell cell, HeatmapSnapshot snapshot)
         {
             decimal maxBid = snapshot.MaxBidLiquidity <= 0m ? 1m : snapshot.MaxBidLiquidity;
@@ -470,7 +576,20 @@ namespace RtdDolarNative.Heatmap
 
         private void ApplyDominantRead(HeatmapSnapshot snapshot)
         {
-            if (snapshot == null || snapshot.InterestCells == null || snapshot.InterestCells.Count == 0)
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            if (snapshot.Zones != null && snapshot.Zones.Count > 0)
+            {
+                HeatmapZone zone = snapshot.Zones.First();
+                snapshot.DominantSide = zone.Direction;
+                snapshot.DominantRead = zone.Read + " " + zone.LowPrice.ToString("N1") + "-" + zone.HighPrice.ToString("N1");
+                return;
+            }
+
+            if (snapshot.InterestCells == null || snapshot.InterestCells.Count == 0)
             {
                 return;
             }

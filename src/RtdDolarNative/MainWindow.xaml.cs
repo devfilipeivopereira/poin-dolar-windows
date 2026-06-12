@@ -9591,6 +9591,11 @@ namespace RtdDolarNative
                 HeatmapInterestGrid.ItemsSource = BuildHeatmapInterestRows(heatmap).Take(80).ToList();
             }
 
+            if (HeatmapZonesGrid != null)
+            {
+                HeatmapZonesGrid.ItemsSource = BuildHeatmapZoneRows(heatmap).Take(30).ToList();
+            }
+
             if (HeatmapStateText != null)
             {
                 string age = effective == null ? "sem snapshot" : "snapshot " + AgeText(effective.LocalTimestamp);
@@ -9598,6 +9603,7 @@ namespace RtdDolarNative
                                         " | " + age +
                                         " | book " + heatmap.BookLevels.ToString(_ptBr) +
                                         " | trades " + heatmap.TradeCount.ToString(_ptBr) +
+                                        " | zonas " + (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr) +
                                         " | " + heatmap.StorageStatus;
             }
         }
@@ -9618,9 +9624,36 @@ namespace RtdDolarNative
             AddRow(rows, "Negocios venda", heatmap.TotalSellVolume.ToString("N0", _ptBr), "agressoes venda");
             AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
+            AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "SQLite", heatmap.StorageStatus, _heatmapProcessor.DatabasePath);
+            return rows;
+        }
+
+        private List<HeatmapZoneRow> BuildHeatmapZoneRows(HeatmapSnapshot heatmap)
+        {
+            List<HeatmapZoneRow> rows = new List<HeatmapZoneRow>();
+
+            if (heatmap == null || heatmap.Zones == null)
+            {
+                return rows;
+            }
+
+            foreach (HeatmapZone zone in heatmap.Zones.OrderByDescending(x => x.Score).ThenBy(x => Math.Abs(x.DistanceTicks)))
+            {
+                HeatmapZoneRow row = new HeatmapZoneRow();
+                row.Range = zone.LowPrice.ToString("N2", _ptBr) + " - " + zone.HighPrice.ToString("N2", _ptBr);
+                row.Center = zone.CenterPrice.ToString("N2", _ptBr);
+                row.Distance = zone.DistanceTicks == 0 ? "0" : zone.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
+                row.Direction = EmptyToDash(zone.Direction);
+                row.Score = zone.Score.ToString("N0", _ptBr);
+                row.Book = "C " + zone.TotalBidLiquidity.ToString("N0", _ptBr) + " / V " + zone.TotalAskLiquidity.ToString("N0", _ptBr);
+                row.Delta = zone.Delta.ToString("N0", _ptBr);
+                row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas";
+                rows.Add(row);
+            }
+
             return rows;
         }
 
@@ -10572,6 +10605,18 @@ namespace RtdDolarNative
             public string Delta { get; set; }
             public string Absorption { get; set; }
             public string StackPull { get; set; }
+            public string Read { get; set; }
+        }
+
+        private sealed class HeatmapZoneRow
+        {
+            public string Range { get; set; }
+            public string Center { get; set; }
+            public string Distance { get; set; }
+            public string Direction { get; set; }
+            public string Score { get; set; }
+            public string Book { get; set; }
+            public string Delta { get; set; }
             public string Read { get; set; }
         }
 

@@ -38,12 +38,30 @@ namespace RtdDolarNative.Heatmap
         public string Read { get; set; }
     }
 
+    public sealed class HeatmapZone
+    {
+        public decimal LowPrice { get; set; }
+        public decimal HighPrice { get; set; }
+        public decimal CenterPrice { get; set; }
+        public decimal Score { get; set; }
+        public decimal TotalBidLiquidity { get; set; }
+        public decimal TotalAskLiquidity { get; set; }
+        public decimal BuyVolume { get; set; }
+        public decimal SellVolume { get; set; }
+        public decimal Delta { get; set; }
+        public int DistanceTicks { get; set; }
+        public int CellCount { get; set; }
+        public string Direction { get; set; }
+        public string Read { get; set; }
+    }
+
     public sealed class HeatmapSnapshot
     {
         public HeatmapSnapshot()
         {
             Cells = new List<HeatmapCell>();
             InterestCells = new List<HeatmapCell>();
+            Zones = new List<HeatmapZone>();
         }
 
         public string Asset { get; set; }
@@ -70,5 +88,6 @@ namespace RtdDolarNative.Heatmap
         public string StorageStatus { get; set; }
         public List<HeatmapCell> Cells { get; set; }
         public List<HeatmapCell> InterestCells { get; set; }
+        public List<HeatmapZone> Zones { get; set; }
     }
 }

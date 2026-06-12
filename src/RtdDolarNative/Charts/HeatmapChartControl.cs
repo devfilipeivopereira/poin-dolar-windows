@@ -141,6 +141,40 @@ namespace RtdDolarNative.Charts
                 DrawText(dc, cell.InterestScore.ToString("N0", new CultureInfo("pt-BR")), plot.Right - readWidth - scoreWidth + 8, y + 3, accent, 11, FontWeights.Bold);
                 DrawText(dc, cell.Read ?? "-", plot.Right - readWidth + 8, y + 3, DirectionBrush(cell.Direction), 11, FontWeights.Normal);
             }
+
+            DrawZoneOverlays(dc, plot, rowHeight, readWidth);
+        }
+
+        private void DrawZoneOverlays(DrawingContext dc, Rect plot, double rowHeight, double readWidth)
+        {
+            if (_snapshot == null || _snapshot.Zones == null || _snapshot.Zones.Count == 0 || _snapshot.Cells == null)
+            {
+                return;
+            }
+
+            foreach (HeatmapZone zone in _snapshot.Zones.Take(8))
+            {
+                var visible = _snapshot.Cells
+                    .Select((x, i) => new { Cell = x, Index = i })
+                    .Where(x => x.Cell.Price >= zone.LowPrice && x.Cell.Price <= zone.HighPrice)
+                    .ToList();
+
+                if (visible.Count == 0)
+                {
+                    continue;
+                }
+
+                int topIndex = visible.Min(x => x.Index);
+                int bottomIndex = visible.Max(x => x.Index);
+                double top = plot.Top + topIndex * rowHeight;
+                double height = Math.Max(rowHeight, (bottomIndex - topIndex + 1) * rowHeight - 1);
+                Brush brush = DirectionBrush(zone.Direction);
+                Pen pen = new Pen(brush, zone.Score >= 75m ? 2 : 1);
+                Rect rect = new Rect(plot.Left + 1, top + 1, Math.Max(10, plot.Width - 2), Math.Max(8, height - 2));
+
+                dc.DrawRectangle(null, pen, rect);
+                DrawText(dc, "Z" + zone.Score.ToString("N0", CultureInfo.InvariantCulture), plot.Right - readWidth - 42, top + 3, brush, 10, FontWeights.Bold);
+            }
         }
 
         private Brush DirectionBrush(string direction)

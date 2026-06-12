@@ -44,6 +44,7 @@ namespace QuantEngineTests
                 DomAnnotationFilterKeepsProfilePercentLabelsWhenPercentIsUnchecked,
                 HeatmapKeepsDistantLiquidityWallsInInterestList,
                 HeatmapScoresAbsorptionAndStackingAtBid,
+                HeatmapGroupsAdjacentInterestIntoOperationalZones,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -830,6 +831,47 @@ namespace QuantEngineTests
                 Assert(bid.StackingScore >= 70m, "Stacking score should be high after a large bid increase.");
                 Assert(bid.AbsorptionScore >= 70m, "Absorption score should be high when sell aggression trades into a strong bid.");
                 Assert(bid.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0, "Read should name absorption explicitly.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapGroupsAdjacentInterestIntoOperationalZones()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+                AddBookBid(snapshot, 0, 4998.5m, 1500m);
+                AddBookBid(snapshot, 1, 4999.0m, 1800m);
+                AddBookBid(snapshot, 2, 4999.5m, 1600m);
+                AddBookAsk(snapshot, 0, 5002.0m, 900m);
+                processor.PostSnapshot(snapshot);
+
+                processor.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = DateTimeOffset.Now,
+                    Price = 4999m,
+                    Quantity = 350m,
+                    Delta = -350m,
+                    Aggressor = "Sell"
+                });
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapZone support = heatmap.Zones.FirstOrDefault(x => x.Direction == "Compra");
+
+                Assert(support != null, "Adjacent buy-side heatmap interest should be grouped into a support zone.");
+                AssertEqual(4998.5m, support.LowPrice, "Support zone low should keep the first adjacent bid level.");
+                AssertEqual(4999.5m, support.HighPrice, "Support zone high should keep the last adjacent bid level.");
+                AssertEqual(4999.0m, support.CenterPrice, "Support zone center should be rounded to the weighted central tick.");
+                AssertEqual(3, support.CellCount, "Support zone should include the three adjacent bid cells.");
+                Assert(support.Score >= 70m, "Support zone score should stay high when multiple adjacent cells concentrate liquidity.");
+                Assert(support.DistanceTicks < 0, "Support zone below current price should carry a negative distance.");
+                Assert(support.Read.IndexOf("zona", StringComparison.OrdinalIgnoreCase) >= 0, "Zone read should identify it as a zone, not an isolated line.");
             }
             finally
             {

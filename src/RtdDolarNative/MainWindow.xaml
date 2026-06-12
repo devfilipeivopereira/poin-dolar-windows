@@ -3809,7 +3809,8 @@
 
                         <Grid Grid.Column="1">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="210" />
+                                <RowDefinition Height="176" />
+                                <RowDefinition Height="150" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <DataGrid x:Name="HeatmapSummaryGrid"
@@ -3821,8 +3822,24 @@
                                     <DataGridTextColumn Header="Detalhe" Binding="{Binding Detail}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <DataGrid x:Name="HeatmapInterestGrid"
+                            <DataGrid x:Name="HeatmapZonesGrid"
                                       Grid.Row="1"
+                                      AutoGenerateColumns="False"
+                                      Margin="0,0,0,10"
+                                      CellStyle="{StaticResource DirectionalDataGridCellStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Zona" Binding="{Binding Range}" Width="132" />
+                                    <DataGridTextColumn Header="Centro" Binding="{Binding Center}" Width="76" />
+                                    <DataGridTextColumn Header="Dist" Binding="{Binding Distance}" Width="58" />
+                                    <DataGridTextColumn Header="Dir" Binding="{Binding Direction}" Width="66" />
+                                    <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="62" />
+                                    <DataGridTextColumn Header="Book" Binding="{Binding Book}" Width="112" />
+                                    <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="64" />
+                                    <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <DataGrid x:Name="HeatmapInterestGrid"
+                                      Grid.Row="2"
                                       AutoGenerateColumns="False"
                                       CellStyle="{StaticResource DirectionalDataGridCellStyle}">
                                 <DataGrid.Columns>
