@@ -45,7 +45,8 @@ namespace RtdDolarNative.Charts
 
             if (_snapshot != null)
             {
-                DrawBadge(dc, "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 354, 12, _snapshot.CumulativeDelta >= 0m ? buy : sell);
+                DrawBadge(dc, "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 462, 12, _snapshot.CumulativeDelta >= 0m ? buy : sell);
+                DrawBadge(dc, "SPOOF " + _snapshot.MaxSpoofRiskScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 354, 12, _snapshot.MaxSpoofRiskScore >= 70m ? sell : muted);
                 DrawBadge(dc, "TOP " + Empty(_snapshot.DominantRead), ActualWidth - 246, 12, DirectionBrush(_snapshot.DominantSide));
                 DrawBadge(dc, "WALL " + _snapshot.MaxWallScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 112, 12, accent);
             }

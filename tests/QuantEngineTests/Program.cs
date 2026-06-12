@@ -45,6 +45,7 @@ namespace QuantEngineTests
                 HeatmapKeepsDistantLiquidityWallsInInterestList,
                 HeatmapScoresAbsorptionAndStackingAtBid,
                 HeatmapGroupsAdjacentInterestIntoOperationalZones,
+                HeatmapFlagsPulledLiquidityAsSpoofRisk,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -872,6 +873,37 @@ namespace QuantEngineTests
                 Assert(support.Score >= 70m, "Support zone score should stay high when multiple adjacent cells concentrate liquidity.");
                 Assert(support.DistanceTicks < 0, "Support zone below current price should carry a negative distance.");
                 Assert(support.Read.IndexOf("zona", StringComparison.OrdinalIgnoreCase) >= 0, "Zone read should identify it as a zone, not an isolated line.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapFlagsPulledLiquidityAsSpoofRisk()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                MarketSnapshot first = BuildHeatmapSnapshot(5000m);
+                AddBookBid(first, 0, 4998.5m, 8000m);
+                AddBookAsk(first, 0, 5001m, 500m);
+                processor.PostSnapshot(first);
+
+                MarketSnapshot second = BuildHeatmapSnapshot(5000m);
+                AddBookAsk(second, 0, 5001m, 500m);
+                processor.PostSnapshot(second);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell pulledBid = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4998.5m);
+
+                Assert(pulledBid != null, "Pulled liquidity should stay visible as an operational heatmap event.");
+                AssertEqual("Venda", pulledBid.Direction, "Large pulled bid below price should be a sell-side warning.");
+                Assert(pulledBid.PullingScore >= 95m, "Pulled bid should carry a high pulling score.");
+                Assert(pulledBid.SpoofRiskScore >= 80m, "Fast removal without trade should carry spoof-risk score.");
+                Assert(pulledBid.InterestScore >= 70m, "Pulled liquidity should rank high enough to remain in the interest list.");
+                Assert(pulledBid.Read.IndexOf("retirada", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that liquidity was removed.");
             }
             finally
             {

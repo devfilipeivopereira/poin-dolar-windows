@@ -191,6 +191,7 @@ namespace RtdDolarNative.Heatmap
                 snapshot.MaxAbsorptionScore = Math.Max(snapshot.MaxAbsorptionScore, cell.AbsorptionScore);
                 snapshot.MaxAggressionScore = Math.Max(snapshot.MaxAggressionScore, cell.AggressionScore);
                 snapshot.MaxWallScore = Math.Max(snapshot.MaxWallScore, cell.WallScore);
+                snapshot.MaxSpoofRiskScore = Math.Max(snapshot.MaxSpoofRiskScore, cell.SpoofRiskScore);
             }
 
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
@@ -451,6 +452,11 @@ namespace RtdDolarNative.Heatmap
             string side = string.Equals(direction, "Compra", StringComparison.OrdinalIgnoreCase) ? "compra" :
                 string.Equals(direction, "Venda", StringComparison.OrdinalIgnoreCase) ? "venda" : "neutra";
 
+            if (cells.Any(x => x.SpoofRiskScore >= 70m || (!string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("retirada", StringComparison.OrdinalIgnoreCase) >= 0)))
+            {
+                return "zona retirada " + side;
+            }
+
             if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0))
             {
                 return "zona absorcao " + side;
@@ -494,6 +500,8 @@ namespace RtdDolarNative.Heatmap
             decimal bidPullRatio = Math.Max(0m, -cell.BidChange) / maxPull;
             decimal askPullRatio = Math.Max(0m, -cell.AskChange) / maxPull;
             decimal deltaAbs = tradeVolume <= 0m ? 0m : Math.Abs(cell.Delta) / tradeVolume;
+            bool bidPulled = cell.BidChange < 0m && bidPullRatio >= 0.50m;
+            bool askPulled = cell.AskChange < 0m && askPullRatio >= 0.50m;
             decimal bidAbsorption = strongBid && cell.SellVolume > cell.BuyVolume && cell.SellVolume > 0m
                 ? ClampScore((cell.BidLiquidity / maxBid) * 58m + (cell.SellVolume / maxTrade) * 32m + deltaAbs * 10m)
                 : 0m;
@@ -509,13 +517,18 @@ namespace RtdDolarNative.Heatmap
             cell.AggressionScore = ClampScore(tradeRatio * deltaAbs * 100m);
             cell.StackingScore = ClampScore(Math.Max(bidStackRatio, askStackRatio) * 100m);
             cell.PullingScore = ClampScore(Math.Max(bidPullRatio, askPullRatio) * 100m);
+            cell.SpoofRiskScore = (bidPulled || askPulled)
+                ? ClampScore(cell.PullingScore * 0.74m + (tradeVolume <= 0m ? 26m : Math.Max(0m, 16m - tradeRatio * 16m)))
+                : 0m;
             cell.DistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((cell.Price - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
-            cell.InterestScore = ClampScore(
+            decimal baseInterest = ClampScore(
                 cell.WallScore * 0.62m +
                 tradeRatio * 100m * 0.12m +
                 cell.AbsorptionScore * 0.16m +
                 cell.AggressionScore * 0.04m +
                 Math.Max(cell.StackingScore, cell.PullingScore) * 0.06m);
+            decimal removalInterest = ClampScore(cell.SpoofRiskScore * 0.72m + cell.PullingScore * 0.28m);
+            cell.InterestScore = Math.Max(baseInterest, removalInterest);
 
             if (bidAbsorption >= 55m)
             {
@@ -526,6 +539,16 @@ namespace RtdDolarNative.Heatmap
             {
                 cell.Direction = "Venda";
                 cell.Read = cell.StackingScore >= 50m ? "absorcao venda + stacking" : "absorcao venda";
+            }
+            else if (cell.SpoofRiskScore >= 70m && bidPulled)
+            {
+                cell.Direction = "Venda";
+                cell.Read = "retirada compra / spoof";
+            }
+            else if (cell.SpoofRiskScore >= 70m && askPulled)
+            {
+                cell.Direction = "Compra";
+                cell.Read = "retirada venda / spoof";
             }
             else if (tradeVolume > 0m && cell.Delta > tradeVolume * 0.45m)
             {

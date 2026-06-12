@@ -9627,6 +9627,7 @@ namespace RtdDolarNative
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
+            AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
             AddRow(rows, "SQLite", heatmap.StorageStatus, _heatmapProcessor.DatabasePath);
             return rows;
         }
@@ -9682,6 +9683,7 @@ namespace RtdDolarNative
                 row.Delta = cell.Delta.ToString("N0", _ptBr);
                 row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
                 row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
+                row.Spoof = cell.SpoofRiskScore.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(cell.Read);
                 rows.Add(row);
             }
@@ -10605,6 +10607,7 @@ namespace RtdDolarNative
             public string Delta { get; set; }
             public string Absorption { get; set; }
             public string StackPull { get; set; }
+            public string Spoof { get; set; }
             public string Read { get; set; }
         }
 

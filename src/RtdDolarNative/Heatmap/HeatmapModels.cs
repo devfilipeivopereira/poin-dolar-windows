@@ -32,6 +32,7 @@ namespace RtdDolarNative.Heatmap
         public decimal AggressionScore { get; set; }
         public decimal StackingScore { get; set; }
         public decimal PullingScore { get; set; }
+        public decimal SpoofRiskScore { get; set; }
         public decimal InterestScore { get; set; }
         public int DistanceTicks { get; set; }
         public string Direction { get; set; }
@@ -75,6 +76,7 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxWallScore { get; set; }
         public decimal MaxStackingScore { get; set; }
         public decimal MaxPullingScore { get; set; }
+        public decimal MaxSpoofRiskScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }

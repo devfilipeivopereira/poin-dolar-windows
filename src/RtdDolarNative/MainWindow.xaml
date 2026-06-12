@@ -3852,6 +3852,7 @@
                                     <DataGridTextColumn Header="Delta" Binding="{Binding Delta}" Width="64" />
                                     <DataGridTextColumn Header="Abs" Binding="{Binding Absorption}" Width="54" />
                                     <DataGridTextColumn Header="Stack" Binding="{Binding StackPull}" Width="62" />
+                                    <DataGridTextColumn Header="Spoof" Binding="{Binding Spoof}" Width="58" />
                                     <DataGridTextColumn Header="Leitura" Binding="{Binding Read}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
