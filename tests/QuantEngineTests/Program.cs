@@ -37,6 +37,8 @@ namespace QuantEngineTests
                 VwapProxyDoesNotCreateMomentumSignal,
                 TimesTradeValidatorRequiresPriceAndQuantity,
                 RtdToolErrorTextIsNotDisplayData,
+                BookDepthDiagnosticsReportsFilteredRtdErrors,
+                BookDepthDiagnosticsKeepsValidDepthRows,
                 RtdBookTopicPreservesToolWindowCase,
                 PtaxHistoryStoreUpsertsAndLoads,
                 MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
@@ -306,6 +308,38 @@ namespace QuantEngineTests
             Assert(RtdValueSanitizer.IsRtdErrorText("Linha Inválida"), "RTD invalid line error should be detected.");
             AssertEqual(string.Empty, RtdValueSanitizer.CleanDisplayText("Ferramenta Inválida"), "RTD tool error should not be displayed as market data.");
             AssertEqual("XP", RtdValueSanitizer.CleanDisplayText(" XP "), "Valid book participant text should be trimmed and preserved.");
+        }
+
+        private static void BookDepthDiagnosticsReportsFilteredRtdErrors()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Raw["BOOK_OCP_0"] = "Ferramenta Invalida";
+            snapshot.Raw["BOOK_OVD_0"] = "Ferramenta Invalida";
+
+            BookDepthDiagnosticResult diagnostic = BookDepthDiagnostics.Inspect(snapshot);
+
+            AssertEqual(2, diagnostic.RawValueCount, "Book diagnostics should count raw RTD returns.");
+            AssertEqual(2, diagnostic.ErrorValueCount, "Book diagnostics should count RTD tool errors.");
+            AssertEqual(0, diagnostic.DisplayValueCount, "Filtered RTD errors should not be display values.");
+            AssertEqual(0, diagnostic.DisplayRowCount, "Rows with only RTD errors should remain hidden from the market-data grid.");
+            AssertEqual("Ferramenta Invalida", diagnostic.FirstErrorText, "The first RTD error should stay visible to the status header.");
+        }
+
+        private static void BookDepthDiagnosticsKeepsValidDepthRows()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Raw["BOOK_ACP_0"] = "XP";
+            snapshot.Raw["BOOK_OCP_0"] = "5103,00";
+            snapshot.Raw["BOOK_VOC_0"] = "5";
+            snapshot.Raw["BOOK_OVD_1"] = "5103,50";
+
+            BookDepthDiagnosticResult diagnostic = BookDepthDiagnostics.Inspect(snapshot);
+
+            AssertEqual(4, diagnostic.RawValueCount, "Book diagnostics should count every raw book value.");
+            AssertEqual(0, diagnostic.ErrorValueCount, "Valid book values should not be classified as RTD errors.");
+            AssertEqual(4, diagnostic.DisplayValueCount, "Valid book values should remain displayable.");
+            AssertEqual(2, diagnostic.DisplayRowCount, "Book diagnostics should count levels that contain displayable values.");
+            Assert(diagnostic.HasDisplayData, "Valid book rows should be marked as display data.");
         }
 
         private static void RtdBookTopicPreservesToolWindowCase()

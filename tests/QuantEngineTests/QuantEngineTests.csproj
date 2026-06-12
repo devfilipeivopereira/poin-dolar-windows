@@ -89,6 +89,9 @@
     <Compile Include="..\..\src\RtdDolarNative\MarketData\RtdValueSanitizer.cs">
       <Link>MarketData\RtdValueSanitizer.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\BookDepthDiagnostics.cs">
+      <Link>MarketData\BookDepthDiagnostics.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapModels.cs">
       <Link>Heatmap\HeatmapModels.cs</Link>
     </Compile>

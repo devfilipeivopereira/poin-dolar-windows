@@ -129,6 +129,7 @@
     <Compile Include="Logging\Logger.cs" />
     <Compile Include="LowLatency\LatestSnapshotBuffer.cs" />
     <Compile Include="LowLatency\RingBuffer.cs" />
+    <Compile Include="MarketData\BookDepthDiagnostics.cs" />
     <Compile Include="MarketData\MarketSnapshot.cs" />
     <Compile Include="MarketData\MarketState.cs" />
     <Compile Include="MarketData\RtdValueSanitizer.cs" />

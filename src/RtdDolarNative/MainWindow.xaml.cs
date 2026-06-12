@@ -6014,7 +6014,7 @@ namespace RtdDolarNative
             string timesState = ChannelEnabled(focused, "Times") ? "times ligado" : "times desligado";
             string topic = asset == null ? "-" : EmptyToDash(asset.BookTopic);
             string age = snapshot == null ? "sem snapshot" : "snapshot " + AgeText(snapshot.LocalTimestamp);
-            string rows = bookRows <= 0 ? "sem linhas book" : bookRows.ToString(_ptBr) + " linhas book";
+            string rows = BuildBookRowsStateText(topic, snapshot, bookRows);
 
             DomBookStateText.Text = EmptyToDash(focused) +
                                     " | canal " + topic +
@@ -6022,6 +6022,52 @@ namespace RtdDolarNative
                                     " | " + timesState +
                                     " | " + age +
                                     " | " + rows;
+        }
+
+        private string BuildBookRowsStateText(string topic, MarketSnapshot snapshot, int bookRows)
+        {
+            BookDepthDiagnosticResult diagnostic = BookDepthDiagnostics.Inspect(snapshot);
+
+            if (diagnostic.HasDisplayData)
+            {
+                return bookRows.ToString(_ptBr) + " linhas book";
+            }
+
+            string detail = BuildBookDepthDiagnosticText(topic, diagnostic);
+
+            if (HasTopBookFallback(snapshot))
+            {
+                return "topo book RTD" + (string.IsNullOrWhiteSpace(detail) ? string.Empty : " | " + detail);
+            }
+
+            return "sem linhas book" + (string.IsNullOrWhiteSpace(detail) ? string.Empty : " | " + detail);
+        }
+
+        private string BuildBookDepthDiagnosticText(string topic, BookDepthDiagnosticResult diagnostic)
+        {
+            string topicText = EmptyToDash(topic);
+
+            if (diagnostic == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(diagnostic.FirstErrorText))
+            {
+                return topicText + ": " + diagnostic.FirstErrorText;
+            }
+
+            if (diagnostic.RawValueCount == 0)
+            {
+                return "sem retorno " + topicText;
+            }
+
+            if (diagnostic.DisplayValueCount == 0)
+            {
+                return "sem dados validos " + topicText;
+            }
+
+            return "profundidade vazia " + topicText;
         }
 
         private void RenderTape()
@@ -6502,7 +6548,64 @@ namespace RtdDolarNative
                 }
             }
 
+            if (rows.Count == 0)
+            {
+                BookDepthRow fallback = BuildTopBookFallbackRow(snapshot);
+                if (fallback != null && fallback.HasData())
+                {
+                    rows.Add(fallback);
+                }
+            }
+
             return rows;
+        }
+
+        private BookDepthRow BuildTopBookFallbackRow(MarketSnapshot snapshot)
+        {
+            if (!HasTopBookFallback(snapshot))
+            {
+                return null;
+            }
+
+            string time = RtdValueSanitizer.CleanDisplayText(snapshot.HoraProfit);
+            BookDepthRow row = new BookDepthRow();
+            row.Nivel = 0;
+
+            if (snapshot.OfertaCompra.HasValue)
+            {
+                row.HoraCompra = time;
+                row.Comprador = "Topo RTD";
+                row.Compra = snapshot.OfertaCompra.Value.ToString("N2", _ptBr);
+
+                if (snapshot.VolumeOfertaCompra.HasValue)
+                {
+                    row.QtdeCompra = snapshot.VolumeOfertaCompra.Value.ToString("N0", _ptBr);
+                }
+            }
+
+            if (snapshot.OfertaVenda.HasValue)
+            {
+                row.Venda = snapshot.OfertaVenda.Value.ToString("N2", _ptBr);
+                row.Vendedor = "Topo RTD";
+                row.HoraVenda = time;
+
+                if (snapshot.VolumeOfertaVenda.HasValue)
+                {
+                    row.QtdeVenda = snapshot.VolumeOfertaVenda.Value.ToString("N0", _ptBr);
+                }
+            }
+
+            return row;
+        }
+
+        private bool HasTopBookFallback(MarketSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return false;
+            }
+
+            return snapshot.OfertaCompra.HasValue || snapshot.OfertaVenda.HasValue;
         }
 
         private List<TimesTradeRow> BuildTimesRows(MarketSnapshot snapshot)
