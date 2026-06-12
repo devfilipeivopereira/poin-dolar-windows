@@ -1626,8 +1626,8 @@ namespace RtdDolarNative
             existing.Asset = asset;
             existing.Name = string.IsNullOrWhiteSpace(ReadText(AssetNameInput)) ? asset : ReadText(AssetNameInput);
             existing.QuoteCode = asset;
-            existing.BookTopic = NormalizeTopic(ReadText(BookTopicInput), "BOOK0");
-            existing.TimesTopic = NormalizeTopic(ReadText(TimesTopicInput), "T&T0");
+            existing.BookTopic = RtdConfig.NormalizeBookTopic(ReadText(BookTopicInput));
+            existing.TimesTopic = RtdConfig.NormalizeTimesTopic(ReadText(TimesTopicInput));
             existing.CsvPath = ReadText(CsvPathInput);
             existing.Enabled = true;
             existing.QuoteEnabled = QuoteEnabledInput == null || QuoteEnabledInput.IsChecked == true;
@@ -6487,14 +6487,14 @@ namespace RtdDolarNative
             {
                 BookDepthRow row = new BookDepthRow();
                 row.Nivel = index;
-                row.HoraCompra = RawText(snapshot, BookField("HORC", index));
-                row.Comprador = RawText(snapshot, BookField("ACP", index));
-                row.QtdeCompra = RawText(snapshot, BookField("VOC", index));
-                row.Compra = RawText(snapshot, BookField("OCP", index));
-                row.Venda = RawText(snapshot, BookField("OVD", index));
-                row.QtdeVenda = RawText(snapshot, BookField("VOV", index));
-                row.Vendedor = RawText(snapshot, BookField("AVD", index));
-                row.HoraVenda = RawText(snapshot, BookField("HORV", index));
+                row.HoraCompra = DisplayRawText(snapshot, BookField("HORC", index));
+                row.Comprador = DisplayRawText(snapshot, BookField("ACP", index));
+                row.QtdeCompra = DisplayRawText(snapshot, BookField("VOC", index));
+                row.Compra = DisplayRawText(snapshot, BookField("OCP", index));
+                row.Venda = DisplayRawText(snapshot, BookField("OVD", index));
+                row.QtdeVenda = DisplayRawText(snapshot, BookField("VOV", index));
+                row.Vendedor = DisplayRawText(snapshot, BookField("AVD", index));
+                row.HoraVenda = DisplayRawText(snapshot, BookField("HORV", index));
 
                 if (row.HasData())
                 {
@@ -6518,12 +6518,12 @@ namespace RtdDolarNative
             {
                 TimesTradeRow row = new TimesTradeRow();
                 row.Linha = index;
-                row.Data = RawText(snapshot, TimesField("DAT", index));
-                row.Compradora = RawText(snapshot, TimesField("ACP", index));
-                row.Preco = RawText(snapshot, TimesField("PRE", index));
-                row.Quantidade = RawText(snapshot, TimesField("QUL", index));
-                row.Vendedora = RawText(snapshot, TimesField("AVD", index));
-                row.Agressor = RawText(snapshot, TimesField("AGR", index));
+                row.Data = DisplayRawText(snapshot, TimesField("DAT", index));
+                row.Compradora = DisplayRawText(snapshot, TimesField("ACP", index));
+                row.Preco = DisplayRawText(snapshot, TimesField("PRE", index));
+                row.Quantidade = DisplayRawText(snapshot, TimesField("QUL", index));
+                row.Vendedora = DisplayRawText(snapshot, TimesField("AVD", index));
+                row.Agressor = DisplayRawText(snapshot, TimesField("AGR", index));
                 row.Qualidade = "FullTimesAndTrades";
 
                 if (row.HasData() && TimesRowHasValidTradeData(row))
@@ -6681,6 +6681,11 @@ namespace RtdDolarNative
 
             string value;
             return snapshot.Raw.TryGetValue(field, out value) ? value : string.Empty;
+        }
+
+        private string DisplayRawText(MarketSnapshot snapshot, string field)
+        {
+            return RtdValueSanitizer.CleanDisplayText(RawText(snapshot, field));
         }
 
         private void CenteredTimesGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -7117,7 +7122,7 @@ namespace RtdDolarNative
 
             if (BookTopicInput != null)
             {
-                BookTopicInput.Text = "BOOK0";
+                BookTopicInput.Text = "Book0";
             }
 
             if (TimesTopicInput != null)
@@ -7149,11 +7154,6 @@ namespace RtdDolarNative
         private string ReadText(System.Windows.Controls.TextBox input)
         {
             return input == null || input.Text == null ? string.Empty : input.Text.Trim();
-        }
-
-        private string NormalizeTopic(string topic, string fallback)
-        {
-            return string.IsNullOrWhiteSpace(topic) ? fallback : topic.Trim().ToUpperInvariant();
         }
 
         private void InitializeCalculationDaysSelection()

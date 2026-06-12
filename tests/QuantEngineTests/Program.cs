@@ -36,6 +36,8 @@ namespace QuantEngineTests
                 QuantConfluenceDoesNotContainCurrentPriceReference,
                 VwapProxyDoesNotCreateMomentumSignal,
                 TimesTradeValidatorRequiresPriceAndQuantity,
+                RtdToolErrorTextIsNotDisplayData,
+                RtdBookTopicPreservesToolWindowCase,
                 PtaxHistoryStoreUpsertsAndLoads,
                 MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
                 MarketBiasStaysNeutralWhenCsvIsMissing,
@@ -295,6 +297,45 @@ namespace QuantEngineTests
             Assert(!TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "5000", "0", "BTG", "C"), "Times row with zero quantity should be invalid.");
             Assert(!TimesTradeValidator.HasValidTradeData("Ferramenta Invalida", "XP", "5000", "10", "BTG", "C"), "Times row with placeholder text should be invalid.");
             Assert(TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "5000", "10", "BTG", "C"), "Times row with valid price and quantity should be accepted.");
+        }
+
+        private static void RtdToolErrorTextIsNotDisplayData()
+        {
+            Assert(RtdValueSanitizer.IsRtdErrorText("Ferramenta Invalida"), "RTD tool error without accent should be detected.");
+            Assert(RtdValueSanitizer.IsRtdErrorText("Ferramenta Inválida"), "RTD tool error with accent should be detected.");
+            Assert(RtdValueSanitizer.IsRtdErrorText("Linha Inválida"), "RTD invalid line error should be detected.");
+            AssertEqual(string.Empty, RtdValueSanitizer.CleanDisplayText("Ferramenta Inválida"), "RTD tool error should not be displayed as market data.");
+            AssertEqual("XP", RtdValueSanitizer.CleanDisplayText(" XP "), "Valid book participant text should be trimmed and preserved.");
+        }
+
+        private static void RtdBookTopicPreservesToolWindowCase()
+        {
+            RtdConfig config = new RtdConfig();
+            config.Assets = new List<RtdAssetConfig>
+            {
+                new RtdAssetConfig("WDOFUT_F_0", true)
+                {
+                    BookTopic = "BOOK0",
+                    TimesTopic = "T&T0",
+                    BookEnabled = true,
+                    TimesEnabled = true
+                }
+            };
+            config.Sources = new List<RtdSourceConfig>();
+
+            config.NormalizeSources();
+
+            RtdAssetConfig asset = config.FindAsset("WDOFUT_F_0");
+            AssertEqual("Book0", asset.BookTopic, "Legacy uppercase book topic should migrate to the RTD tool window id Book0.");
+
+            RtdSourceConfig book = config.Sources.FirstOrDefault(x => string.Equals(x.Role, "BookDepth", StringComparison.OrdinalIgnoreCase));
+            Assert(book != null, "Book source should be generated.");
+            AssertEqual("Book0", book.Topic, "Book source topic should preserve the tool window id case.");
+
+            RtdSubscriptionSpec firstBookPrice = config.GetSubscriptions()
+                .FirstOrDefault(x => string.Equals(x.Field, "BOOK_OCP_0", StringComparison.OrdinalIgnoreCase));
+            Assert(firstBookPrice != null, "Book subscription for first bid price should be generated.");
+            AssertEqual("Book0", Convert.ToString(firstBookPrice.Arguments[0], CultureInfo.InvariantCulture), "Book RTD argument should use Book0, not BOOK0.");
         }
 
         private static void PtaxHistoryStoreUpsertsAndLoads()

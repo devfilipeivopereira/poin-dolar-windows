@@ -35,6 +35,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Data.SQLite">
       <HintPath>..\..\src\RtdDolarNative\External\SQLite\System.Data.SQLite.dll</HintPath>
       <Private>True</Private>
@@ -46,7 +47,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="TestUiConfig.cs" />
+    <Compile Include="..\..\src\RtdDolarNative\Config\AppConfig.cs">
+      <Link>Config\AppConfig.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Charts\ChartTimeframe.cs">
       <Link>Charts\ChartTimeframe.cs</Link>
     </Compile>
@@ -82,6 +85,9 @@
     </Compile>
     <Compile Include="..\..\src\RtdDolarNative\MarketData\TimesTradeValidator.cs">
       <Link>MarketData\TimesTradeValidator.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\RtdValueSanitizer.cs">
+      <Link>MarketData\RtdValueSanitizer.cs</Link>
     </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapModels.cs">
       <Link>Heatmap\HeatmapModels.cs</Link>
@@ -127,6 +133,9 @@
     </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Quant\GarchEngine.cs">
       <Link>Quant\GarchEngine.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Rtd\RtdFieldCatalog.cs">
+      <Link>Rtd\RtdFieldCatalog.cs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

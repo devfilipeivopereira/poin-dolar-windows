@@ -131,6 +131,7 @@
     <Compile Include="LowLatency\RingBuffer.cs" />
     <Compile Include="MarketData\MarketSnapshot.cs" />
     <Compile Include="MarketData\MarketState.cs" />
+    <Compile Include="MarketData\RtdValueSanitizer.cs" />
     <Compile Include="MarketData\TickEvent.cs" />
     <Compile Include="MarketData\TimesTradeValidator.cs" />
     <Compile Include="MarketData\ValueParser.cs" />

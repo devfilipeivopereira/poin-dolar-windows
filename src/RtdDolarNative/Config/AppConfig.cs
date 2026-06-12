@@ -489,8 +489,8 @@ namespace RtdDolarNative.Config
             assetConfig.Normalize();
             RemoveLegacyGeneratedSources(normalizedAsset);
             AddOrUpdateDefaultSource("Cotacao", "PriceVolume", normalizedAsset, assetConfig.QuoteEnabled, assetConfig.QuoteCode, DefaultQuoteFields, null, null, new string[0]);
-            AddOrUpdateDefaultSource("Book", "BookDepth", normalizedAsset, assetConfig.BookEnabled, assetConfig.BookTopic, DefaultBookFields, 0, 49, DefaultInfoFields);
-            AddOrUpdateDefaultSource("Times", "TimesAndTrades", normalizedAsset, assetConfig.TimesEnabled, assetConfig.TimesTopic, DefaultTimesFields, 0, 99, DefaultInfoFields);
+            AddOrUpdateDefaultSource("Book", "BookDepth", normalizedAsset, assetConfig.BookEnabled, NormalizeBookTopic(assetConfig.BookTopic), DefaultBookFields, 0, 49, DefaultInfoFields);
+            AddOrUpdateDefaultSource("Times", "TimesAndTrades", normalizedAsset, assetConfig.TimesEnabled, NormalizeTimesTopic(assetConfig.TimesTopic), DefaultTimesFields, 0, 99, DefaultInfoFields);
         }
 
         public List<RtdSourceConfig> GetEnabledSources()
@@ -667,6 +667,46 @@ namespace RtdDolarNative.Config
             return string.IsNullOrWhiteSpace(asset) ? string.Empty : asset.Trim().ToUpperInvariant();
         }
 
+        public static string NormalizeBookTopic(string topic)
+        {
+            return NormalizeIndexedToolTopic(topic, "Book0", "Book");
+        }
+
+        public static string NormalizeTimesTopic(string topic)
+        {
+            return NormalizeIndexedToolTopic(topic, "T&T0", "T&T");
+        }
+
+        public static string NormalizeTopicForRole(string role, string topic, string asset)
+        {
+            if (string.Equals(role, "BookDepth", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(role, "TopBook", StringComparison.OrdinalIgnoreCase))
+            {
+                return NormalizeBookTopic(topic);
+            }
+
+            if (string.Equals(role, "TimesAndTrades", StringComparison.OrdinalIgnoreCase))
+            {
+                return NormalizeTimesTopic(topic);
+            }
+
+            return string.IsNullOrWhiteSpace(topic) ? NormalizeAsset(asset) : topic.Trim().ToUpperInvariant();
+        }
+
+        private static string NormalizeIndexedToolTopic(string topic, string fallback, string canonicalPrefix)
+        {
+            string value = string.IsNullOrWhiteSpace(topic) ? fallback : topic.Trim();
+
+            if (value.Length > canonicalPrefix.Length &&
+                value.StartsWith(canonicalPrefix, StringComparison.OrdinalIgnoreCase) &&
+                value.Skip(canonicalPrefix.Length).All(char.IsDigit))
+            {
+                return canonicalPrefix + value.Substring(canonicalPrefix.Length);
+            }
+
+            return value;
+        }
+
         private RtdSourceConfig FindRtdCompleteSource(string asset)
         {
             if (Sources == null)
@@ -723,7 +763,7 @@ namespace RtdDolarNative.Config
             source.Enabled = enabled;
             source.ProgId = ProgId;
             source.Asset = asset;
-            source.Topic = string.IsNullOrWhiteSpace(topic) ? asset : topic.Trim().ToUpperInvariant();
+            source.Topic = NormalizeTopicForRole(role, topic, asset);
             source.PollIntervalMs = PollIntervalMs;
             source.Fields = fields.ToList();
             source.IndexFrom = indexFrom;
@@ -750,7 +790,7 @@ namespace RtdDolarNative.Config
         private static void AddSubscription(Dictionary<string, RtdSubscriptionSpec> byKey, List<RtdSubscriptionSpec> specs, string asset, string topic, string field, int? index, string infoField, string sourceName, string role)
         {
             string normalizedAsset = NormalizeAsset(asset);
-            string normalizedTopic = string.IsNullOrWhiteSpace(topic) ? normalizedAsset : topic.Trim().ToUpperInvariant();
+            string normalizedTopic = NormalizeTopicForRole(role, topic, normalizedAsset);
             string normalizedField = string.IsNullOrWhiteSpace(field) ? string.Empty : field.Trim().ToUpperInvariant();
             string normalizedInfo = string.IsNullOrWhiteSpace(infoField) ? string.Empty : infoField.Trim().ToUpperInvariant();
 
@@ -838,7 +878,7 @@ namespace RtdDolarNative.Config
         {
             Role = string.IsNullOrWhiteSpace(Role) ? "PriceVolume" : Role.Trim();
             Asset = RtdConfig.NormalizeAsset(string.IsNullOrWhiteSpace(Asset) ? config.Asset : Asset);
-            Topic = string.IsNullOrWhiteSpace(Topic) ? Asset : Topic.Trim().ToUpperInvariant();
+            Topic = RtdConfig.NormalizeTopicForRole(Role, Topic, Asset);
             ProgId = string.IsNullOrWhiteSpace(ProgId) ? config.ProgId : ProgId.Trim();
             PollIntervalMs = PollIntervalMs <= 0 ? config.PollIntervalMs : PollIntervalMs;
             Fields = RtdConfig.NormalizeAsset(Asset).Length == 0
@@ -889,7 +929,7 @@ namespace RtdDolarNative.Config
         {
             Name = string.Empty;
             QuoteCode = string.Empty;
-            BookTopic = "BOOK0";
+            BookTopic = "Book0";
             TimesTopic = "T&T0";
             CsvPath = string.Empty;
             Enabled = true;
@@ -903,7 +943,7 @@ namespace RtdDolarNative.Config
             Asset = RtdConfig.NormalizeAsset(asset);
             Name = Asset;
             QuoteCode = Asset;
-            BookTopic = "BOOK0";
+            BookTopic = "Book0";
             TimesTopic = "T&T0";
             CsvPath = string.Empty;
             Enabled = enabled;
@@ -934,8 +974,8 @@ namespace RtdDolarNative.Config
 
             Name = string.IsNullOrWhiteSpace(Name) ? Asset : Name.Trim();
             QuoteCode = string.IsNullOrWhiteSpace(QuoteCode) ? Asset : QuoteCode.Trim().ToUpperInvariant();
-            BookTopic = string.IsNullOrWhiteSpace(BookTopic) ? "BOOK0" : BookTopic.Trim().ToUpperInvariant();
-            TimesTopic = string.IsNullOrWhiteSpace(TimesTopic) ? "T&T0" : TimesTopic.Trim().ToUpperInvariant();
+            BookTopic = RtdConfig.NormalizeBookTopic(BookTopic);
+            TimesTopic = RtdConfig.NormalizeTimesTopic(TimesTopic);
             CsvPath = string.IsNullOrWhiteSpace(CsvPath) ? string.Empty : CsvPath.Trim();
         }
 
