@@ -9649,6 +9649,7 @@ namespace RtdDolarNative
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
             AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
+            AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
             AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente 6h com frescor");
             AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr) + " com frescor");
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
@@ -9676,6 +9677,7 @@ namespace RtdDolarNative
                 row.Distance = zone.DistanceTicks == 0 ? "0" : zone.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
                 row.Direction = EmptyToDash(zone.Direction);
                 row.Score = zone.Score.ToString("N0", _ptBr);
+                row.Quality = FormatHeatmapQuality(zone.Quality, zone.ConfidenceScore, zone.ConfluenceScore, zone.ConflictScore);
                 row.Persistence = zone.PersistenceScore.ToString("N0", _ptBr);
                 row.Historical = "B " + zone.HistoricalScore.ToString("N0", _ptBr) + "/" + zone.HistoricalSamples.ToString(_ptBr) +
                                  " | F " + zone.HistoricalFlowScore.ToString("N0", _ptBr) + "/" + zone.HistoricalTradeSamples.ToString(_ptBr);
@@ -9708,6 +9710,7 @@ namespace RtdDolarNative
                 row.Distance = cell.DistanceTicks == 0 ? "0" : cell.DistanceTicks.ToString("+0;-0;0", _ptBr) + "t";
                 row.Direction = string.IsNullOrWhiteSpace(cell.Direction) ? "Neutro" : cell.Direction;
                 row.Score = cell.InterestScore.ToString("N0", _ptBr);
+                row.Quality = FormatHeatmapQuality(cell.Quality, cell.ConfidenceScore, cell.ConfluenceScore, cell.ConflictScore);
                 row.Book = "C " + cell.BidLiquidity.ToString("N0", _ptBr) + " / V " + cell.AskLiquidity.ToString("N0", _ptBr);
                 row.Trades = "C " + cell.BuyVolume.ToString("N0", _ptBr) + " / V " + cell.SellVolume.ToString("N0", _ptBr);
                 row.Delta = cell.Delta.ToString("N0", _ptBr);
@@ -9721,6 +9724,23 @@ namespace RtdDolarNative
             }
 
             return rows;
+        }
+
+        private string FormatHeatmapQuality(string quality, decimal confidence, decimal confluence, decimal conflict)
+        {
+            string label = string.IsNullOrWhiteSpace(quality) ? "-" : quality;
+
+            if (string.Equals(label, "Conflito", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Conf " + conflict.ToString("N0", _ptBr);
+            }
+
+            if (string.Equals(label, "-", StringComparison.OrdinalIgnoreCase))
+            {
+                return "-";
+            }
+
+            return label + " " + confidence.ToString("N0", _ptBr);
         }
 
         private string FormatHeatmapSqlCell(HeatmapCell cell)
@@ -10666,6 +10686,7 @@ namespace RtdDolarNative
             public string Distance { get; set; }
             public string Direction { get; set; }
             public string Score { get; set; }
+            public string Quality { get; set; }
             public string Book { get; set; }
             public string Trades { get; set; }
             public string Delta { get; set; }
@@ -10684,6 +10705,7 @@ namespace RtdDolarNative
             public string Distance { get; set; }
             public string Direction { get; set; }
             public string Score { get; set; }
+            public string Quality { get; set; }
             public string Persistence { get; set; }
             public string Historical { get; set; }
             public string Book { get; set; }

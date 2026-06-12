@@ -71,6 +71,11 @@ namespace RtdDolarNative.Heatmap
         public double HistoricalTradeAgeMinutes { get; set; }
         public DateTimeOffset HistoricalTradeLastSeen { get; set; }
         public decimal InterestScore { get; set; }
+        public decimal ConfluenceScore { get; set; }
+        public decimal ConflictScore { get; set; }
+        public decimal ConfidenceScore { get; set; }
+        public int SignalCount { get; set; }
+        public string Quality { get; set; }
         public int SeenCount { get; set; }
         public double AgeSeconds { get; set; }
         public DateTimeOffset FirstSeen { get; set; }
@@ -97,6 +102,11 @@ namespace RtdDolarNative.Heatmap
         public decimal HistoricalFlowScore { get; set; }
         public int HistoricalTradeSamples { get; set; }
         public decimal HistoricalDelta { get; set; }
+        public decimal ConfluenceScore { get; set; }
+        public decimal ConflictScore { get; set; }
+        public decimal ConfidenceScore { get; set; }
+        public int SignalCount { get; set; }
+        public string Quality { get; set; }
         public int DistanceTicks { get; set; }
         public int CellCount { get; set; }
         public string Direction { get; set; }
@@ -139,6 +149,9 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxHistoricalScore { get; set; }
         public decimal MaxHistoricalFlowVolume { get; set; }
         public decimal MaxHistoricalFlowScore { get; set; }
+        public decimal MaxConfluenceScore { get; set; }
+        public decimal MaxConflictScore { get; set; }
+        public decimal MaxConfidenceScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }

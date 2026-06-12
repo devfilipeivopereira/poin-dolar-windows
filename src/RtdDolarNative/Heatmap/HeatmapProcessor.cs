@@ -221,6 +221,9 @@ namespace RtdDolarNative.Heatmap
                 snapshot.MaxPersistenceScore = Math.Max(snapshot.MaxPersistenceScore, cell.PersistenceScore);
                 snapshot.MaxHistoricalScore = Math.Max(snapshot.MaxHistoricalScore, cell.HistoricalScore);
                 snapshot.MaxHistoricalFlowScore = Math.Max(snapshot.MaxHistoricalFlowScore, cell.HistoricalFlowScore);
+                snapshot.MaxConfluenceScore = Math.Max(snapshot.MaxConfluenceScore, cell.ConfluenceScore);
+                snapshot.MaxConflictScore = Math.Max(snapshot.MaxConflictScore, cell.ConflictScore);
+                snapshot.MaxConfidenceScore = Math.Max(snapshot.MaxConfidenceScore, cell.ConfidenceScore);
             }
 
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
@@ -577,6 +580,11 @@ namespace RtdDolarNative.Heatmap
             zone.HistoricalFlowScore = cells.Max(x => x.HistoricalFlowScore);
             zone.HistoricalTradeSamples = cells.Sum(x => x.HistoricalTradeSamples);
             zone.HistoricalDelta = cells.Sum(x => x.HistoricalDelta);
+            zone.ConfluenceScore = cells.Max(x => x.ConfluenceScore);
+            zone.ConflictScore = cells.Max(x => x.ConflictScore);
+            zone.ConfidenceScore = cells.Max(x => x.ConfidenceScore);
+            zone.SignalCount = cells.Sum(x => x.SignalCount);
+            zone.Quality = dominant.Quality;
             zone.CellCount = cells.Count;
             zone.Direction = dominant.Direction;
             zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
@@ -824,6 +832,153 @@ namespace RtdDolarNative.Heatmap
             {
                 cell.Read += " + fluxo historico";
             }
+
+            ApplyOperationalQuality(cell, snapshot);
+        }
+
+        private void ApplyOperationalQuality(HeatmapCell cell, HeatmapSnapshot snapshot)
+        {
+            decimal mainSign = DirectionSign(cell.Direction);
+            decimal alignedTotal = 0m;
+            decimal conflictTotal = 0m;
+            int alignedCount = 0;
+            int conflictCount = 0;
+            int signalCount = 0;
+
+            AddQualitySignal(mainSign, DirectionSign(cell.Direction), cell.AbsorptionScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            AddQualitySignal(mainSign, DirectionSign(cell.Direction), cell.SpoofRiskScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            AddQualitySignal(mainSign, DirectionSign(cell.Direction), Math.Max(cell.StackingScore, cell.PullingScore), ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            AddQualitySignal(mainSign, LiveBookSign(cell, snapshot), cell.WallScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            if (cell.AbsorptionScore < 55m)
+            {
+                AddQualitySignal(mainSign, LiveTradeSign(cell), cell.AggressionScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            }
+            AddQualitySignal(mainSign, PersistenceSign(cell, snapshot), cell.PersistenceScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            AddQualitySignal(mainSign, HistoricalBookSign(cell, snapshot), cell.HistoricalScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+            AddQualitySignal(mainSign, HistoricalFlowSign(cell), cell.HistoricalFlowScore, ref alignedTotal, ref conflictTotal, ref alignedCount, ref conflictCount, ref signalCount);
+
+            cell.SignalCount = signalCount;
+            cell.ConfluenceScore = alignedCount <= 0 ? 0m : ClampScore(alignedTotal / alignedCount + Math.Min(18m, alignedCount * 4m));
+            cell.ConflictScore = conflictCount <= 0 ? 0m : ClampScore(conflictTotal / conflictCount + Math.Min(12m, conflictCount * 4m));
+            cell.ConfidenceScore = ClampScore(cell.ConfluenceScore - cell.ConflictScore * 0.70m + Math.Min(12m, alignedCount * 2m));
+
+            if (cell.ConflictScore >= 40m && cell.ConflictScore >= cell.ConfluenceScore * 0.55m)
+            {
+                cell.Quality = "Conflito";
+
+                if (!string.IsNullOrWhiteSpace(cell.Read) && cell.Read.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    cell.Read += " + conflito";
+                }
+            }
+            else if (cell.ConfidenceScore >= 70m && cell.ConfluenceScore >= 70m && alignedCount >= 3)
+            {
+                cell.Quality = "Alta";
+
+                if (!string.IsNullOrWhiteSpace(cell.Read) && cell.Read.IndexOf("confluencia", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    cell.Read += " + confluencia";
+                }
+            }
+            else if (cell.ConfidenceScore >= 50m)
+            {
+                cell.Quality = "Media";
+            }
+            else if (cell.ConfluenceScore > 0m || cell.ConflictScore > 0m)
+            {
+                cell.Quality = "Baixa";
+            }
+            else
+            {
+                cell.Quality = "-";
+            }
+        }
+
+        private static void AddQualitySignal(decimal mainSign, decimal signalSign, decimal score, ref decimal alignedTotal, ref decimal conflictTotal, ref int alignedCount, ref int conflictCount, ref int signalCount)
+        {
+            if (mainSign == 0m || signalSign == 0m || score < 35m)
+            {
+                return;
+            }
+
+            signalCount++;
+
+            if (signalSign == mainSign)
+            {
+                alignedTotal += score;
+                alignedCount++;
+            }
+            else
+            {
+                conflictTotal += score;
+                conflictCount++;
+            }
+        }
+
+        private decimal LiveBookSign(HeatmapCell cell, HeatmapSnapshot snapshot)
+        {
+            if (cell.BidLiquidity <= 0m && cell.AskLiquidity <= 0m)
+            {
+                return 0m;
+            }
+
+            bool below = snapshot.CurrentPrice.HasValue && cell.Price < snapshot.CurrentPrice.Value;
+            bool above = snapshot.CurrentPrice.HasValue && cell.Price > snapshot.CurrentPrice.Value;
+
+            if (below && cell.BidLiquidity >= cell.AskLiquidity * 1.15m)
+            {
+                return 1m;
+            }
+
+            if (above && cell.AskLiquidity >= cell.BidLiquidity * 1.15m)
+            {
+                return -1m;
+            }
+
+            return cell.BidLiquidity > cell.AskLiquidity ? 1m : cell.AskLiquidity > cell.BidLiquidity ? -1m : 0m;
+        }
+
+        private static decimal LiveTradeSign(HeatmapCell cell)
+        {
+            return cell.Delta > 0m ? 1m : cell.Delta < 0m ? -1m : 0m;
+        }
+
+        private decimal PersistenceSign(HeatmapCell cell, HeatmapSnapshot snapshot)
+        {
+            if (cell.PersistenceScore <= 0m)
+            {
+                return 0m;
+            }
+
+            return LiveBookSign(cell, snapshot);
+        }
+
+        private decimal HistoricalBookSign(HeatmapCell cell, HeatmapSnapshot snapshot)
+        {
+            if (cell.HistoricalBidLiquidity <= 0m && cell.HistoricalAskLiquidity <= 0m)
+            {
+                return 0m;
+            }
+
+            bool below = snapshot.CurrentPrice.HasValue && cell.Price < snapshot.CurrentPrice.Value;
+            bool above = snapshot.CurrentPrice.HasValue && cell.Price > snapshot.CurrentPrice.Value;
+
+            if (below && cell.HistoricalBidLiquidity >= cell.HistoricalAskLiquidity * 1.15m)
+            {
+                return 1m;
+            }
+
+            if (above && cell.HistoricalAskLiquidity >= cell.HistoricalBidLiquidity * 1.15m)
+            {
+                return -1m;
+            }
+
+            return cell.HistoricalBidLiquidity > cell.HistoricalAskLiquidity ? 1m : cell.HistoricalAskLiquidity > cell.HistoricalBidLiquidity ? -1m : 0m;
+        }
+
+        private static decimal HistoricalFlowSign(HeatmapCell cell)
+        {
+            return cell.HistoricalDelta > 0m ? 1m : cell.HistoricalDelta < 0m ? -1m : 0m;
         }
 
         private void ApplyDominantRead(HeatmapSnapshot snapshot)

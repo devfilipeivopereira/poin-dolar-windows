@@ -46,6 +46,7 @@ namespace RtdDolarNative.Charts
 
             if (_snapshot != null)
             {
+                DrawBadge(dc, "CONF " + _snapshot.MaxConfidenceScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxConflictScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 786, 12, _snapshot.MaxConflictScore >= 50m ? sell : _snapshot.MaxConfidenceScore >= 70m ? buy : muted);
                 DrawBadge(dc, "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 678, 12, _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted);
                 DrawBadge(dc, "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 570, 12, _snapshot.CumulativeDelta >= 0m ? buy : sell);
                 DrawBadge(dc, "STAB " + _snapshot.MaxPersistenceScore.ToString("N0", CultureInfo.InvariantCulture), ActualWidth - 462, 12, _snapshot.MaxPersistenceScore >= 70m ? buy : muted);

@@ -58,6 +58,8 @@ namespace QuantEngineTests
                 HeatmapSqliteStoreLoadsRecentTradeContextByPrice,
                 HeatmapUsesSqlTradeHistoryAfterRestart,
                 HeatmapSqlHistoryScoresRecentLevelsAboveStaleLevels,
+                HeatmapConfluencePromotesAlignedLiveAndSqlSupport,
+                HeatmapConfluenceFlagsConflictingHistoricalBookAndFlow,
                 GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
@@ -1372,6 +1374,117 @@ namespace QuantEngineTests
                 Assert(recentFlowCell.HistoricalFlowScore > oldFlowCell.HistoricalFlowScore, "Recent SQL flow level should score above equal-size stale flow.");
                 Assert(recentBookCell.HistoricalAgeMinutes < oldBookCell.HistoricalAgeMinutes, "Book age should expose freshness in minutes.");
                 Assert(recentFlowCell.HistoricalTradeAgeMinutes < oldFlowCell.HistoricalTradeAgeMinutes, "Flow age should expose freshness in minutes.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapConfluencePromotesAlignedLiveAndSqlSupport()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-confluence-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot historical = BuildHeatmapSnapshot(5000m);
+                historical.LocalTimestamp = now.AddMinutes(-4);
+                AddBookBid(historical, 0, 4999m, 2400m);
+                writer.PostSnapshot(historical);
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 1", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist historical support.");
+                writer.Dispose();
+
+                HeatmapProcessor processor = new HeatmapProcessor(0.5m, path, new Logger(null));
+                MarketSnapshot first = BuildHeatmapSnapshot(5000m);
+                first.LocalTimestamp = now.AddSeconds(-8);
+                AddBookBid(first, 0, 4999m, 1800m);
+                AddBookAsk(first, 0, 5001m, 400m);
+                processor.PostSnapshot(first);
+
+                MarketSnapshot second = BuildHeatmapSnapshot(5000m);
+                second.LocalTimestamp = now.AddSeconds(-2);
+                AddBookBid(second, 0, 4999m, 2600m);
+                AddBookAsk(second, 0, 5001m, 400m);
+                processor.PostSnapshot(second);
+
+                processor.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddSeconds(-1),
+                    Price = 4999m,
+                    Quantity = 350m,
+                    Delta = -350m,
+                    Aggressor = "Sell"
+                });
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell support = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4999m);
+
+                Assert(support != null, "Aligned live and SQL support should appear in interest rows.");
+                AssertEqual("Compra", support.Direction, "Aligned absorption and historical support should stay buy-side.");
+                Assert(support.ConfluenceScore >= 70m, "Aligned live absorption plus SQL support should produce high confluence.");
+                Assert(support.ConfidenceScore >= 70m, "Aligned confluence should produce high confidence.");
+                AssertEqual("Alta", support.Quality, "Aligned confluence should be marked as high quality.");
+                Assert(support.SignalCount >= 3, "Live wall/absorption/history should count as multiple confirming signals.");
+                Assert(support.Read.IndexOf("confluencia", StringComparison.OrdinalIgnoreCase) >= 0, "Read should mention confluence.");
+                Assert(heatmap.MaxConfluenceScore >= support.ConfluenceScore, "Snapshot should expose max confluence.");
+
+                processor.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapConfluenceFlagsConflictingHistoricalBookAndFlow()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-conflict-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                MarketSnapshot historicalBook = BuildHeatmapSnapshot(5000m);
+                historicalBook.LocalTimestamp = now.AddMinutes(-3);
+                AddBookBid(historicalBook, 0, 4999m, 2200m);
+                writer.PostSnapshot(historicalBook);
+
+                writer.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = now.AddMinutes(-2),
+                    Price = 4999m,
+                    Quantity = 300m,
+                    Delta = -300m,
+                    Aggressor = "Sell"
+                });
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 1", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                       writer.StorageStatus.IndexOf("trades 1", StringComparison.OrdinalIgnoreCase) >= 0, 3000),
+                    "Writer should persist conflicting historical book and flow.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell conflict = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4999m);
+
+                Assert(conflict != null, "Conflicting SQL level should remain visible.");
+                Assert(conflict.ConflictScore >= 45m, "Opposite historical book and flow should produce a conflict score.");
+                AssertEqual("Conflito", conflict.Quality, "Conflicting level should be marked as conflict.");
+                Assert(conflict.ConfidenceScore < conflict.ConfluenceScore || conflict.ConfidenceScore < 60m, "Conflict should reduce operational confidence.");
+                Assert(conflict.Read.IndexOf("conflito", StringComparison.OrdinalIgnoreCase) >= 0, "Read should mention conflict.");
 
                 reader.Dispose();
             }
