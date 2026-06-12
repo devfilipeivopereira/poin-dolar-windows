@@ -11,6 +11,8 @@ namespace RtdDolarNative.Heatmap
 {
     public sealed class HeatmapProcessor : IDisposable
     {
+        private const int HistoricalContextMinutes = 360;
+        private const int HistoricalContextRows = 180;
         private readonly object _lock = new object();
         private readonly decimal _tickSize;
         private readonly MarketHeatmapSqliteStore _store;
@@ -173,10 +175,14 @@ namespace RtdDolarNative.Heatmap
                 }
             }
 
+            MergeHistoricalContext(asset, snapshot, combined);
+
             List<HeatmapCell> allCells = combined.Values.ToList();
 
             foreach (HeatmapCell cell in allCells)
             {
+                decimal historicalLiquidity = cell.HistoricalBidLiquidity + cell.HistoricalAskLiquidity;
+
                 snapshot.TotalBidLiquidity += cell.BidLiquidity;
                 snapshot.TotalAskLiquidity += cell.AskLiquidity;
                 snapshot.TotalBuyVolume += cell.BuyVolume;
@@ -187,6 +193,12 @@ namespace RtdDolarNative.Heatmap
                 snapshot.MaxTradeVolume = Math.Max(snapshot.MaxTradeVolume, cell.BuyVolume + cell.SellVolume + cell.NeutralVolume);
                 snapshot.MaxStackingScore = Math.Max(snapshot.MaxStackingScore, Math.Max(Math.Max(0m, cell.BidChange), Math.Max(0m, cell.AskChange)));
                 snapshot.MaxPullingScore = Math.Max(snapshot.MaxPullingScore, Math.Max(Math.Max(0m, -cell.BidChange), Math.Max(0m, -cell.AskChange)));
+
+                if (cell.HistoricalSamples > 0)
+                {
+                    snapshot.HistoricalLevels++;
+                    snapshot.MaxHistoricalLiquidity = Math.Max(snapshot.MaxHistoricalLiquidity, historicalLiquidity);
+                }
             }
 
             foreach (HeatmapCell cell in allCells)
@@ -197,12 +209,14 @@ namespace RtdDolarNative.Heatmap
                 snapshot.MaxWallScore = Math.Max(snapshot.MaxWallScore, cell.WallScore);
                 snapshot.MaxSpoofRiskScore = Math.Max(snapshot.MaxSpoofRiskScore, cell.SpoofRiskScore);
                 snapshot.MaxPersistenceScore = Math.Max(snapshot.MaxPersistenceScore, cell.PersistenceScore);
+                snapshot.MaxHistoricalScore = Math.Max(snapshot.MaxHistoricalScore, cell.HistoricalScore);
             }
 
             snapshot.BookLevels = allCells.Count(x => x.BidLiquidity > 0m || x.AskLiquidity > 0m);
             snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows));
             snapshot.InterestCells = SelectInterestRows(allCells, snapshot.CurrentPrice, Math.Max(40, maxRows));
             snapshot.Zones = BuildZones(snapshot.InterestCells, snapshot.CurrentPrice, Math.Max(12, maxRows / 4));
+            snapshot.Bias = BuildBias(snapshot);
             ApplyDominantRead(snapshot);
             return snapshot;
         }
@@ -295,6 +309,31 @@ namespace RtdDolarNative.Heatmap
             }
 
             return result;
+        }
+
+        private void MergeHistoricalContext(string asset, HeatmapSnapshot snapshot, Dictionary<decimal, HeatmapCell> combined)
+        {
+            List<HeatmapHistoricalLevel> levels = _store.LoadRecentBookContext(asset, DateTimeOffset.Now.AddMinutes(-HistoricalContextMinutes), HistoricalContextRows);
+
+            foreach (HeatmapHistoricalLevel level in levels)
+            {
+                if (level.Price <= 0m || level.Samples <= 0)
+                {
+                    continue;
+                }
+
+                HeatmapCell cell = GetOrCreate(combined, Round(level.Price));
+                cell.HistoricalBidLiquidity += level.BidLiquidity;
+                cell.HistoricalAskLiquidity += level.AskLiquidity;
+                cell.HistoricalSamples += level.Samples;
+
+                if (level.LastSeen > cell.HistoricalLastSeen)
+                {
+                    cell.HistoricalLastSeen = level.LastSeen;
+                }
+            }
+
+            snapshot.StorageStatus = StorageStatus;
         }
 
         private Dictionary<decimal, HeatmapCell> ApplyBookChanges(string asset, Dictionary<decimal, HeatmapCell> current, DateTimeOffset timestamp)
@@ -466,6 +505,8 @@ namespace RtdDolarNative.Heatmap
             zone.SellVolume = cells.Sum(x => x.SellVolume);
             zone.Delta = cells.Sum(x => x.Delta);
             zone.PersistenceScore = cells.Max(x => x.PersistenceScore);
+            zone.HistoricalScore = cells.Max(x => x.HistoricalScore);
+            zone.HistoricalSamples = cells.Sum(x => x.HistoricalSamples);
             zone.CellCount = cells.Count;
             zone.Direction = dominant.Direction;
             zone.DistanceTicks = currentPrice.HasValue ? (int)Math.Round((double)((zone.CenterPrice - currentPrice.Value) / _tickSize)) : 0;
@@ -486,6 +527,11 @@ namespace RtdDolarNative.Heatmap
             if (cells.Any(x => x.PersistenceScore >= 70m || (!string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("persistente", StringComparison.OrdinalIgnoreCase) >= 0)))
             {
                 return "zona persistente " + side;
+            }
+
+            if (cells.Any(x => x.HistoricalScore >= 70m || (!string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("historico", StringComparison.OrdinalIgnoreCase) >= 0)))
+            {
+                return "zona historica " + side;
             }
 
             if (cells.Any(x => !string.IsNullOrWhiteSpace(x.Read) && x.Read.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0))
@@ -518,14 +564,19 @@ namespace RtdDolarNative.Heatmap
             decimal maxTrade = snapshot.MaxTradeVolume <= 0m ? 1m : snapshot.MaxTradeVolume;
             decimal maxStack = snapshot.MaxStackingScore <= 0m ? 1m : snapshot.MaxStackingScore;
             decimal maxPull = snapshot.MaxPullingScore <= 0m ? 1m : snapshot.MaxPullingScore;
+            decimal maxHistorical = snapshot.MaxHistoricalLiquidity <= 0m ? 1m : snapshot.MaxHistoricalLiquidity;
             decimal tradeVolume = cell.BuyVolume + cell.SellVolume + cell.NeutralVolume;
             bool above = snapshot.CurrentPrice.HasValue && cell.Price > snapshot.CurrentPrice.Value;
             bool below = snapshot.CurrentPrice.HasValue && cell.Price < snapshot.CurrentPrice.Value;
             bool strongBid = cell.BidLiquidity > 0m && cell.BidLiquidity >= cell.AskLiquidity * 1.25m;
             bool strongAsk = cell.AskLiquidity > 0m && cell.AskLiquidity >= cell.BidLiquidity * 1.25m;
+            bool historicalBid = cell.HistoricalBidLiquidity > 0m && cell.HistoricalBidLiquidity >= cell.HistoricalAskLiquidity * 1.15m;
+            bool historicalAsk = cell.HistoricalAskLiquidity > 0m && cell.HistoricalAskLiquidity >= cell.HistoricalBidLiquidity * 1.15m;
             decimal bookTotal = cell.BidLiquidity + cell.AskLiquidity;
+            decimal historicalTotal = cell.HistoricalBidLiquidity + cell.HistoricalAskLiquidity;
             decimal maxBookRatio = Math.Max(cell.BidLiquidity / maxBid, cell.AskLiquidity / maxAsk);
             decimal tradeRatio = tradeVolume / maxTrade;
+            decimal historicalRatio = historicalTotal / maxHistorical;
             decimal bidStackRatio = Math.Max(0m, cell.BidChange) / maxStack;
             decimal askStackRatio = Math.Max(0m, cell.AskChange) / maxStack;
             decimal bidPullRatio = Math.Max(0m, -cell.BidChange) / maxPull;
@@ -554,6 +605,9 @@ namespace RtdDolarNative.Heatmap
                 ? ClampScore(cell.PullingScore * 0.74m + (tradeVolume <= 0m ? 26m : Math.Max(0m, 16m - tradeRatio * 16m)))
                 : 0m;
             cell.PersistenceScore = (cell.BidLiquidity > 0m || cell.AskLiquidity > 0m) ? ClampScore(ageScore + countScore) : 0m;
+            cell.HistoricalScore = cell.HistoricalSamples > 0
+                ? ClampScore(historicalRatio * 70m + Math.Min(30m, cell.HistoricalSamples * 6m))
+                : 0m;
             cell.DistanceTicks = snapshot.CurrentPrice.HasValue ? (int)Math.Round((double)((cell.Price - snapshot.CurrentPrice.Value) / _tickSize)) : 0;
             decimal baseInterest = ClampScore(
                 cell.WallScore * 0.62m +
@@ -561,9 +615,11 @@ namespace RtdDolarNative.Heatmap
                 cell.AbsorptionScore * 0.16m +
                 cell.AggressionScore * 0.04m +
                 Math.Max(cell.StackingScore, cell.PullingScore) * 0.06m +
-                cell.PersistenceScore * 0.10m);
+                cell.PersistenceScore * 0.10m +
+                cell.HistoricalScore * 0.08m);
             decimal removalInterest = ClampScore(cell.SpoofRiskScore * 0.72m + cell.PullingScore * 0.28m);
-            cell.InterestScore = Math.Max(baseInterest, removalInterest);
+            decimal historicalInterest = ClampScore(cell.HistoricalScore * 0.70m);
+            cell.InterestScore = Math.Max(Math.Max(baseInterest, removalInterest), historicalInterest);
 
             if (bidAbsorption >= 55m)
             {
@@ -615,6 +671,16 @@ namespace RtdDolarNative.Heatmap
                 cell.Direction = "Venda";
                 cell.Read = "parede venda persistente";
             }
+            else if (cell.HistoricalScore >= 60m && below && historicalBid)
+            {
+                cell.Direction = "Compra";
+                cell.Read = "historico compra SQL";
+            }
+            else if (cell.HistoricalScore >= 60m && above && historicalAsk)
+            {
+                cell.Direction = "Venda";
+                cell.Read = "historico venda SQL";
+            }
             else if (bidPullRatio >= 0.50m && cell.BidChange < 0m)
             {
                 cell.Direction = "Venda";
@@ -639,6 +705,11 @@ namespace RtdDolarNative.Heatmap
             {
                 cell.Direction = "Neutro";
                 cell.Read = tradeVolume > 0m ? "negocios" : "neutro";
+            }
+
+            if (cell.HistoricalScore >= 60m && !string.IsNullOrWhiteSpace(cell.Read) && cell.Read.IndexOf("historico", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                cell.Read += " + historico";
             }
         }
 
@@ -665,6 +736,209 @@ namespace RtdDolarNative.Heatmap
             HeatmapCell dominant = snapshot.InterestCells.First();
             snapshot.DominantSide = dominant.Direction;
             snapshot.DominantRead = dominant.Read;
+        }
+
+        private HeatmapBias BuildBias(HeatmapSnapshot snapshot)
+        {
+            HeatmapBias bias = new HeatmapBias();
+            List<string> reasons = new List<string>();
+
+            if (snapshot == null)
+            {
+                bias.Direction = "Neutro";
+                bias.Read = "sem dados";
+                return bias;
+            }
+
+            decimal score = 0m;
+            decimal bookTotal = snapshot.TotalBidLiquidity + snapshot.TotalAskLiquidity;
+
+            if (bookTotal > 0m)
+            {
+                decimal bookPressure = ClampSigned((snapshot.TotalBidLiquidity - snapshot.TotalAskLiquidity) / bookTotal * 22m);
+                score += bookPressure;
+                AddBiasReason(reasons, "book", bookPressure);
+            }
+
+            decimal tradeTotal = snapshot.TotalBuyVolume + snapshot.TotalSellVolume;
+
+            if (tradeTotal > 0m)
+            {
+                decimal flowPressure = ClampSigned(snapshot.CumulativeDelta / tradeTotal * 24m);
+                score += flowPressure;
+                AddBiasReason(reasons, "delta", flowPressure);
+            }
+
+            if (snapshot.Zones != null)
+            {
+                foreach (HeatmapZone zone in snapshot.Zones.Take(5))
+                {
+                    decimal sign = DirectionSign(zone.Direction);
+
+                    if (sign == 0m)
+                    {
+                        continue;
+                    }
+
+                    decimal distanceFactor = 1m / (1m + Math.Abs(zone.DistanceTicks) / 24m);
+                    decimal zonePressure = sign * zone.Score * distanceFactor * 0.22m;
+                    score += zonePressure;
+                    AddBiasReason(reasons, zone.Read, zonePressure);
+                }
+            }
+
+            if (snapshot.InterestCells != null)
+            {
+                foreach (HeatmapCell cell in snapshot.InterestCells.Take(12))
+                {
+                    decimal sign = DirectionSign(cell.Direction);
+
+                    if (sign == 0m)
+                    {
+                        continue;
+                    }
+
+                    decimal distanceFactor = 1m / (1m + Math.Abs(cell.DistanceTicks) / 28m);
+                    decimal signalScore = Math.Max(Math.Max(cell.AbsorptionScore, cell.SpoofRiskScore), Math.Max(Math.Max(cell.PersistenceScore, cell.AggressionScore), cell.HistoricalScore));
+                    decimal signalWeight = cell.AbsorptionScore >= 55m || cell.SpoofRiskScore >= 55m ? 0.36m : 0.10m;
+                    decimal signalPressure = sign * signalScore * distanceFactor * signalWeight;
+                    score += signalPressure;
+
+                    if (signalScore >= 55m)
+                    {
+                        AddBiasReason(reasons, BiasSignalLabel(cell), signalPressure);
+                    }
+                }
+            }
+
+            bias.Score = ClampSigned(score);
+            bias.Confidence = ClampScore(Math.Abs(bias.Score) + Math.Min(24m, reasons.Count * 4m));
+
+            if (bias.Score > 12m)
+            {
+                bias.Direction = "Compra";
+            }
+            else if (bias.Score < -12m)
+            {
+                bias.Direction = "Venda";
+            }
+            else
+            {
+                bias.Direction = "Neutro";
+            }
+
+            List<string> visibleReasons = reasons
+                .OrderBy(x => BiasReasonRank(x))
+                .Take(4)
+                .ToList();
+            bias.Reasons = visibleReasons.Count == 0 ? "-" : string.Join(" | ", visibleReasons.ToArray());
+            bias.Read = bias.Direction + " " + bias.Score.ToString("N0") + " | conf " + bias.Confidence.ToString("N0");
+            return bias;
+        }
+
+        private static int BiasReasonRank(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return 9;
+            }
+
+            if (reason.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                reason.IndexOf("spoof", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 0;
+            }
+
+            if (reason.IndexOf("historico", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 1;
+            }
+
+            if (reason.IndexOf("persistencia", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                reason.IndexOf("agressao", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 2;
+            }
+
+            if (reason.IndexOf("zona", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 3;
+            }
+
+            return 4;
+        }
+
+        private static string BiasSignalLabel(HeatmapCell cell)
+        {
+            string side = string.IsNullOrWhiteSpace(cell.Direction) ? string.Empty : cell.Direction.ToLowerInvariant();
+
+            if (cell.AbsorptionScore >= 55m)
+            {
+                return "absorcao " + side;
+            }
+
+            if (cell.SpoofRiskScore >= 55m)
+            {
+                return "spoof " + side;
+            }
+
+            if (cell.HistoricalScore >= 65m)
+            {
+                return "historico " + side;
+            }
+
+            if (cell.PersistenceScore >= 55m)
+            {
+                return "persistencia " + side;
+            }
+
+            if (cell.AggressionScore >= 55m)
+            {
+                return "agressao " + side;
+            }
+
+            return cell.Read;
+        }
+
+        private static void AddBiasReason(List<string> reasons, string label, decimal contribution)
+        {
+            if (reasons == null || string.IsNullOrWhiteSpace(label) || Math.Abs(contribution) < 5m)
+            {
+                return;
+            }
+
+            string sign = contribution > 0m ? "+" : string.Empty;
+            reasons.Add(label + " " + sign + contribution.ToString("N0"));
+        }
+
+        private static decimal DirectionSign(string direction)
+        {
+            if (string.Equals(direction, "Compra", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1m;
+            }
+
+            if (string.Equals(direction, "Venda", StringComparison.OrdinalIgnoreCase))
+            {
+                return -1m;
+            }
+
+            return 0m;
+        }
+
+        private static decimal ClampSigned(decimal value)
+        {
+            if (value < -100m)
+            {
+                return -100m;
+            }
+
+            if (value > 100m)
+            {
+                return 100m;
+            }
+
+            return value;
         }
 
         private static decimal ClampScore(decimal value)
@@ -695,6 +969,11 @@ namespace RtdDolarNative.Heatmap
             copy.BidChange = source.BidChange;
             copy.AskChange = source.AskChange;
             copy.PersistenceScore = source.PersistenceScore;
+            copy.HistoricalBidLiquidity = source.HistoricalBidLiquidity;
+            copy.HistoricalAskLiquidity = source.HistoricalAskLiquidity;
+            copy.HistoricalSamples = source.HistoricalSamples;
+            copy.HistoricalScore = source.HistoricalScore;
+            copy.HistoricalLastSeen = source.HistoricalLastSeen;
             copy.SeenCount = source.SeenCount;
             copy.AgeSeconds = source.AgeSeconds;
             copy.FirstSeen = source.FirstSeen;

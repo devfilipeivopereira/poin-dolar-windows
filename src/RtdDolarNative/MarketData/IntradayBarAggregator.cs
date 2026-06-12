@@ -13,6 +13,7 @@ namespace RtdDolarNative.MarketData
         {
             public decimal Price { get; set; }
             public decimal Volume { get; set; }
+            public decimal Quantity { get; set; }
         }
 
         private readonly Dictionary<string, List<IntradayBar>> _bars = new Dictionary<string, List<IntradayBar>>(StringComparer.OrdinalIgnoreCase);
@@ -97,22 +98,34 @@ namespace RtdDolarNative.MarketData
             {
                 SnapshotState last;
                 _lastSnapshots.TryGetValue(asset, out last);
-                if (last != null && last.Price == price && last.Volume == volume)
+
+                if (last == null)
+                {
+                    _lastSnapshots[asset] = new SnapshotState { Price = price, Volume = volume, Quantity = quantity };
+                    return;
+                }
+
+                if (last != null && last.Price == price && last.Volume == volume && last.Quantity == quantity)
                 {
                     return; // Nothing changed
                 }
 
-                decimal diffVolume = last != null && last.Volume > 0 && volume > last.Volume ? volume - last.Volume : 0m;
-                decimal diffQuantity = last != null && last.Volume > 0 && quantity > last.Volume ? quantity - last.Volume : 0m;
+                decimal diffVolume = last.Volume > 0 && volume > last.Volume ? volume - last.Volume : 0m;
+                decimal diffQuantity = last.Quantity > 0 && quantity > last.Quantity ? quantity - last.Quantity : 0m;
 
-                _lastSnapshots[asset] = new SnapshotState { Price = price, Volume = volume };
+                _lastSnapshots[asset] = new SnapshotState { Price = price, Volume = volume, Quantity = quantity };
+
+                if (diffVolume <= 0m && diffQuantity <= 0m)
+                {
+                    return;
+                }
 
                 TickEvent tick = new TickEvent
                 {
                     Asset = asset,
                     Price = price,
-                    Volume = diffVolume > 0m ? diffVolume : (diffQuantity > 0m ? diffQuantity : 1m),
-                    Quantity = diffQuantity > 0m ? diffQuantity : 1m,
+                    Volume = diffVolume,
+                    Quantity = diffQuantity,
                     LocalTimestamp = DateTimeOffset.Now,
                     Delta = 0m // neutral since we can't infer side from snapshot alone
                 };

@@ -935,11 +935,11 @@ namespace RtdDolarNative.Quant
                 reasons.Add("Preço colado na banda (" + distTicks.ToString("F1", CultureInfo.InvariantCulture) + " ticks)");
             }
 
-            signal.Score = Math.Min(95, score);
+            signal.Score = Math.Min(65, score);
             signal.Reasons = string.Join("; ", reasons);
-            signal.Robustness = signal.Score >= 85 ? "Robusto" : (signal.Score >= 75 ? "Acionavel" : "Monitorar");
-            signal.Confirmation = "Rejeição na banda e fluxo virando";
-            signal.Gate = "Aguardando gatilho de rejeição";
+            signal.Robustness = "Monitorar";
+            signal.Confirmation = "Necessita rejeicao/fluxo real";
+            signal.Gate = "Aguardando gatilho de rejeicao";
 
             return signal;
         }

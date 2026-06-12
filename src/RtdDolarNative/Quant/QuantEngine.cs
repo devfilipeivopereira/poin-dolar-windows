@@ -1215,10 +1215,12 @@ namespace RtdDolarNative.Quant
             }
 
             if (IsBullTrend(result.Technicals) &&
+                !result.Intraday.VwapIsProxy &&
                 result.Technicals.MacdHistogram.HasValue &&
                 result.Technicals.MacdHistogram.Value > 0m &&
                 result.Technicals.Momentum10Pct.HasValue &&
                 result.Technicals.Momentum10Pct.Value > 0m &&
+                !result.Intraday.VwapIsProxy &&
                 price >= result.Intraday.Vwap)
             {
                 KeyLevel level = new KeyLevel { Price = result.Intraday.Vwap, Label = result.Intraday.VwapIsProxy ? "VWAP proxy" : "VWAP/MED", Type = "Valor", Source = "RTD+Tecnico", Score = 72d, Evidence = "EMA/MACD/momentum" };
@@ -1226,10 +1228,12 @@ namespace RtdDolarNative.Quant
             }
 
             if (IsBearTrend(result.Technicals) &&
+                !result.Intraday.VwapIsProxy &&
                 result.Technicals.MacdHistogram.HasValue &&
                 result.Technicals.MacdHistogram.Value < 0m &&
                 result.Technicals.Momentum10Pct.HasValue &&
                 result.Technicals.Momentum10Pct.Value < 0m &&
+                !result.Intraday.VwapIsProxy &&
                 price <= result.Intraday.Vwap)
             {
                 KeyLevel level = new KeyLevel { Price = result.Intraday.Vwap, Label = result.Intraday.VwapIsProxy ? "VWAP proxy" : "VWAP/MED", Type = "Valor", Source = "RTD+Tecnico", Score = 72d, Evidence = "EMA/MACD/momentum" };
@@ -1249,14 +1253,13 @@ namespace RtdDolarNative.Quant
             decimal p = r.Intraday.Price;
             decimal sigma = r.GarmanKlass.Points;
 
-            levels.Add(Level(p, "Preco atual", "Atual", "RTD", 90d, "ULT"));
             levels.Add(Level(r.Intraday.Open, "Abertura atual", "Valor", "Open", 58d, "ABE"));
             levels.Add(Level(r.Intraday.High, "Maxima atual", "Resistencia", "RTD", 50d, "MAX"));
             levels.Add(Level(r.Intraday.Low, "Minima atual", "Suporte", "RTD", 50d, "MIN"));
             levels.Add(Level(r.Intraday.Vwap, r.Intraday.VwapIsProxy ? "VWAP proxy" : "VWAP/MED", "Valor", "VWAP", 76d, "MED"));
-            levels.Add(Level(r.Profile.Poc.Price, "POC proxy", "Valor", "POC", 82d, "profile"));
-            levels.Add(Level(r.Profile.Vah, "VAH 70%", "Resistencia", "VAH", 66d, "profile"));
-            levels.Add(Level(r.Profile.Val, "VAL 70%", "Suporte", "VAL", 66d, "profile"));
+            levels.Add(Level(r.Profile.Poc.Price, "POC proxy", "Valor", "POC", 42d, "profile proxy diario"));
+            levels.Add(Level(r.Profile.Vah, "VAH 70%", "Resistencia", "VAH", 46d, "profile proxy diario"));
+            levels.Add(Level(r.Profile.Val, "VAL 70%", "Suporte", "VAL", 46d, "profile proxy diario"));
             levels.Add(Level(r.PreviousDay.Open, "D-1 Abertura", "Valor", "D1", 45d, "csv"));
             levels.Add(Level(r.PreviousDay.High, "D-1 Maxima", "Resistencia", "D1", 52d, "csv"));
             levels.Add(Level(r.PreviousDay.Low, "D-1 Minima", "Suporte", "D1", 52d, "csv"));
@@ -1279,12 +1282,12 @@ namespace RtdDolarNative.Quant
 
             foreach (ProfileBin bin in r.Profile.Hvn)
             {
-                levels.Add(Level(bin.Price, "HVN", "Valor", "HVN", 44d + bin.Rank * 100d, "profile"));
+                levels.Add(Level(bin.Price, "HVN proxy", "Valor", "HVN", Math.Min(46d, 30d + bin.Rank * 35d), "profile proxy diario"));
             }
 
             foreach (ProfileBin bin in r.Profile.Lvn)
             {
-                levels.Add(Level(bin.Price, "LVN", bin.Price > p ? "Resistencia" : "Suporte", "LVN", 42d, "profile"));
+                levels.Add(Level(bin.Price, "LVN proxy", bin.Price > p ? "Resistencia" : "Suporte", "LVN", 34d, "profile proxy diario"));
             }
 
             foreach (KeyLevel sr in r.SupportResistance)

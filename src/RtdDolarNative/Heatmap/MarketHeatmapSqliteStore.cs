@@ -114,6 +114,71 @@ namespace RtdDolarNative.Heatmap
             Enqueue(command);
         }
 
+        public List<HeatmapHistoricalLevel> LoadRecentBookContext(string asset, DateTimeOffset since, int maxRows)
+        {
+            List<HeatmapHistoricalLevel> levels = new List<HeatmapHistoricalLevel>();
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                return levels;
+            }
+
+            try
+            {
+                string folder = Path.GetDirectoryName(_databasePath);
+
+                if (!string.IsNullOrWhiteSpace(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+
+                using (SQLiteConnection connection = new SQLiteConnection("Data Source=" + _databasePath + ";Version=3;Pooling=True;"))
+                {
+                    connection.Open();
+                    Initialize(connection);
+
+                    using (SQLiteCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText =
+                            "SELECT price, SUM(bid_size) AS bid_sum, SUM(ask_size) AS ask_sum, COUNT(1) AS samples, MAX(ts_unix_ms) AS last_ms " +
+                            "FROM book_levels " +
+                            "WHERE asset = @asset AND ts_unix_ms >= @since_ms AND (bid_size > 0 OR ask_size > 0) " +
+                            "GROUP BY price " +
+                            "ORDER BY (SUM(bid_size) + SUM(ask_size)) DESC, COUNT(1) DESC " +
+                            "LIMIT @limit;";
+                        command.Parameters.AddWithValue("@asset", asset);
+                        command.Parameters.AddWithValue("@since_ms", since.ToUnixTimeMilliseconds());
+                        command.Parameters.AddWithValue("@limit", Math.Max(1, maxRows));
+
+                        using (SQLiteDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                HeatmapHistoricalLevel level = new HeatmapHistoricalLevel();
+                                level.Price = Convert.ToDecimal(reader["price"]);
+                                level.BidLiquidity = Convert.ToDecimal(reader["bid_sum"]);
+                                level.AskLiquidity = Convert.ToDecimal(reader["ask_sum"]);
+                                level.Samples = Convert.ToInt32(reader["samples"]);
+                                level.LastSeen = DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(reader["last_ms"])).ToLocalTime();
+                                levels.Add(level);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _lastError = ex;
+
+                if (_log != null)
+                {
+                    _log.Error("Falha ao ler contexto historico SQLite do heatmap.", ex);
+                }
+            }
+
+            return levels;
+        }
+
         public void Dispose()
         {
             _stopRequested = true;

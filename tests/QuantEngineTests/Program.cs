@@ -29,6 +29,10 @@ namespace QuantEngineTests
                 ReferenceMapClosingUsesCsvWhenRtdCloseMatchesOpening,
                 ReferenceMapsBuildDirectionalLadders,
                 VolumeProfileUsesRequestedCsvHistoryWindow,
+                IntradayAggregatorSnapshotUsesQuantityDiffAndVolumeDiff,
+                QuantConfluenceDoesNotContainCurrentPriceReference,
+                VwapProxyDoesNotCreateMomentumSignal,
+                TimesTradeValidatorRequiresPriceAndQuantity,
                 PtaxHistoryStoreUpsertsAndLoads,
                 MarketBiasFavoursBuyWhenTrendAndMomentumAlign,
                 MarketBiasStaysNeutralWhenCsvIsMissing,
@@ -47,6 +51,11 @@ namespace QuantEngineTests
                 HeatmapGroupsAdjacentInterestIntoOperationalZones,
                 HeatmapFlagsPulledLiquidityAsSpoofRisk,
                 HeatmapScoresPersistentLiquidityAsStableWall,
+                HeatmapBiasTurnsBuyWhenStableBidAbsorbsSelling,
+                HeatmapBiasTurnsSellWhenBidLiquidityIsPulled,
+                HeatmapSqliteStoreLoadsRecentBookContextByPrice,
+                HeatmapUsesSqlHistoryWhenCurrentBookIsThin,
+                GarchSignalsStayMonitorUntilFlowTrigger,
                 GarchEngineFitsParametersAndCalculatesBands
             };
 
@@ -207,6 +216,62 @@ namespace QuantEngineTests
             Assert(sevenDays.Profile.Poc.Price > 6000m, "7-day POC should be anchored in the high-volume area from the latest 7 pregões.");
             Assert(fortyTwoDays.Profile.Poc.Price < 5300m, "42-day POC should be anchored in the older high-volume CSV area.");
             Assert(sevenDays.Profile.Poc.Price != fortyTwoDays.Profile.Poc.Price, "Changing the CSV volume window should move the POC price, not just the label.");
+        }
+
+        private static void IntradayAggregatorSnapshotUsesQuantityDiffAndVolumeDiff()
+        {
+            IntradayBarAggregator agg = new IntradayBarAggregator(100, 60);
+
+            MarketSnapshot s1 = new MarketSnapshot { Asset = "WDOFUT_F_0" };
+            s1.Rtd["ULT"] = 5000m;
+            s1.Rtd["VOL"] = 1000m;
+            s1.Rtd["QTT"] = 200m;
+            agg.AddFromSnapshot(s1);
+
+            MarketSnapshot s2 = new MarketSnapshot { Asset = "WDOFUT_F_0" };
+            s2.Rtd["ULT"] = 5000.5m;
+            s2.Rtd["VOL"] = 1010m;
+            s2.Rtd["QTT"] = 203m;
+            agg.AddFromSnapshot(s2);
+
+            List<IntradayBar> bars = agg.GetBars("WDOFUT_F_0", 60);
+
+            AssertEqual(10m, bars.Sum(x => x.Volume), "Snapshot aggregation should use volume delta, not cumulative volume or a fabricated fallback.");
+            AssertEqual(3m, bars.Sum(x => x.Quantity), "Snapshot aggregation should use previous quantity, not previous volume.");
+        }
+
+        private static void QuantConfluenceDoesNotContainCurrentPriceReference()
+        {
+            QuantResult result = BuildResult();
+
+            Assert(!result.KeyLevels.Any(x => ContainsText(x.Label, "Preco atual")), "Current price should not be part of raw actionable key levels.");
+            Assert(!result.Confluence.Any(x => ContainsText(x.Label, "Preco atual") || ContainsText(x.Tags, "Preco atual")), "Current price should not inflate confluence clusters.");
+        }
+
+        private static void VwapProxyDoesNotCreateMomentumSignal()
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Rtd["ULT"] = 5408m;
+            snapshot.Rtd["ABE"] = 5372m;
+            snapshot.Rtd["MAX"] = 5412m;
+            snapshot.Rtd["MIN"] = 5368m;
+            snapshot.Rtd["FEC"] = 5386m;
+            snapshot.Rtd["VOL"] = 150000m;
+
+            QuantResult result = QuantEngine.Build(BuildTrendingBars(true), snapshot, 0.5m, 45);
+
+            Assert(result.Intraday.VwapIsProxy, "Test setup should force VWAP proxy by omitting MED/67.");
+            Assert(!result.QuantSignals.Any(x => ContainsText(x.Setup, "Momentum continuation") && ContainsText(x.LevelName, "VWAP proxy")),
+                "VWAP proxy may be displayed as context, but must not create a momentum opportunity.");
+        }
+
+        private static void TimesTradeValidatorRequiresPriceAndQuantity()
+        {
+            Assert(!TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "", "10", "BTG", "C"), "Times row without price should be invalid.");
+            Assert(!TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "5000", "", "BTG", "C"), "Times row without quantity should be invalid.");
+            Assert(!TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "5000", "0", "BTG", "C"), "Times row with zero quantity should be invalid.");
+            Assert(!TimesTradeValidator.HasValidTradeData("Ferramenta Invalida", "XP", "5000", "10", "BTG", "C"), "Times row with placeholder text should be invalid.");
+            Assert(TimesTradeValidator.HasValidTradeData("10:01:02", "XP", "5000", "10", "BTG", "C"), "Times row with valid price and quantity should be accepted.");
         }
 
         private static void PtaxHistoryStoreUpsertsAndLoads()
@@ -564,6 +629,13 @@ namespace QuantEngineTests
             return bars;
         }
 
+        private static bool ContainsText(string text, string expected)
+        {
+            return !string.IsNullOrWhiteSpace(text) &&
+                   !string.IsNullOrWhiteSpace(expected) &&
+                   text.IndexOf(expected, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static void Assert(bool condition, string message)
         {
             if (!condition)
@@ -702,6 +774,39 @@ namespace QuantEngineTests
                 Tags = tags,
                 Score = 50d
             };
+        }
+
+        private static void GarchSignalsStayMonitorUntilFlowTrigger()
+        {
+            List<DailyBar> bars = BuildLongBars();
+            decimal current = bars[bars.Count - 1].Close;
+
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Asset = "WDOFUT_F_0";
+            snapshot.Rtd["ULT"] = current;
+            snapshot.Rtd["AJA"] = current;
+
+            IntradayContext intraday = new IntradayContext
+            {
+                Open = current,
+                Price = current,
+                Vwap = current
+            };
+
+            GarchConfig config = new GarchConfig
+            {
+                Enabled = true,
+                DailyWindowDays = 252,
+                DailyMinSamples = 126,
+                MaxEntryDistanceTicks = 30,
+                BandMultipliers = new double[] { 0.5 }
+            };
+
+            GarchSnapshot garch = GarchEngine.Build(bars, intraday, snapshot, new List<IntradayBar>(), 0.5m, config);
+
+            Assert(garch.Signals.Count > 0, "Test setup should place current price close enough to a GARCH band to create a candidate signal.");
+            Assert(garch.Signals.All(x => string.Equals(x.Robustness, "Monitorar", StringComparison.OrdinalIgnoreCase)), "GARCH alone should stay as Monitorar until flow confirms the trigger.");
+            Assert(garch.Signals.All(x => ContainsText(x.Confirmation, "Necessita")), "GARCH signal confirmation should state that real rejection/flow is still required.");
         }
 
         private static void GarchEngineFitsParametersAndCalculatesBands()
@@ -947,6 +1052,158 @@ namespace QuantEngineTests
             }
         }
 
+        private static void HeatmapBiasTurnsBuyWhenStableBidAbsorbsSelling()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                DateTimeOffset start = DateTimeOffset.Now.AddSeconds(-8);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+                    snapshot.LocalTimestamp = start.AddSeconds(i * 2);
+                    AddBookBid(snapshot, 0, 4999m, 2600m);
+                    AddBookBid(snapshot, 1, 4998.5m, 2200m);
+                    AddBookAsk(snapshot, 0, 5001m, 500m);
+                    processor.PostSnapshot(snapshot);
+                }
+
+                processor.PostTrade(new TradePrint
+                {
+                    Asset = "WDOFUT_F_0",
+                    LocalTimestamp = start.AddSeconds(8),
+                    Price = 4999m,
+                    Quantity = 420m,
+                    Delta = -420m,
+                    Aggressor = "Sell"
+                });
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.Bias != null, "Heatmap should expose an operational bias summary.");
+                AssertEqual("Compra", heatmap.Bias.Direction, "Stable bid absorption should tilt heatmap bias to buy.");
+                Assert(heatmap.Bias.Score > 25m, "Buy bias score should be positive enough to be operational.");
+                Assert(heatmap.Bias.Confidence >= 45m, "Buy bias should carry readable confidence.");
+                Assert(heatmap.Bias.Reasons.IndexOf("absorcao", StringComparison.OrdinalIgnoreCase) >= 0, "Bias reasons should mention absorption. Reasons: " + heatmap.Bias.Reasons);
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapBiasTurnsSellWhenBidLiquidityIsPulled()
+        {
+            HeatmapProcessor processor = BuildHeatmapProcessor();
+
+            try
+            {
+                MarketSnapshot first = BuildHeatmapSnapshot(5000m);
+                AddBookBid(first, 0, 4998.5m, 9000m);
+                AddBookAsk(first, 0, 5001m, 500m);
+                processor.PostSnapshot(first);
+
+                MarketSnapshot second = BuildHeatmapSnapshot(5000m);
+                AddBookAsk(second, 0, 5001m, 500m);
+                processor.PostSnapshot(second);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.Bias != null, "Heatmap should expose an operational bias summary after spoof risk.");
+                AssertEqual("Venda", heatmap.Bias.Direction, "Pulled bid liquidity should tilt heatmap bias to sell.");
+                Assert(heatmap.Bias.Score < -25m, "Sell bias score should be negative enough to be operational.");
+                Assert(heatmap.Bias.Confidence >= 45m, "Sell bias should carry readable confidence.");
+                Assert(heatmap.Bias.Reasons.IndexOf("spoof", StringComparison.OrdinalIgnoreCase) >= 0, "Bias reasons should mention spoof risk.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void HeatmapSqliteStoreLoadsRecentBookContextByPrice()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-sql-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+            MarketHeatmapSqliteStore store = new MarketHeatmapSqliteStore(path, new Logger(null));
+
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.Now;
+                store.Start();
+                store.EnqueueBookLevels("WDOFUT_F_0", now.AddMinutes(-5), new List<HeatmapBookLevel>
+                {
+                    new HeatmapBookLevel { Price = 4998.5m, BidSize = 1500m, LevelIndex = 0 },
+                    new HeatmapBookLevel { Price = 5001.0m, AskSize = 900m, LevelIndex = 1 }
+                });
+                store.EnqueueBookLevels("WDOFUT_F_0", now.AddMinutes(-1), new List<HeatmapBookLevel>
+                {
+                    new HeatmapBookLevel { Price = 4998.5m, BidSize = 1700m, LevelIndex = 0 },
+                    new HeatmapBookLevel { Price = 5001.0m, AskSize = 1100m, LevelIndex = 1 }
+                });
+
+                Assert(WaitUntil(() => store.BookRows >= 4, 3000), "SQLite heatmap store should flush queued book rows.");
+
+                List<HeatmapHistoricalLevel> levels = store.LoadRecentBookContext("WDOFUT_F_0", now.AddMinutes(-10), 20);
+                HeatmapHistoricalLevel bid = levels.FirstOrDefault(x => x.Price == 4998.5m);
+                HeatmapHistoricalLevel ask = levels.FirstOrDefault(x => x.Price == 5001.0m);
+
+                Assert(bid != null, "Historical SQL context should aggregate repeated bid prices.");
+                Assert(ask != null, "Historical SQL context should aggregate repeated ask prices.");
+                AssertEqual(2, bid.Samples, "Repeated price should expose sample count.");
+                AssertEqual(3200m, bid.BidLiquidity, "Historical bid liquidity should sum by price.");
+                AssertEqual(2000m, ask.AskLiquidity, "Historical ask liquidity should sum by price.");
+                Assert(bid.LastSeen >= now.AddMinutes(-2), "Historical context should expose last seen timestamp.");
+            }
+            finally
+            {
+                store.Dispose();
+                TryDelete(folder);
+            }
+        }
+
+        private static void HeatmapUsesSqlHistoryWhenCurrentBookIsThin()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-sql-integration-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "heatmap.sqlite");
+
+            try
+            {
+                HeatmapProcessor writer = new HeatmapProcessor(0.5m, path, new Logger(null));
+                writer.Start();
+
+                for (int i = 0; i < 3; i++)
+                {
+                    MarketSnapshot snapshot = BuildHeatmapSnapshot(5000m);
+                    snapshot.LocalTimestamp = DateTimeOffset.Now.AddMinutes(-3 + i);
+                    AddBookBid(snapshot, 0, 4998.5m, 2200m + i * 100m);
+                    writer.PostSnapshot(snapshot);
+                }
+
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 3", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist book snapshots before the reader opens the SQL context.");
+                writer.Dispose();
+
+                HeatmapProcessor reader = new HeatmapProcessor(0.5m, path, new Logger(null));
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+                HeatmapCell historicalBid = heatmap.InterestCells.FirstOrDefault(x => x.Price == 4998.5m);
+
+                Assert(historicalBid != null, "Heatmap should use SQLite history even when the current in-memory book is thin.");
+                AssertEqual("Compra", historicalBid.Direction, "Historical bid liquidity below the current price should be classified as buy support.");
+                Assert(historicalBid.HistoricalSamples >= 3, "Historical cell should expose persisted SQL sample count.");
+                Assert(historicalBid.HistoricalScore >= 60m, "Historical repeated liquidity should receive an operational score.");
+                Assert(historicalBid.Read.IndexOf("historico", StringComparison.OrdinalIgnoreCase) >= 0, "Read should state that the level came from SQL history.");
+                Assert(heatmap.HistoricalLevels > 0, "Snapshot should expose how many SQL historical levels were merged.");
+
+                reader.Dispose();
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
         private static void TryDelete(string folder)
         {
             try
@@ -959,6 +1216,23 @@ namespace QuantEngineTests
             catch
             {
             }
+        }
+
+        private static bool WaitUntil(Func<bool> condition, int timeoutMs)
+        {
+            DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
+
+            while (DateTime.Now <= deadline)
+            {
+                if (condition())
+                {
+                    return true;
+                }
+
+                System.Threading.Thread.Sleep(25);
+            }
+
+            return condition();
         }
 
         private static HeatmapProcessor BuildHeatmapProcessor()

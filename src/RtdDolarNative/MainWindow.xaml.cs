@@ -98,6 +98,8 @@ namespace RtdDolarNative
         private readonly List<HistoryRow> _historyRows = new List<HistoryRow>();
         private readonly HashSet<string> _postedTimesKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object _postedTimesLock = new object();
+        private readonly Dictionary<string, DateTimeOffset> _lastRealTradeAt = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _lastRealTradeLock = new object();
         private bool _syncCalculationDaysSelection = true;
         private bool _syncVolumeProfileDaysSelection = true;
         private bool _syncChartTimeframeSelection = true;
@@ -2457,7 +2459,10 @@ namespace RtdDolarNative
                 return;
             }
 
-            _intradayAggregator.AddFromSnapshot(snapshot);
+            if (!HasRecentRealTrade(snapshot.Asset))
+            {
+                _intradayAggregator.AddFromSnapshot(snapshot);
+            }
 
             MarketSnapshot previousSnapshot = null;
 
@@ -4807,12 +4812,12 @@ namespace RtdDolarNative
             }
             else if (metrics.DataQuality == MarketDataQuality.TopOfBookOnly)
             {
-                cap = Math.Min(cap, Math.Min(_config.Flow.TopOfBookOnlyScoreCap, 78));
+                cap = Math.Min(cap, Math.Min(_config.Flow.TopOfBookOnlyScoreCap, 62));
                 evidence.Add("cap top-of-book");
             }
             else if (metrics.DataQuality == MarketDataQuality.DerivedTape)
             {
-                cap = Math.Min(cap, Math.Min(_config.Flow.DerivedTapeScoreCap, 85));
+                cap = Math.Min(cap, Math.Min(_config.Flow.DerivedTapeScoreCap, 70));
                 evidence.Add("cap tape derivado");
             }
             else if (metrics.DataQuality == MarketDataQuality.FullTimesAndTrades)
@@ -6154,29 +6159,13 @@ namespace RtdDolarNative
                 return false;
             }
 
-            decimal? price = ValueParser.ToDecimal(row.Preco);
-            decimal? quantity = ValueParser.ToDecimal(row.Quantidade);
-
-            if (!price.HasValue && !quantity.HasValue)
-            {
-                return false;
-            }
-
-            return !TimesRowLooksLikePlaceholder(row.Data) &&
-                   !TimesRowLooksLikePlaceholder(row.Compradora) &&
-                   !TimesRowLooksLikePlaceholder(row.Vendedora) &&
-                   !TimesRowLooksLikePlaceholder(row.Agressor);
-        }
-
-        private bool TimesRowLooksLikePlaceholder(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            return value.IndexOf("Ferramenta", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   value.IndexOf("Comando Inv", StringComparison.OrdinalIgnoreCase) >= 0;
+            return TimesTradeValidator.HasValidTradeData(
+                row.Data,
+                row.Compradora,
+                row.Preco,
+                row.Quantidade,
+                row.Vendedora,
+                row.Agressor);
         }
 
         private void PostRealTimes(MarketSnapshot snapshot, List<TimesTradeRow> rows)
@@ -6191,7 +6180,7 @@ namespace RtdDolarNative
                 decimal? price = ValueParser.ToDecimal(row.Preco);
                 decimal? quantity = ValueParser.ToDecimal(row.Quantidade);
 
-                if (!price.HasValue || price.Value <= 0m)
+                if (!price.HasValue || price.Value <= 0m || !quantity.HasValue || quantity.Value <= 0m)
                 {
                     continue;
                 }
@@ -6213,7 +6202,7 @@ namespace RtdDolarNative
                     _postedTimesKeys.Add(key);
                 }
 
-                decimal qty = quantity.HasValue && quantity.Value > 0m ? quantity.Value : 1m;
+                decimal qty = quantity.Value;
                 string aggressor = NormalizeAggressor(row.Agressor);
                 TradePrint trade = new TradePrint();
                 trade.Asset = snapshot.Asset;
@@ -6231,6 +6220,40 @@ namespace RtdDolarNative
                 trade.Ask = snapshot.OfertaVenda;
                 _flowProcessor.PostTrade(trade, snapshot);
                 _heatmapProcessor.PostTrade(trade);
+
+                TickEvent tick = new TickEvent();
+                tick.Asset = trade.Asset;
+                tick.LocalTimestamp = trade.LocalTimestamp;
+                tick.ProfitTime = trade.ProfitTime;
+                tick.Price = trade.Price;
+                tick.Quantity = qty;
+                tick.Volume = qty;
+                tick.Delta = trade.Delta;
+                tick.Side = aggressor;
+                tick.Bid = trade.Bid;
+                tick.Ask = trade.Ask;
+                _ticks.Add(tick);
+                _intradayAggregator.Add(tick);
+
+                lock (_lastRealTradeLock)
+                {
+                    _lastRealTradeAt[snapshot.Asset] = DateTimeOffset.Now;
+                }
+            }
+        }
+
+        private bool HasRecentRealTrade(string asset)
+        {
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                return false;
+            }
+
+            lock (_lastRealTradeLock)
+            {
+                DateTimeOffset last;
+                return _lastRealTradeAt.TryGetValue(asset, out last) &&
+                       (DateTimeOffset.Now - last).TotalSeconds <= 3d;
             }
         }
 
@@ -9624,7 +9647,9 @@ namespace RtdDolarNative
             AddRow(rows, "Negocios venda", heatmap.TotalSellVolume.ToString("N0", _ptBr), "agressoes venda");
             AddRow(rows, "CVD", heatmap.CumulativeDelta.ToString("N0", _ptBr), "delta agregado da janela");
             AddRow(rows, "Dominancia", EmptyToDash(heatmap.DominantSide), EmptyToDash(heatmap.DominantRead));
+            AddRow(rows, "Vies", heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Direction), heatmap.Bias == null ? "-" : EmptyToDash(heatmap.Bias.Read) + " | " + EmptyToDash(heatmap.Bias.Reasons));
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
+            AddRow(rows, "SQL hist", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | ultimas 6h por preco");
             AddRow(rows, "Absorcao", heatmap.MaxAbsorptionScore.ToString("N0", _ptBr), "maior score");
             AddRow(rows, "Stack/Pull", heatmap.MaxStackingScore.ToString("N0", _ptBr) + " / " + heatmap.MaxPullingScore.ToString("N0", _ptBr), "mudanca do book");
             AddRow(rows, "Spoof", heatmap.MaxSpoofRiskScore.ToString("N0", _ptBr), "retirada sem execucao");
@@ -9651,6 +9676,7 @@ namespace RtdDolarNative
                 row.Direction = EmptyToDash(zone.Direction);
                 row.Score = zone.Score.ToString("N0", _ptBr);
                 row.Persistence = zone.PersistenceScore.ToString("N0", _ptBr);
+                row.Historical = zone.HistoricalScore.ToString("N0", _ptBr) + " / " + zone.HistoricalSamples.ToString(_ptBr);
                 row.Book = "C " + zone.TotalBidLiquidity.ToString("N0", _ptBr) + " / V " + zone.TotalAskLiquidity.ToString("N0", _ptBr);
                 row.Delta = zone.Delta.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(zone.Read) + " | " + zone.CellCount.ToString(_ptBr) + " linhas";
@@ -9686,6 +9712,7 @@ namespace RtdDolarNative
                 row.Absorption = cell.AbsorptionScore.ToString("N0", _ptBr);
                 row.StackPull = cell.StackingScore.ToString("N0", _ptBr) + "/" + cell.PullingScore.ToString("N0", _ptBr);
                 row.Persistence = cell.PersistenceScore.ToString("N0", _ptBr);
+                row.Historical = cell.HistoricalScore.ToString("N0", _ptBr) + " / " + cell.HistoricalSamples.ToString(_ptBr);
                 row.Spoof = cell.SpoofRiskScore.ToString("N0", _ptBr);
                 row.Read = EmptyToDash(cell.Read);
                 rows.Add(row);
@@ -10611,6 +10638,7 @@ namespace RtdDolarNative
             public string Absorption { get; set; }
             public string StackPull { get; set; }
             public string Persistence { get; set; }
+            public string Historical { get; set; }
             public string Spoof { get; set; }
             public string Read { get; set; }
         }
@@ -10623,6 +10651,7 @@ namespace RtdDolarNative
             public string Direction { get; set; }
             public string Score { get; set; }
             public string Persistence { get; set; }
+            public string Historical { get; set; }
             public string Book { get; set; }
             public string Delta { get; set; }
             public string Read { get; set; }

@@ -21,6 +21,8 @@ namespace RtdDolarNative.Rtd
         private readonly Dictionary<int, RtdTopic> _topics = new Dictionary<int, RtdTopic>();
         private readonly Dictionary<string, MarketState> _states = new Dictionary<string, MarketState>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, decimal?> _lastTradePrices = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, decimal?> _lastTradeVolumes = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, decimal?> _lastTradeQuantities = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
         private Thread _thread;
         private RtdUpdateEvent _callback;
         private volatile bool _stopRequested;
@@ -141,6 +143,8 @@ namespace RtdDolarNative.Rtd
                 SetStatus("connecting", null);
                 _topics.Clear();
                 _lastTradePrices.Clear();
+                _lastTradeVolumes.Clear();
+                _lastTradeQuantities.Clear();
 
                 List<string> activeAssets = _config.GetEnabledAssets();
                 List<RtdSubscriptionSpec> subscriptions = _config.GetSubscriptions();
@@ -369,26 +373,47 @@ namespace RtdDolarNative.Rtd
             decimal price = snapshot.Ultimo.Value;
             decimal threshold = Math.Max(0.0001m, _config.TickSize / 2m);
             decimal? lastTradePrice;
+            decimal? lastTradeVolume;
+            decimal? lastTradeQuantity;
             _lastTradePrices.TryGetValue(topic.Asset, out lastTradePrice);
+            _lastTradeVolumes.TryGetValue(topic.Asset, out lastTradeVolume);
+            _lastTradeQuantities.TryGetValue(topic.Asset, out lastTradeQuantity);
 
-            if (lastTradePrice.HasValue && Math.Abs(price - lastTradePrice.Value) < threshold)
+            decimal? cumulativeVolume = snapshot.Volume;
+            decimal? cumulativeQuantity = snapshot.Quantidade;
+            decimal volumeDelta = lastTradeVolume.HasValue && cumulativeVolume.HasValue && cumulativeVolume.Value > lastTradeVolume.Value
+                ? cumulativeVolume.Value - lastTradeVolume.Value
+                : 0m;
+            decimal quantityDelta = lastTradeQuantity.HasValue && cumulativeQuantity.HasValue && cumulativeQuantity.Value > lastTradeQuantity.Value
+                ? cumulativeQuantity.Value - lastTradeQuantity.Value
+                : 0m;
+
+            if (lastTradePrice.HasValue &&
+                Math.Abs(price - lastTradePrice.Value) < threshold &&
+                volumeDelta <= 0m &&
+                quantityDelta <= 0m)
             {
                 return;
             }
 
             decimal delta = lastTradePrice.HasValue ? price - lastTradePrice.Value : 0m;
+            decimal? lastTradeQuantityValue = snapshot.QuantidadeUltimoNegocio.HasValue && snapshot.QuantidadeUltimoNegocio.Value > 0m
+                ? snapshot.QuantidadeUltimoNegocio
+                : (quantityDelta > 0m ? (decimal?)quantityDelta : null);
             TickEvent tick = new TickEvent();
             tick.Asset = topic.Asset;
             tick.LocalTimestamp = snapshot.LocalTimestamp;
             tick.ProfitTime = snapshot.HoraProfit;
             tick.Price = price;
-            tick.Quantity = snapshot.QuantidadeUltimoNegocio;
-            tick.Volume = snapshot.Volume;
+            tick.Quantity = lastTradeQuantityValue;
+            tick.Volume = volumeDelta > 0m ? (decimal?)volumeDelta : lastTradeQuantityValue;
             tick.Delta = delta;
             tick.Side = !lastTradePrice.HasValue ? "Inicial" : delta > 0m ? "Subiu" : delta < 0m ? "Caiu" : "Neutro";
             tick.Bid = snapshot.OfertaCompra;
             tick.Ask = snapshot.OfertaVenda;
             _lastTradePrices[topic.Asset] = price;
+            _lastTradeVolumes[topic.Asset] = cumulativeVolume;
+            _lastTradeQuantities[topic.Asset] = cumulativeQuantity;
 
             Action<TickEvent> handler = TickReceived;
 

@@ -74,6 +74,9 @@
     <Compile Include="..\..\src\RtdDolarNative\Flow\FlowModels.cs">
       <Link>Flow\FlowModels.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\MarketData\TimesTradeValidator.cs">
+      <Link>MarketData\TimesTradeValidator.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Heatmap\HeatmapModels.cs">
       <Link>Heatmap\HeatmapModels.cs</Link>
     </Compile>

@@ -13,6 +13,15 @@ namespace RtdDolarNative.Heatmap
         public decimal AskSize { get; set; }
     }
 
+    public sealed class HeatmapHistoricalLevel
+    {
+        public decimal Price { get; set; }
+        public decimal BidLiquidity { get; set; }
+        public decimal AskLiquidity { get; set; }
+        public int Samples { get; set; }
+        public DateTimeOffset LastSeen { get; set; }
+    }
+
     public sealed class HeatmapCell
     {
         public decimal Price { get; set; }
@@ -34,6 +43,11 @@ namespace RtdDolarNative.Heatmap
         public decimal PullingScore { get; set; }
         public decimal SpoofRiskScore { get; set; }
         public decimal PersistenceScore { get; set; }
+        public decimal HistoricalBidLiquidity { get; set; }
+        public decimal HistoricalAskLiquidity { get; set; }
+        public int HistoricalSamples { get; set; }
+        public decimal HistoricalScore { get; set; }
+        public DateTimeOffset HistoricalLastSeen { get; set; }
         public decimal InterestScore { get; set; }
         public int SeenCount { get; set; }
         public double AgeSeconds { get; set; }
@@ -56,10 +70,21 @@ namespace RtdDolarNative.Heatmap
         public decimal SellVolume { get; set; }
         public decimal Delta { get; set; }
         public decimal PersistenceScore { get; set; }
+        public decimal HistoricalScore { get; set; }
+        public int HistoricalSamples { get; set; }
         public int DistanceTicks { get; set; }
         public int CellCount { get; set; }
         public string Direction { get; set; }
         public string Read { get; set; }
+    }
+
+    public sealed class HeatmapBias
+    {
+        public string Direction { get; set; }
+        public decimal Score { get; set; }
+        public decimal Confidence { get; set; }
+        public string Read { get; set; }
+        public string Reasons { get; set; }
     }
 
     public sealed class HeatmapSnapshot
@@ -69,6 +94,7 @@ namespace RtdDolarNative.Heatmap
             Cells = new List<HeatmapCell>();
             InterestCells = new List<HeatmapCell>();
             Zones = new List<HeatmapZone>();
+            Bias = new HeatmapBias();
         }
 
         public string Asset { get; set; }
@@ -84,16 +110,20 @@ namespace RtdDolarNative.Heatmap
         public decimal MaxPullingScore { get; set; }
         public decimal MaxSpoofRiskScore { get; set; }
         public decimal MaxPersistenceScore { get; set; }
+        public decimal MaxHistoricalLiquidity { get; set; }
+        public decimal MaxHistoricalScore { get; set; }
         public decimal TotalBidLiquidity { get; set; }
         public decimal TotalAskLiquidity { get; set; }
         public decimal TotalBuyVolume { get; set; }
         public decimal TotalSellVolume { get; set; }
         public decimal CumulativeDelta { get; set; }
+        public int HistoricalLevels { get; set; }
         public int BookLevels { get; set; }
         public int TradeCount { get; set; }
         public long Version { get; set; }
         public string DominantSide { get; set; }
         public string DominantRead { get; set; }
+        public HeatmapBias Bias { get; set; }
         public string StorageStatus { get; set; }
         public List<HeatmapCell> Cells { get; set; }
         public List<HeatmapCell> InterestCells { get; set; }
