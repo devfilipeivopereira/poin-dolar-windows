@@ -258,6 +258,7 @@ namespace RtdDolarNative.Heatmap
             snapshot.Cells = SelectVisibleRows(allCells, snapshot.CurrentPrice, Math.Max(20, maxRows));
             snapshot.InterestCells = SelectInterestRows(allCells, snapshot.CurrentPrice, Math.Max(40, maxRows));
             snapshot.Zones = BuildZones(snapshot.InterestCells, snapshot.CurrentPrice, Math.Max(12, maxRows / 4));
+            snapshot.SqlMemory = BuildSqlMemory(snapshot);
             snapshot.Corridor = BuildCorridor(snapshot);
             snapshot.Bias = BuildBias(snapshot);
             ApplyDominantRead(snapshot);
@@ -791,8 +792,217 @@ namespace RtdDolarNative.Heatmap
             corridor.SupportActionScore = support.ActionScore;
             corridor.ResistanceActionScore = resistance.ActionScore;
             corridor.Bias = scoreDiff > 12m ? "Compra" : scoreDiff < -12m ? "Venda" : "Neutro";
-            corridor.Read = "corredor " + ticks.ToString() + "t | pos " + positionPct.ToString("N0") + "% | " + corridor.Bias.ToLowerInvariant();
+            corridor.Phase = CorridorPhase(ticks);
+            corridor.Location = CorridorLocation(positionPct);
+            corridor.Read = "corredor " + ticks.ToString() + "t " + corridor.Phase.ToLowerInvariant() + " | " + corridor.Location.ToLowerInvariant() + " " + positionPct.ToString("N0") + "% | " + corridor.Bias.ToLowerInvariant();
             return corridor;
+        }
+
+        private static string CorridorPhase(int widthTicks)
+        {
+            if (widthTicks <= 6)
+            {
+                return "Comprimido";
+            }
+
+            if (widthTicks >= 14)
+            {
+                return "Amplo";
+            }
+
+            return "Equilibrado";
+        }
+
+        private static string CorridorLocation(decimal positionPct)
+        {
+            if (positionPct <= 35m)
+            {
+                return "Perto suporte";
+            }
+
+            if (positionPct >= 65m)
+            {
+                return "Perto resistencia";
+            }
+
+            return "Meio";
+        }
+
+        private HeatmapSqlMemory BuildSqlMemory(HeatmapSnapshot snapshot)
+        {
+            HeatmapSqlMemory memory = new HeatmapSqlMemory();
+
+            if (snapshot == null || !snapshot.UseHistoricalContext)
+            {
+                memory.Read = "SQL desligado";
+                return memory;
+            }
+
+            List<HeatmapCell> source = snapshot.InterestCells != null && snapshot.InterestCells.Count > 0
+                ? snapshot.InterestCells
+                : snapshot.Cells;
+
+            if (source == null || source.Count == 0)
+            {
+                memory.Read = "sem memoria SQL";
+                return memory;
+            }
+
+            List<HeatmapCell> sqlCells = source
+                .Where(x => x.HistoricalSamples > 0 || x.HistoricalTradeSamples > 0)
+                .Where(x => SqlSignalScore(x) >= 25m)
+                .ToList();
+
+            memory.BookLevels = sqlCells.Count(x => x.HistoricalSamples > 0);
+            memory.FlowLevels = sqlCells.Count(x => x.HistoricalTradeSamples > 0);
+
+            if (sqlCells.Count == 0)
+            {
+                memory.Read = "sem memoria SQL relevante";
+                return memory;
+            }
+
+            decimal signedPressure = 0m;
+            decimal totalPressure = 0m;
+
+            foreach (HeatmapCell cell in sqlCells)
+            {
+                decimal sign = SqlSignalSign(cell);
+
+                if (sign == 0m)
+                {
+                    continue;
+                }
+
+                decimal distanceWeight = 1m / (1m + Math.Abs(cell.DistanceTicks) / 24m);
+                decimal weighted = SqlSignalScore(cell) * distanceWeight;
+                signedPressure += sign * weighted;
+                totalPressure += Math.Abs(weighted);
+            }
+
+            memory.PressureScore = totalPressure <= 0m ? 0m : ClampSigned(signedPressure / totalPressure * 100m);
+            memory.Direction = memory.PressureScore > 12m ? "Compra" : memory.PressureScore < -12m ? "Venda" : "Neutro";
+
+            HeatmapCell support = null;
+            HeatmapCell resistance = null;
+
+            if (snapshot.CurrentPrice.HasValue)
+            {
+                decimal current = snapshot.CurrentPrice.Value;
+                support = sqlCells
+                    .Where(x => x.Price <= current && SqlSignalSign(x) > 0m)
+                    .OrderBy(x => Math.Abs(x.Price - current))
+                    .ThenByDescending(SqlSignalScore)
+                    .FirstOrDefault();
+                resistance = sqlCells
+                    .Where(x => x.Price >= current && SqlSignalSign(x) < 0m)
+                    .OrderBy(x => Math.Abs(x.Price - current))
+                    .ThenByDescending(SqlSignalScore)
+                    .FirstOrDefault();
+            }
+
+            if (support == null)
+            {
+                support = sqlCells
+                    .Where(x => SqlSignalSign(x) > 0m)
+                    .OrderBy(x => Math.Abs(x.DistanceTicks))
+                    .ThenByDescending(SqlSignalScore)
+                    .FirstOrDefault();
+            }
+
+            if (resistance == null)
+            {
+                resistance = sqlCells
+                    .Where(x => SqlSignalSign(x) < 0m)
+                    .OrderBy(x => Math.Abs(x.DistanceTicks))
+                    .ThenByDescending(SqlSignalScore)
+                    .FirstOrDefault();
+            }
+
+            if (support != null)
+            {
+                memory.SupportPrice = support.Price;
+                memory.SupportDistanceTicks = support.DistanceTicks;
+                memory.SupportScore = SqlSignalScore(support);
+            }
+
+            if (resistance != null)
+            {
+                memory.ResistancePrice = resistance.Price;
+                memory.ResistanceDistanceTicks = resistance.DistanceTicks;
+                memory.ResistanceScore = SqlSignalScore(resistance);
+            }
+
+            decimal topScore = sqlCells.Max(x => SqlSignalScore(x));
+            memory.ConfidenceScore = ClampScore(Math.Abs(memory.PressureScore) * 0.54m + topScore * 0.28m + Math.Min(18m, sqlCells.Count * 3m));
+            memory.IsAvailable = memory.SupportPrice.HasValue || memory.ResistancePrice.HasValue;
+            memory.Read = BuildSqlMemoryRead(memory);
+            return memory;
+        }
+
+        private static string BuildSqlMemoryRead(HeatmapSqlMemory memory)
+        {
+            if (memory == null || !memory.IsAvailable)
+            {
+                return "sem memoria SQL operacional";
+            }
+
+            string support = memory.SupportPrice.HasValue
+                ? "sup " + memory.SupportPrice.Value.ToString("N2") + " " + memory.SupportDistanceTicks.ToString("+0;-0;0") + "t"
+                : "sup -";
+            string resistance = memory.ResistancePrice.HasValue
+                ? "res " + memory.ResistancePrice.Value.ToString("N2") + " " + memory.ResistanceDistanceTicks.ToString("+0;-0;0") + "t"
+                : "res -";
+            return "SQL " + memory.Direction.ToLowerInvariant() +
+                   " " + memory.PressureScore.ToString("+0;-0;0") +
+                   " | " + support +
+                   " | " + resistance +
+                   " | conf " + memory.ConfidenceScore.ToString("N0");
+        }
+
+        private static decimal SqlSignalScore(HeatmapCell cell)
+        {
+            if (cell == null)
+            {
+                return 0m;
+            }
+
+            return Math.Max(cell.HistoricalScore, cell.HistoricalFlowScore);
+        }
+
+        private static decimal SqlSignalSign(HeatmapCell cell)
+        {
+            if (cell == null)
+            {
+                return 0m;
+            }
+
+            decimal bookSign = 0m;
+            decimal flowSign = HistoricalFlowSign(cell);
+
+            if (cell.HistoricalBidLiquidity > 0m || cell.HistoricalAskLiquidity > 0m)
+            {
+                if (cell.HistoricalBidLiquidity >= cell.HistoricalAskLiquidity * 1.15m)
+                {
+                    bookSign = 1m;
+                }
+                else if (cell.HistoricalAskLiquidity >= cell.HistoricalBidLiquidity * 1.15m)
+                {
+                    bookSign = -1m;
+                }
+            }
+
+            if (bookSign != 0m && flowSign != 0m)
+            {
+                return bookSign == flowSign ? bookSign : 0m;
+            }
+
+            if (bookSign != 0m)
+            {
+                return bookSign;
+            }
+
+            return flowSign;
         }
 
         private void ScoreAndClassify(HeatmapCell cell, HeatmapSnapshot snapshot)
@@ -1208,6 +1418,18 @@ namespace RtdDolarNative.Heatmap
                     decimal zonePressure = sign * zone.Score * distanceFactor * 0.22m;
                     score += zonePressure;
                     AddBiasReason(reasons, zone.Read, zonePressure);
+                }
+            }
+
+            if (snapshot.SqlMemory != null && snapshot.SqlMemory.IsAvailable)
+            {
+                decimal sqlSign = DirectionSign(snapshot.SqlMemory.Direction);
+
+                if (sqlSign != 0m && snapshot.SqlMemory.ConfidenceScore >= 30m)
+                {
+                    decimal sqlPressure = sqlSign * snapshot.SqlMemory.ConfidenceScore * 0.24m;
+                    score += sqlPressure;
+                    AddBiasReason(reasons, "memoria SQL", sqlPressure);
                 }
             }
 

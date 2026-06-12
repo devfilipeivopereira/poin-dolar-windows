@@ -356,6 +356,351 @@ namespace QuantEngineTests
             AssertEqual(0, result.MarketBias.Factors.Count, "Missing CSV should produce no active market-bias factors.");
         }
 
+        private static void OpportunityScorerBlocksRobustnessWithoutRealTimes()
+        {
+            OpportunityScoreResult score = OpportunityScorer.Score(
+                BuildOpportunityAsset(),
+                BuildOpportunitySnapshot(DateTimeOffset.Now),
+                BuildOpportunityMetrics(MarketDataQuality.DerivedTape, true, 650m, 0.22m),
+                BuildOpportunityFlow("Buy", 88),
+                BuildOpportunityQuant("Buy", true),
+                BuildOpportunityLevel(),
+                BuildOpportunityContext(126));
+
+            Assert(score.Score <= 70, "Derived tape should cap the final opportunity score.");
+            Assert(!string.Equals(score.Robustness, "Robusto", StringComparison.OrdinalIgnoreCase), "Derived tape must not produce a robust opportunity.");
+            Assert(score.Detail.IndexOf("cap tape derivado", StringComparison.OrdinalIgnoreCase) >= 0, "Score detail should explain the derived tape cap.");
+        }
+
+        private static void OpportunityScorerCapsFragileQuantEdgeAtMonitor()
+        {
+            OpportunityScoreResult score = OpportunityScorer.Score(
+                BuildOpportunityAsset(),
+                BuildOpportunitySnapshot(DateTimeOffset.Now),
+                BuildOpportunityMetrics(MarketDataQuality.FullTimesAndTrades, false, 700m, 0.24m),
+                BuildOpportunityFlow("Buy", 84),
+                BuildOpportunityQuant("Buy", false),
+                BuildOpportunityLevel(),
+                BuildOpportunityContext(126));
+
+            Assert(score.Score <= 74, "Fragile directional edge should cap the opportunity score.");
+            AssertEqual("Monitorar", score.Robustness, "Fragile quant edge should not pass beyond Monitorar.");
+            Assert(score.Detail.IndexOf("edge direcional fragil", StringComparison.OrdinalIgnoreCase) >= 0, "Score detail should expose the fragile edge.");
+        }
+
+        private static void OpportunityScorerRewardsAlignedFlowAndPenalizesDivergence()
+        {
+            OpportunityScoringContext context = BuildOpportunityContext(126);
+            MarketSnapshot snapshot = BuildOpportunitySnapshot(DateTimeOffset.Now);
+            FlowMetrics metrics = BuildOpportunityMetrics(MarketDataQuality.FullTimesAndTrades, false, 700m, 0.24m);
+            QuantSignal quant = BuildOpportunityQuant("Buy", true);
+
+            OpportunityScoreResult aligned = OpportunityScorer.Score(
+                BuildOpportunityAsset(),
+                snapshot,
+                metrics,
+                BuildOpportunityFlow("Buy", 76),
+                quant,
+                BuildOpportunityLevel(),
+                context);
+
+            OpportunityScoreResult divergent = OpportunityScorer.Score(
+                BuildOpportunityAsset(),
+                snapshot,
+                metrics,
+                BuildOpportunityFlow("Sell", 76),
+                quant,
+                BuildOpportunityLevel(),
+                context);
+
+            Assert(aligned.Score > divergent.Score + 15, "Aligned flow and quant should score materially above divergent signals.");
+            Assert(aligned.Detail.IndexOf("quant+fluxo alinhados", StringComparison.OrdinalIgnoreCase) >= 0, "Aligned score should explain the confluence.");
+            Assert(divergent.Detail.IndexOf("quant/fluxo divergentes", StringComparison.OrdinalIgnoreCase) >= 0, "Divergent score should explain the conflict.");
+        }
+
+        private static void OpportunityScorerBlocksStaleSnapshots()
+        {
+            OpportunityScoreResult score = OpportunityScorer.Score(
+                BuildOpportunityAsset(),
+                BuildOpportunitySnapshot(DateTimeOffset.Now.AddSeconds(-20)),
+                BuildOpportunityMetrics(MarketDataQuality.FullTimesAndTrades, false, 750m, 0.24m),
+                BuildOpportunityFlow("Buy", 90),
+                BuildOpportunityQuant("Buy", true),
+                BuildOpportunityLevel(),
+                BuildOpportunityContext(126));
+
+            Assert(score.Score <= 50, "A stale snapshot should cap score at the stale-snapshot limit.");
+            AssertEqual("Bloqueado", score.Robustness, "Stale snapshot cap should block the opportunity.");
+            Assert(score.Detail.IndexOf("snapshot atrasado", StringComparison.OrdinalIgnoreCase) >= 0, "Score detail should explain stale snapshots.");
+        }
+
+        private static void OpportunityJournalStoreInsertsAndLoadsCards()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "opportunity-journal-insert-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "opportunities.sqlite");
+            OpportunityJournalSqliteStore store = new OpportunityJournalSqliteStore(path);
+
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                OpportunityKnowledgeCard card = BuildOpportunityCard("WDOFUT_F_0", "Acionavel", "Buy", now, 5000m);
+                OpportunityKnowledgeCard saved = store.Upsert(card, TimeSpan.FromMinutes(2), 0.5m);
+                List<OpportunityKnowledgeCard> loaded = store.LoadRecent("WDOFUT_F_0", null, null, now.AddMinutes(-5), 10);
+
+                AssertEqual(1, loaded.Count, "Journal should load the inserted opportunity.");
+                AssertEqual(saved.Id, loaded[0].Id, "Loaded card should keep the saved id.");
+                AssertEqual("opportunity_card", loaded[0].ItemType, "Card type should follow the knowledge-card contract.");
+                AssertEqual("high", loaded[0].Confidence, "Loaded card should preserve confidence.");
+                Assert(loaded[0].SourceKey.Length > 0, "Loaded card should preserve source key.");
+            }
+            finally
+            {
+                store.Dispose();
+                TryDelete(folder);
+            }
+        }
+
+        private static void OpportunityJournalStoreDedupesRecentCards()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "opportunity-journal-dedupe-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "opportunities.sqlite");
+            OpportunityJournalSqliteStore store = new OpportunityJournalSqliteStore(path);
+
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                OpportunityKnowledgeCard first = BuildOpportunityCard("WDOFUT_F_0", "Monitorar", "Buy", now, 5000m);
+                OpportunityKnowledgeCard second = BuildOpportunityCard("WDOFUT_F_0", "Acionavel", "Buy", now.AddSeconds(20), 5000.1m);
+                second.Score = 86;
+                store.Upsert(first, TimeSpan.FromMinutes(2), 0.5m);
+                OpportunityKnowledgeCard saved = store.Upsert(second, TimeSpan.FromMinutes(2), 0.5m);
+                List<OpportunityKnowledgeCard> loaded = store.LoadRecent("WDOFUT_F_0", null, null, now.AddMinutes(-5), 10);
+
+                AssertEqual(1, loaded.Count, "Recent matching opportunities should dedupe into one journal row.");
+                AssertEqual(2, loaded[0].SeenCount, "Dedupe should increment seen count.");
+                AssertEqual(86, loaded[0].Score, "Dedupe should keep the newer stronger score.");
+                AssertEqual(saved.Id, loaded[0].Id, "Dedupe should return the existing card id.");
+                Assert(loaded[0].LastSeenUtc > loaded[0].CreatedAtUtc, "Dedupe should move last seen forward.");
+            }
+            finally
+            {
+                store.Dispose();
+                TryDelete(folder);
+            }
+        }
+
+        private static void OpportunityJournalStoreFiltersByAssetRobustnessAndDirection()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "opportunity-journal-filter-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "opportunities.sqlite");
+            OpportunityJournalSqliteStore store = new OpportunityJournalSqliteStore(path);
+
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                store.Upsert(BuildOpportunityCard("WDOFUT_F_0", "Acionavel", "Buy", now, 5000m), TimeSpan.FromMinutes(2), 0.5m);
+                store.Upsert(BuildOpportunityCard("WDOFUT_F_0", "Monitorar", "Sell", now, 5002m), TimeSpan.FromMinutes(2), 0.5m);
+                store.Upsert(BuildOpportunityCard("WINFUT_F_0", "Acionavel", "Buy", now, 130000m), TimeSpan.FromMinutes(2), 5m);
+
+                List<OpportunityKnowledgeCard> loaded = store.LoadRecent("WDOFUT_F_0", "Acionavel", "Buy", now.AddMinutes(-5), 10);
+
+                AssertEqual(1, loaded.Count, "Journal filters should combine asset, robustness and direction.");
+                AssertEqual("WDOFUT_F_0", loaded[0].Asset, "Filtered row should match asset.");
+                AssertEqual("Acionavel", loaded[0].Robustness, "Filtered row should match robustness.");
+                AssertEqual("Buy", loaded[0].Direction, "Filtered row should match direction.");
+            }
+            finally
+            {
+                store.Dispose();
+                TryDelete(folder);
+            }
+        }
+
+        private static void OpportunityJournalStorePersistsAcrossRestart()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "opportunity-journal-restart-tests", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "opportunities.sqlite");
+            DateTime now = DateTime.UtcNow;
+
+            try
+            {
+                OpportunityJournalSqliteStore writer = new OpportunityJournalSqliteStore(path);
+                writer.Upsert(BuildOpportunityCard("WDOFUT_F_0", "Robusto", "Sell", now, 5008m), TimeSpan.FromMinutes(2), 0.5m);
+                writer.Dispose();
+
+                OpportunityJournalSqliteStore reader = new OpportunityJournalSqliteStore(path);
+                List<OpportunityKnowledgeCard> loaded = reader.LoadRecent("WDOFUT_F_0", "Robusto", "Sell", now.AddMinutes(-5), 10);
+                reader.Dispose();
+
+                AssertEqual(1, loaded.Count, "Journal should preserve cards after reopening the SQLite store.");
+                AssertEqual("Sell", loaded[0].Direction, "Restarted store should preserve direction.");
+                AssertEqual("Robusto", loaded[0].Robustness, "Restarted store should preserve robustness.");
+            }
+            finally
+            {
+                TryDelete(folder);
+            }
+        }
+
+        private static OpportunityAssetState BuildOpportunityAsset()
+        {
+            OpportunityAssetState asset = new OpportunityAssetState();
+            asset.Asset = "WDOFUT_F_0";
+            asset.Enabled = true;
+            asset.QuoteEnabled = true;
+            asset.BookEnabled = true;
+            asset.TimesEnabled = true;
+            return asset;
+        }
+
+        private static MarketSnapshot BuildOpportunitySnapshot(DateTimeOffset timestamp)
+        {
+            MarketSnapshot snapshot = new MarketSnapshot();
+            snapshot.Asset = "WDOFUT_F_0";
+            snapshot.LocalTimestamp = timestamp;
+            snapshot.Rtd["ULT"] = 5000m;
+            snapshot.Rtd["OCP"] = 4999.5m;
+            snapshot.Rtd["OVD"] = 5000.5m;
+            return snapshot;
+        }
+
+        private static FlowMetrics BuildOpportunityMetrics(MarketDataQuality quality, bool derived, decimal cumulativeDelta, decimal imbalance)
+        {
+            FlowMetrics metrics = new FlowMetrics();
+            metrics.Asset = "WDOFUT_F_0";
+            metrics.LocalTimestamp = DateTimeOffset.Now;
+            metrics.Price = 5000m;
+            metrics.LastDelta = cumulativeDelta > 0m ? 120m : -120m;
+            metrics.CumulativeDelta = cumulativeDelta;
+            metrics.TopBookImbalance = imbalance;
+            metrics.DataQuality = quality;
+            metrics.Derived = derived;
+            metrics.Profile = new VolumeProfileMetrics();
+            metrics.Profile.Poc = 5000m;
+            metrics.Profile.Levels.Add(new ProfileLevel
+            {
+                Label = "POC",
+                Type = "poc",
+                Price = 5000m,
+                Score = 90d,
+                Source = "Volume Profile"
+            });
+            return metrics;
+        }
+
+        private static FlowSignal BuildOpportunityFlow(string direction, int score)
+        {
+            FlowSignal signal = new FlowSignal();
+            signal.Asset = "WDOFUT_F_0";
+            signal.LocalTimestamp = DateTimeOffset.Now;
+            signal.Setup = "Defesa de POC";
+            signal.Direction = direction;
+            signal.Price = 5000m;
+            signal.Score = score;
+            signal.LevelName = "POC (poc)";
+            signal.LevelPrice = 5000m;
+            signal.Reasons = "POC segurando agressao";
+            signal.DataQuality = MarketDataQuality.FullTimesAndTrades;
+            return signal;
+        }
+
+        private static QuantSignal BuildOpportunityQuant(string direction, bool strongEdge)
+        {
+            QuantSignal signal = new QuantSignal();
+            signal.Setup = "Reversao estatistica";
+            signal.Direction = direction;
+            signal.Price = 5000m;
+            signal.Score = 88;
+            signal.LevelName = "POC";
+            signal.LevelPrice = 5000m;
+            signal.Reasons = "preco em nivel estatistico";
+            signal.DataSource = "CSV+RTD";
+            signal.SampleSize = 126;
+            signal.ExpectancyPoints = strongEdge ? 18m : 4m;
+            signal.ReversalRate = strongEdge ? 61d : 49d;
+            signal.ProfitFactor = strongEdge ? 1.34d : 1.01d;
+            signal.Confidence = strongEdge ? 52d : 18d;
+            signal.RiskReward = strongEdge ? 1.25m : 0.72m;
+            signal.TechnicalState = "reversao";
+            signal.StatisticalEdge = strongEdge ? "edge positivo" : "edge fragil";
+            return signal;
+        }
+
+        private static KeyLevel BuildOpportunityLevel()
+        {
+            KeyLevel level = new KeyLevel();
+            level.Price = 5000m;
+            level.Label = "POC";
+            level.Type = "poc";
+            level.Source = "Volume Profile";
+            level.Score = 90d;
+            level.Distance = 0m;
+            level.Direction = "Buy";
+            return level;
+        }
+
+        private static OpportunityScoringContext BuildOpportunityContext(int historicalSampleSize)
+        {
+            OpportunityScoringContext context = new OpportunityScoringContext();
+            context.TickSize = 0.5m;
+            context.SetupScoreThreshold = 60;
+            context.StrongSetupScoreThreshold = 75;
+            context.TopOfBookOnlyScoreCap = 78;
+            context.DerivedTapeScoreCap = 85;
+            context.HistoricalSampleSize = historicalSampleSize;
+            context.DroppedEvents = 0;
+            context.Backtest = new List<BacktestRow>
+            {
+                new BacktestRow
+                {
+                    Direction = "Buy",
+                    Touches = 12,
+                    ReversalRate = 60d,
+                    ExpectancyPoints = 14m,
+                    ProfitFactor = 1.22d
+                },
+                new BacktestRow
+                {
+                    Direction = "Sell",
+                    Touches = 12,
+                    ReversalRate = 60d,
+                    ExpectancyPoints = 14m,
+                    ProfitFactor = 1.22d
+                }
+            };
+            return context;
+        }
+
+        private static OpportunityKnowledgeCard BuildOpportunityCard(string asset, string robustness, string direction, DateTime asOfUtc, decimal price)
+        {
+            OpportunityKnowledgeCard card = new OpportunityKnowledgeCard();
+            card.Asset = asset;
+            card.AsOfUtc = DateTime.SpecifyKind(asOfUtc, DateTimeKind.Utc);
+            card.CreatedAtUtc = card.AsOfUtc;
+            card.LastSeenUtc = card.AsOfUtc;
+            card.Setup = "Defesa de POC";
+            card.Direction = direction;
+            card.Price = price;
+            card.Score = 82;
+            card.Robustness = robustness;
+            card.Confidence = "high";
+            card.DataQuality = "FullTimesAndTrades";
+            card.SourceKind = "flow";
+            card.SourceKey = asset + "|Defesa de POC|" + direction;
+            card.Reasons = "POC segurando agressao; snapshot fresco";
+            card.Tags = "flow;profile";
+            card.LevelName = "POC";
+            card.LevelPrice = Math.Round(price / 0.5m, 0, MidpointRounding.AwayFromZero) * 0.5m;
+            card.SnapshotAgeSeconds = 1d;
+            card.FlowDelta = direction == "Buy" ? 120m : -120m;
+            card.CumulativeDelta = direction == "Buy" ? 700m : -700m;
+            card.Imbalance = direction == "Buy" ? 0.22m : -0.22m;
+            card.ExpectancyPoints = 14m;
+            card.ProfitFactor = 1.22d;
+            card.RiskReward = 1.15m;
+            return card;
+        }
+
         private static void ChartReferenceLineModeFiltersOpeningAndClosingMaps()
         {
             QuantResult result = BuildResult();
@@ -686,6 +1031,14 @@ namespace QuantEngineTests
             if (expected != actual)
             {
                 throw new InvalidOperationException(message + " Expected " + expected.ToString("yyyy-MM-dd") + ", got " + actual.ToString("yyyy-MM-dd") + ".");
+            }
+        }
+
+        private static void AssertEqual(Guid expected, Guid actual, string message)
+        {
+            if (expected != actual)
+            {
+                throw new InvalidOperationException(message + " Expected " + expected.ToString("D") + ", got " + actual.ToString("D") + ".");
             }
         }
 

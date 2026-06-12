@@ -135,6 +135,9 @@
     <Compile Include="MarketData\ValueParser.cs" />
     <Compile Include="MarketData\IntradayBar.cs" />
     <Compile Include="MarketData\IntradayBarAggregator.cs" />
+    <Compile Include="Opportunities\OpportunityJournalSqliteStore.cs" />
+    <Compile Include="Opportunities\OpportunityModels.cs" />
+    <Compile Include="Opportunities\OpportunityScorer.cs" />
     <Compile Include="Quant\QuantEngine.cs" />
     <Compile Include="Quant\QuantModels.cs" />
     <Compile Include="Quant\GarchEngine.cs" />

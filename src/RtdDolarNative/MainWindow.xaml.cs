@@ -118,6 +118,7 @@ namespace RtdDolarNative
         private string _selectedRtdCompleteGroup = RtdCompleteFieldCatalog.GroupMarket;
         private string _rtdCompleteSearch = string.Empty;
         private bool _syncRtdCompleteGroupSelection;
+        private bool _syncOpportunityJournalFilters;
 
         public MainWindow()
         {
@@ -164,6 +165,7 @@ namespace RtdDolarNative
             InitializeDomAnnotationSelection();
             InitializeHeatmapSqlContextSelection();
             InitializePtaxEditor();
+            InitializeOpportunityJournalFilters();
             PreviewKeyDown += MainWindow_KeyDown;
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -4469,6 +4471,174 @@ namespace RtdDolarNative
                                             EmptyToDash(focused) +
                                             " | RTD " +
                                             EmptyToDash(_probeService.Status);
+            RenderOpportunityJournal();
+        }
+
+        private void InitializeOpportunityJournalFilters()
+        {
+            if (OpportunityJournalAssetFilterCombo == null ||
+                OpportunityJournalRobustnessFilterCombo == null ||
+                OpportunityJournalDirectionFilterCombo == null)
+            {
+                return;
+            }
+
+            _syncOpportunityJournalFilters = true;
+            OpportunityJournalAssetFilterCombo.SelectionChanged -= OpportunityJournalFilter_SelectionChanged;
+            OpportunityJournalRobustnessFilterCombo.SelectionChanged -= OpportunityJournalFilter_SelectionChanged;
+            OpportunityJournalDirectionFilterCombo.SelectionChanged -= OpportunityJournalFilter_SelectionChanged;
+            SyncOpportunityJournalAssetFilter();
+            SetComboItems(OpportunityJournalRobustnessFilterCombo, new[] { "Todos", "Monitorar", "Acionavel", "Robusto" }, "Todos");
+            SetComboItems(OpportunityJournalDirectionFilterCombo, new[] { "Todos", "Buy", "Sell" }, "Todos");
+            OpportunityJournalAssetFilterCombo.SelectionChanged += OpportunityJournalFilter_SelectionChanged;
+            OpportunityJournalRobustnessFilterCombo.SelectionChanged += OpportunityJournalFilter_SelectionChanged;
+            OpportunityJournalDirectionFilterCombo.SelectionChanged += OpportunityJournalFilter_SelectionChanged;
+            _syncOpportunityJournalFilters = false;
+        }
+
+        private void SyncOpportunityJournalAssetFilter()
+        {
+            if (OpportunityJournalAssetFilterCombo == null || _config == null || _config.Rtd == null)
+            {
+                return;
+            }
+
+            string selected = SelectedComboText(OpportunityJournalAssetFilterCombo);
+            List<string> values = new List<string>();
+            values.Add("Todos");
+            values.AddRange(_config.Rtd.Assets
+                .Where(x => x.Enabled)
+                .Select(x => x.Asset)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x)
+                .ToList());
+            SetComboItems(OpportunityJournalAssetFilterCombo, values, selected);
+        }
+
+        private void SetComboItems(ComboBox combo, IEnumerable<string> values, string selected)
+        {
+            if (combo == null)
+            {
+                return;
+            }
+
+            List<string> normalized = (values ?? new List<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (normalized.Count == 0)
+            {
+                normalized.Add("Todos");
+            }
+
+            string preferred = string.IsNullOrWhiteSpace(selected) ? "Todos" : selected;
+            List<string> current = combo.Items.Cast<object>().Select(x => x == null ? string.Empty : x.ToString()).ToList();
+            bool sameItems = current.Count == normalized.Count && current.SequenceEqual(normalized, StringComparer.OrdinalIgnoreCase);
+
+            if (!sameItems)
+            {
+                combo.Items.Clear();
+
+                foreach (string value in normalized)
+                {
+                    combo.Items.Add(value);
+                }
+            }
+
+            combo.SelectedItem = normalized.FirstOrDefault(x => string.Equals(x, preferred, StringComparison.OrdinalIgnoreCase)) ?? normalized[0];
+        }
+
+        private void RenderOpportunityJournal()
+        {
+            if (OpportunityJournalGrid == null || OpportunityJournalSummaryText == null)
+            {
+                return;
+            }
+
+            try
+            {
+                bool previousSync = _syncOpportunityJournalFilters;
+                _syncOpportunityJournalFilters = true;
+                SyncOpportunityJournalAssetFilter();
+                _syncOpportunityJournalFilters = previousSync;
+
+                List<OpportunityJournalRow> rows = BuildOpportunityJournalRows();
+                OpportunityJournalGrid.ItemsSource = rows;
+                OpportunityJournalSummaryText.Text = rows.Count.ToString(_ptBr) +
+                                                     " card(s) | janela " +
+                                                     OpportunityJournalLookback.TotalHours.ToString("N0", _ptBr) +
+                                                     "h";
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Falha ao renderizar diario de oportunidades.", ex);
+                OpportunityJournalGrid.ItemsSource = new List<OpportunityJournalRow>();
+                OpportunityJournalSummaryText.Text = "diario indisponivel";
+            }
+        }
+
+        private List<OpportunityJournalRow> BuildOpportunityJournalRows()
+        {
+            string asset = SelectedJournalFilter(OpportunityJournalAssetFilterCombo);
+            string robustness = SelectedJournalFilter(OpportunityJournalRobustnessFilterCombo);
+            string direction = SelectedJournalFilter(OpportunityJournalDirectionFilterCombo);
+            List<OpportunityKnowledgeCard> cards = _opportunityJournalStore.LoadRecent(asset, robustness, direction, DateTime.UtcNow.Subtract(OpportunityJournalLookback), 120);
+            List<OpportunityJournalRow> rows = new List<OpportunityJournalRow>();
+
+            foreach (OpportunityKnowledgeCard card in cards)
+            {
+                DateTime localTime = card.LastSeenUtc.Kind == DateTimeKind.Utc ? card.LastSeenUtc.ToLocalTime() : card.LastSeenUtc;
+                OpportunityJournalRow row = new OpportunityJournalRow();
+                row.Time = localTime.ToString("HH:mm:ss", _ptBr);
+                row.Asset = EmptyToDash(card.Asset);
+                row.Setup = EmptyToDash(card.Setup);
+                row.Direction = EmptyToDash(card.Direction);
+                row.Price = card.Price.ToString("N2", _ptBr);
+                row.Score = card.Score.ToString(_ptBr);
+                row.Robustness = EmptyToDash(card.Robustness);
+                row.Confidence = EmptyToDash(card.Confidence);
+                row.Seen = card.SeenCount.ToString(_ptBr);
+                row.Source = EmptyToDash(card.SourceKind);
+                row.Reasons = EmptyToDash(card.Reasons);
+                row.SortTime = card.LastSeenUtc;
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private string SelectedJournalFilter(ComboBox combo)
+        {
+            string text = SelectedComboText(combo);
+            return string.Equals(text, "Todos", StringComparison.OrdinalIgnoreCase) ? null : text;
+        }
+
+        private string SelectedComboText(ComboBox combo)
+        {
+            if (combo == null || combo.SelectedItem == null)
+            {
+                return "Todos";
+            }
+
+            ComboBoxItem item = combo.SelectedItem as ComboBoxItem;
+            return item == null ? combo.SelectedItem.ToString() : (item.Content == null ? string.Empty : item.Content.ToString());
+        }
+
+        private void OpportunityJournalFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncOpportunityJournalFilters)
+            {
+                return;
+            }
+
+            RenderOpportunityJournal();
+        }
+
+        private void RefreshOpportunityJournalButton_Click(object sender, RoutedEventArgs e)
+        {
+            RenderOpportunityJournal();
         }
 
         private List<OpportunityRow> BuildOpportunityRows()
@@ -4516,6 +4686,20 @@ namespace RtdDolarNative
                         row.Reasons = EmptyToDash(garchSignal.Reasons);
                         row.SortScore = garchSignal.Score;
                         rows.Add(row);
+                        TryPersistOpportunityCard(
+                            asset,
+                            row,
+                            "garch",
+                            assetName + "|garch|" + EmptyToDash(garchSignal.Scope) + "|" + EmptyToDash(garchSignal.Setup) + "|" + EmptyToDash(garchSignal.Direction),
+                            garchSignal.Price,
+                            garchSignal.LevelName,
+                            garchSignal.LevelPrice,
+                            DateTimeOffset.Now,
+                            snapshot,
+                            metrics,
+                            null,
+                            null,
+                            garchSignal);
                     }
                 }
 
@@ -4555,6 +4739,20 @@ namespace RtdDolarNative
                     row.Reasons = EmptyToDash(signal.Reasons) + "; " + score.Detail;
                     row.SortScore = score.Score;
                     rows.Add(row);
+                    TryPersistOpportunityCard(
+                        asset,
+                        row,
+                        "flow",
+                        string.IsNullOrWhiteSpace(signal.CooldownKey) ? assetName + "|flow|" + EmptyToDash(signal.Setup) + "|" + EmptyToDash(signal.Direction) : signal.CooldownKey,
+                        signal.Price,
+                        signal.LevelName,
+                        signal.LevelPrice,
+                        signal.LocalTimestamp,
+                        snapshot,
+                        metrics,
+                        signal,
+                        matchingQuant,
+                        null);
                 }
             }
 
@@ -4604,56 +4802,153 @@ namespace RtdDolarNative
                               score.Detail;
                 row.SortScore = score.Score;
                 rows.Add(row);
+                TryPersistOpportunityCard(
+                    asset,
+                    row,
+                    "quant",
+                    assetName + "|quant|" + EmptyToDash(signal.Setup) + "|" + EmptyToDash(signal.Direction),
+                    signal.Price,
+                    signal.LevelName,
+                    signal.LevelPrice,
+                    snapshot == null ? DateTimeOffset.Now : snapshot.LocalTimestamp,
+                    snapshot,
+                    metrics,
+                    matchingFlow,
+                    signal,
+                    null);
             }
 
             return rows;
         }
 
-        private int QuantFlowAdjustedScore(QuantSignal signal, FlowMetrics metrics)
+        private void TryPersistOpportunityCard(
+            RtdAssetConfig asset,
+            OpportunityRow row,
+            string sourceKind,
+            string sourceKey,
+            decimal price,
+            string levelName,
+            decimal? levelPrice,
+            DateTimeOffset asOf,
+            MarketSnapshot snapshot,
+            FlowMetrics metrics,
+            FlowSignal flowSignal,
+            QuantSignal quantSignal,
+            GarchSignal garchSignal)
         {
-            if (signal == null)
+            if (_opportunityJournalStore == null || !ShouldPersistOpportunityRow(row))
             {
-                return 0;
+                return;
             }
 
-            int score = signal.Score;
+            try
+            {
+                OpportunityKnowledgeCard card = new OpportunityKnowledgeCard();
+                card.Asset = asset == null ? FocusedAsset() : asset.Asset;
+                card.AsOfUtc = asOf.UtcDateTime;
+                card.Setup = row.Setup;
+                card.Direction = row.Direction;
+                card.Price = price;
+                card.Score = Math.Max(0, (int)Math.Round(row.SortScore, MidpointRounding.AwayFromZero));
+                card.Robustness = row.Robustness;
+                card.Confidence = OpportunityConfidence(row.Robustness, card.Score);
+                card.DataQuality = OpportunityDataQuality(row, metrics);
+                card.SourceKind = EmptyToDash(sourceKind);
+                card.SourceKey = string.IsNullOrWhiteSpace(sourceKey) ? BuildOpportunitySourceKey(card) : sourceKey;
+                card.Reasons = EmptyToDash(row.Reasons);
+                card.Tags = BuildOpportunityTags(card.Asset, sourceKind, row);
+                card.LevelName = string.IsNullOrWhiteSpace(levelName) ? string.Empty : levelName;
+                card.LevelPrice = levelPrice;
+                card.SnapshotAgeSeconds = snapshot == null ? (double?)null : Math.Max(0d, (DateTimeOffset.Now - snapshot.LocalTimestamp).TotalSeconds);
+                card.FlowDelta = metrics == null ? (decimal?)null : metrics.LastDelta;
+                card.CumulativeDelta = metrics == null ? (decimal?)null : metrics.CumulativeDelta;
+                card.Imbalance = metrics == null ? (decimal?)null : metrics.TopBookImbalance;
+                card.ExpectancyPoints = quantSignal == null ? (decimal?)null : quantSignal.ExpectancyPoints;
+                card.ProfitFactor = quantSignal == null ? (double?)null : quantSignal.ProfitFactor;
+                card.RiskReward = quantSignal == null ? (garchSignal == null ? (decimal?)null : garchSignal.RiskReward) : quantSignal.RiskReward;
+                _opportunityJournalStore.Upsert(card, OpportunityJournalDedupeWindow, _config.Rtd.TickSize);
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Falha ao persistir oportunidade.", ex);
+            }
+        }
 
+        private bool ShouldPersistOpportunityRow(OpportunityRow row)
+        {
+            if (row == null || string.Equals(row.Setup, "Aguardando setup", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            string robustness = EmptyToDash(row.Robustness);
+
+            if (string.Equals(robustness, "Fraco", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(robustness, "Bloqueado", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            int score = Math.Max(0, (int)Math.Round(row.SortScore, MidpointRounding.AwayFromZero));
+            return score >= _config.Flow.SetupScoreThreshold ||
+                   string.Equals(robustness, "Monitorar", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(robustness, "Acionavel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(robustness, "Acionável", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(robustness, "Robusto", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string OpportunityConfidence(string robustness, int score)
+        {
+            if (string.Equals(robustness, "Robusto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(robustness, "Acionavel", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(robustness, "Acionável", StringComparison.OrdinalIgnoreCase) ||
+                score >= _config.Flow.StrongSetupScoreThreshold)
+            {
+                return "high";
+            }
+
+            if (string.Equals(robustness, "Monitorar", StringComparison.OrdinalIgnoreCase) ||
+                score >= _config.Flow.SetupScoreThreshold)
+            {
+                return "medium";
+            }
+
+            return "low";
+        }
+
+        private string OpportunityDataQuality(OpportunityRow row, FlowMetrics metrics)
+        {
             if (metrics == null)
             {
-                return Math.Min(85, score);
+                return row == null ? "-" : EmptyToDash(row.Quality);
             }
 
-            decimal imbalance = metrics.TopBookImbalance.HasValue ? metrics.TopBookImbalance.Value : 0m;
-            decimal delta = metrics.CumulativeDelta;
-            bool buy = string.Equals(signal.Direction, "Buy", StringComparison.OrdinalIgnoreCase);
-            bool sell = string.Equals(signal.Direction, "Sell", StringComparison.OrdinalIgnoreCase);
-            bool confirms = (buy && (delta > 0m || imbalance > 0.08m)) ||
-                            (sell && (delta < 0m || imbalance < -0.08m));
-            bool conflicts = (buy && (delta < 0m && imbalance < -0.08m)) ||
-                             (sell && (delta > 0m && imbalance > 0.08m));
+            return metrics.DataQuality + (metrics.Derived ? " derivado" : " real");
+        }
 
-            if (confirms)
-            {
-                score += metrics.DataQuality == MarketDataQuality.TopOfBookOnly ? 4 : 8;
-            }
-            else if (conflicts)
-            {
-                score -= 8;
-            }
+        private string BuildOpportunityTags(string asset, string sourceKind, OpportunityRow row)
+        {
+            List<string> tags = new List<string>();
+            tags.Add("opportunity");
+            tags.Add(EmptyToDash(asset).ToLowerInvariant());
+            tags.Add(EmptyToDash(sourceKind).ToLowerInvariant());
+            tags.Add(EmptyToDash(row == null ? string.Empty : row.Robustness).ToLowerInvariant());
+            tags.Add(EmptyToDash(row == null ? string.Empty : row.Direction).ToLowerInvariant());
+            return string.Join(";", tags.Where(x => !string.IsNullOrWhiteSpace(x) && x != "-").Distinct().ToArray());
+        }
 
-            int cap = metrics.DataQuality == MarketDataQuality.FullTimesAndTrades || metrics.DataQuality == MarketDataQuality.FullDepth ? 95 : 88;
+        private string BuildOpportunitySourceKey(OpportunityKnowledgeCard card)
+        {
+            return EmptyToDash(card.Asset) + "|" +
+                   EmptyToDash(card.Setup) + "|" +
+                   EmptyToDash(card.Direction) + "|" +
+                   card.Price.ToString("0.####", CultureInfo.InvariantCulture) + "|" +
+                   EmptyToDash(card.SourceKind);
+        }
 
-            if (!QuantSignalHasUsableEdge(signal))
-            {
-                cap = Math.Min(cap, 74);
-                score -= 4;
-            }
-            else if (!QuantSignalHasPositiveEdge(signal))
-            {
-                cap = Math.Min(cap, 86);
-            }
-
-            return Math.Max(0, Math.Min(cap, score));
+        private int QuantFlowAdjustedScore(QuantSignal signal, FlowMetrics metrics)
+        {
+            return OpportunityScorer.QuantFlowAdjustedScore(signal, metrics);
         }
 
         private string QuantFlowConfirmation(QuantSignal signal, FlowMetrics metrics)
@@ -4689,155 +4984,51 @@ namespace RtdDolarNative
 
         private OpportunityScore ScoreOpportunity(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics, FlowSignal flowSignal, QuantSignal quantSignal, KeyLevel nearestLevel)
         {
+            OpportunityScoreResult scored = OpportunityScorer.Score(
+                ToOpportunityAssetState(asset),
+                snapshot,
+                metrics,
+                flowSignal,
+                quantSignal,
+                nearestLevel,
+                BuildOpportunityScoringContext());
+
             OpportunityScore result = new OpportunityScore();
-            List<string> evidence = new List<string>();
-            int score = Math.Max(flowSignal == null ? 0 : flowSignal.Score, quantSignal == null ? 0 : QuantFlowAdjustedScore(quantSignal, metrics));
-            int cap = OpportunityScoreCap(asset, snapshot, metrics, quantSignal != null, evidence);
-            string direction = OpportunityDirection(flowSignal, quantSignal);
-            int confirmations = 0;
-
-            if (flowSignal != null)
-            {
-                confirmations++;
-                evidence.Add("setup fluxo " + flowSignal.Score.ToString(_ptBr));
-            }
-
-            if (quantSignal != null)
-            {
-                confirmations++;
-                evidence.Add("setup quant " + QuantFlowAdjustedScore(quantSignal, metrics).ToString(_ptBr));
-            }
-
-            if (flowSignal != null && quantSignal != null)
-            {
-                if (SameDirection(flowSignal.Direction, quantSignal.Direction))
-                {
-                    score += 10;
-                    confirmations++;
-                    evidence.Add("quant+fluxo alinhados");
-                }
-                else
-                {
-                    score -= 12;
-                    evidence.Add("quant/fluxo divergentes");
-                }
-            }
-
-            string flowAlignment = FlowDirectionAlignment(direction, metrics);
-            bool flowConfirms = string.Equals(flowAlignment, "confirma", StringComparison.OrdinalIgnoreCase);
-
-            if (flowConfirms)
-            {
-                score += metrics != null && metrics.DataQuality == MarketDataQuality.TopOfBookOnly ? 4 : 8;
-                confirmations++;
-                evidence.Add("delta/imbalance confirmam");
-            }
-            else if (string.Equals(flowAlignment, "conflita", StringComparison.OrdinalIgnoreCase))
-            {
-                score -= 12;
-                evidence.Add("delta/imbalance conflitam");
-            }
-
-            if (HasProfileReference(flowSignal, quantSignal, nearestLevel))
-            {
-                score += 5;
-                confirmations++;
-                evidence.Add("nivel profile/estatistico");
-            }
-
-            int sampleSize = _result == null || _result.Technicals == null ? _dailyBars.Count : _result.Technicals.SampleSize;
-
-            if (sampleSize >= 126)
-            {
-                score += 8;
-                confirmations++;
-                evidence.Add("amostra >=126");
-            }
-            else if (sampleSize >= 63)
-            {
-                score += 5;
-                confirmations++;
-                evidence.Add("amostra >=63");
-            }
-            else if (sampleSize >= 21)
-            {
-                score += 2;
-                evidence.Add("amostra >=21");
-            }
-            else if (quantSignal != null)
-            {
-                score -= 10;
-                evidence.Add("amostra historica baixa");
-            }
-
-            BacktestRow bestBacktest = BestBacktestRow(direction);
-
-            if (bestBacktest != null &&
-                bestBacktest.Touches >= 5 &&
-                bestBacktest.ReversalRate >= 55d &&
-                bestBacktest.ExpectancyPoints > 0m &&
-                bestBacktest.ProfitFactor >= 1.05d)
-            {
-                score += 5;
-                confirmations++;
-                evidence.Add("backtest direcional favoravel");
-            }
-            else if (quantSignal != null)
-            {
-                evidence.Add("edge historico sem confirmacao forte");
-            }
-
-            if (quantSignal != null)
-            {
-                if (QuantSignalHasPositiveEdge(quantSignal))
-                {
-                    score += 6;
-                    confirmations++;
-                    evidence.Add("edge direcional positivo");
-                }
-                else if (QuantSignalHasUsableEdge(quantSignal))
-                {
-                    score += 3;
-                    evidence.Add("edge direcional moderado");
-                    cap = Math.Min(cap, 88);
-                }
-                else
-                {
-                    score -= 10;
-                    cap = Math.Min(cap, 74);
-                    evidence.Add("edge direcional fragil");
-                }
-            }
-
-            if (metrics != null && metrics.Profile != null && metrics.Profile.Poc.HasValue)
-            {
-                confirmations++;
-                evidence.Add("volume profile ativo");
-            }
-
-            if (nearestLevel != null && Math.Abs(nearestLevel.Distance) <= _config.Rtd.TickSize * 10m)
-            {
-                score += 3;
-                evidence.Add("preco perto de nivel");
-            }
-
-            if (_flowProcessor.Dropped > 0)
-            {
-                score -= 4;
-                evidence.Add("fila descartou eventos");
-            }
-
-            if (flowSignal == null && quantSignal == null)
-            {
-                score = snapshot == null ? 0 : Math.Min(30, cap);
-                evidence.Add("sem gatilho estatistico/fluxo");
-            }
-
-            score = Math.Max(0, Math.Min(cap, score));
-            result.Score = score;
-            result.Robustness = OpportunityRobustness(score, cap, confirmations, quantSignal, metrics, flowConfirms);
-            result.Detail = string.Join("; ", evidence.Where(x => !string.IsNullOrWhiteSpace(x)).Take(8).ToArray());
+            result.Score = scored.Score;
+            result.Robustness = scored.Robustness;
+            result.Detail = scored.Detail;
             return result;
+        }
+
+        private OpportunityAssetState ToOpportunityAssetState(RtdAssetConfig asset)
+        {
+            OpportunityAssetState state = new OpportunityAssetState();
+
+            if (asset == null)
+            {
+                state.Enabled = false;
+                return state;
+            }
+
+            state.Asset = asset.Asset;
+            state.Enabled = asset.Enabled;
+            state.QuoteEnabled = asset.QuoteEnabled;
+            state.BookEnabled = asset.BookEnabled;
+            state.TimesEnabled = asset.TimesEnabled;
+            return state;
+        }
+
+        private OpportunityScoringContext BuildOpportunityScoringContext()
+        {
+            return OpportunityScoringContext.FromValues(
+                _config.Rtd.TickSize,
+                _config.Flow.SetupScoreThreshold,
+                _config.Flow.StrongSetupScoreThreshold,
+                _config.Flow.TopOfBookOnlyScoreCap,
+                _config.Flow.DerivedTapeScoreCap,
+                _result,
+                _dailyBars.Count,
+                _flowProcessor == null ? 0 : _flowProcessor.Dropped);
         }
 
         private int OpportunityScoreCap(RtdAssetConfig asset, MarketSnapshot snapshot, FlowMetrics metrics, bool requiresHistory, List<string> evidence)
@@ -4955,24 +5146,12 @@ namespace RtdDolarNative
 
         private bool QuantSignalHasPositiveEdge(QuantSignal signal)
         {
-            return signal != null &&
-                   signal.ExpectancyPoints.HasValue &&
-                   signal.ExpectancyPoints.Value > 0m &&
-                   signal.ReversalRate >= 58d &&
-                   signal.ProfitFactor >= 1.25d &&
-                   signal.Confidence >= 45d &&
-                   signal.RiskReward >= 1m;
+            return OpportunityScorer.QuantSignalHasPositiveEdge(signal);
         }
 
         private bool QuantSignalHasUsableEdge(QuantSignal signal)
         {
-            return signal != null &&
-                   signal.ExpectancyPoints.HasValue &&
-                   signal.ExpectancyPoints.Value > 0m &&
-                   signal.ReversalRate >= 52d &&
-                   signal.ProfitFactor >= 1.05d &&
-                   signal.Confidence >= 30d &&
-                   signal.RiskReward >= 0.85m;
+            return OpportunityScorer.QuantSignalHasUsableEdge(signal);
         }
 
         private QuantSignal FindMatchingQuantSignal(string assetName, FlowSignal flowSignal)
@@ -9729,9 +9908,10 @@ namespace RtdDolarNative
             AddRow(rows, "Zonas", (heatmap.Zones == null ? 0 : heatmap.Zones.Count).ToString(_ptBr), "blocos adjacentes");
             HeatmapZone actionZone = heatmap.Zones == null ? null : heatmap.Zones.OrderByDescending(x => x.ActionScore).ThenBy(x => Math.Abs(x.DistanceTicks)).FirstOrDefault();
             AddRow(rows, "Acao", actionZone == null ? "-" : EmptyToDash(actionZone.Action), actionZone == null ? "-" : "urg " + actionZone.ActionScore.ToString("N0", _ptBr) + " | " + EmptyToDash(actionZone.ActionRead));
-            AddRow(rows, "Corredor", heatmap.Corridor != null && heatmap.Corridor.IsAvailable ? heatmap.Corridor.WidthTicks.ToString(_ptBr) + "t | " + EmptyToDash(heatmap.Corridor.Bias) : "-", heatmap.Corridor == null ? "-" : EmptyToDash(heatmap.Corridor.Read));
+            AddRow(rows, "Corredor", heatmap.Corridor != null && heatmap.Corridor.IsAvailable ? heatmap.Corridor.WidthTicks.ToString(_ptBr) + "t | " + EmptyToDash(heatmap.Corridor.Phase) : "-", heatmap.Corridor == null ? "-" : EmptyToDash(heatmap.Corridor.Location) + " | " + EmptyToDash(heatmap.Corridor.Read));
             AddRow(rows, "Qualidade", "Conf " + heatmap.MaxConfidenceScore.ToString("N0", _ptBr), "confl " + heatmap.MaxConfluenceScore.ToString("N0", _ptBr) + " | conflito " + heatmap.MaxConflictScore.ToString("N0", _ptBr));
             AddRow(rows, "Contexto SQL", heatmap.UseHistoricalContext ? FormatHeatmapWindow(heatmap.HistoricalContextMinutes) : "Desligado", heatmap.UseHistoricalContext ? "book e fluxo historicos entram no score" : "somente book e negocios ao vivo");
+            AddRow(rows, "Memoria SQL", heatmap.SqlMemory != null && heatmap.SqlMemory.IsAvailable ? EmptyToDash(heatmap.SqlMemory.Direction) + " " + heatmap.SqlMemory.PressureScore.ToString("+0;-0;0", _ptBr) : "-", heatmap.SqlMemory == null ? "-" : EmptyToDash(heatmap.SqlMemory.Read));
             string sqlWindow = FormatHeatmapWindow(heatmap.HistoricalContextMinutes);
             AddRow(rows, "SQL book", heatmap.HistoricalLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalScore.ToString("N0", _ptBr) + " | liquidez recorrente " + sqlWindow + " com frescor");
             AddRow(rows, "SQL flow", heatmap.HistoricalTradeLevels.ToString(_ptBr), "max " + heatmap.MaxHistoricalFlowScore.ToString("N0", _ptBr) + " | delta " + heatmap.HistoricalCumulativeDelta.ToString("N0", _ptBr) + " em " + sqlWindow);
@@ -10664,6 +10844,22 @@ namespace RtdDolarNative
             public int Score { get; set; }
             public string Robustness { get; set; }
             public string Detail { get; set; }
+        }
+
+        private sealed class OpportunityJournalRow
+        {
+            public string Time { get; set; }
+            public string Asset { get; set; }
+            public string Setup { get; set; }
+            public string Direction { get; set; }
+            public string Price { get; set; }
+            public string Score { get; set; }
+            public string Robustness { get; set; }
+            public string Confidence { get; set; }
+            public string Seen { get; set; }
+            public string Source { get; set; }
+            public string Reasons { get; set; }
+            public DateTime SortTime { get; set; }
         }
 
         private sealed class WorkflowOpportunity

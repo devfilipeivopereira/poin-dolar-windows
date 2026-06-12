@@ -65,8 +65,10 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
    - Quando `Times`/`Book` nao estao reais, a qualidade informa tape derivado/top-of-book e o score fica limitado.
 17. Confirmar que `Setups` respeita cooldown e informa qualidade do dado.
 18. Confirmar que `Scanner` e `Oportunidades` mostram apenas leitura, score, nivel, motivo e qualidade; nao deve existir boleta nem envio de ordens.
-19. Confirmar que oportunidade com edge direcional fragil fica limitada e nao aparece como `Robusto`.
-20. Confirmar que `Robusto` exige fluxo confirmando, RTD fresco, dados reais e edge direcional positivo.
+19. Confirmar em `Oportunidades` que `Diario / Memoria` lista os cards persistidos, filtra por ativo, robustez e direcao, e que o banco `%LOCALAPPDATA%\PoinDolarWindows\data\opportunity_journal.sqlite` e criado.
+20. Confirmar que oportunidades repetidas em janela curta aumentam `Vezes` em vez de criar varias linhas identicas.
+21. Confirmar que oportunidade com edge direcional fragil fica limitada e nao aparece como `Robusto`.
+22. Confirmar que `Robusto` exige fluxo confirmando, RTD fresco, dados reais e edge direcional positivo.
 
 ## Performance
 
@@ -78,3 +80,4 @@ Com o Profit fechado, o app deve continuar aberto. O status deve alternar entre 
 - `Robusto` nao deve aparecer com `TopOfBookOnly`, tape derivado, CSV insuficiente, expectancy direcional negativa, confianca baixa ou R/R desfavoravel.
 - A aba `Indicadores` deve atualizar sem travar a UI e sem recalcular pesado na thread RTD.
 - A aba `Heatmap` deve usar SQLite em background; crescimento da fila nao deve travar navegacao, menus ou RTD.
+- A aba `Oportunidades` deve persistir memoria local sem travar RTD/UI e sem misturar cards de oportunidade com o `Historico` operacional.

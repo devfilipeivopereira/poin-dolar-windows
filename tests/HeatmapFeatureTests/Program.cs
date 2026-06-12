@@ -16,7 +16,11 @@ namespace HeatmapFeatureTests
             List<Action> tests = new List<Action>
             {
                 CorridorTracksNearestSupportResistanceAroundPrice,
-                CorridorIsUnavailableWithoutBothSides
+                CorridorIsUnavailableWithoutBothSides,
+                CorridorClassifiesCompressionNearResistance,
+                CorridorClassifiesWideMiddleRange,
+                SqlMemoryFramesHistoricalSupportAndResistanceAfterRestart,
+                SqlMemoryBiasesTowardStrongerHistoricalSupport
             };
 
             int failed = 0;
@@ -90,13 +94,148 @@ namespace HeatmapFeatureTests
             }
         }
 
+        private static void CorridorClassifiesCompressionNearResistance()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000.5m);
+                AddBid(snapshot, 0, 4999.5m, 3200m);
+                AddAsk(snapshot, 0, 5001m, 3400m);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000.5m, 40);
+
+                Assert(heatmap.Corridor.IsAvailable, "Compressed corridor should be available.");
+                AssertEqual("Comprimido", heatmap.Corridor.Phase, "A narrow framed corridor should be marked as compressed.");
+                AssertEqual("Perto resistencia", heatmap.Corridor.Location, "Price in the upper corridor third should be near resistance.");
+                Assert(heatmap.Corridor.Read.IndexOf("comprimido", StringComparison.OrdinalIgnoreCase) >= 0, "Read should include corridor phase.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void CorridorClassifiesWideMiddleRange()
+        {
+            HeatmapProcessor processor = BuildProcessor();
+
+            try
+            {
+                MarketSnapshot snapshot = BuildSnapshot(5000m);
+                AddBid(snapshot, 0, 4996m, 3200m);
+                AddAsk(snapshot, 0, 5004m, 3400m);
+                processor.PostSnapshot(snapshot);
+
+                HeatmapSnapshot heatmap = processor.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.Corridor.IsAvailable, "Wide corridor should be available.");
+                AssertEqual("Amplo", heatmap.Corridor.Phase, "A wide framed corridor should be marked as wide.");
+                AssertEqual("Meio", heatmap.Corridor.Location, "Price near the middle should be marked as middle corridor.");
+                Assert(heatmap.Corridor.Read.IndexOf("meio", StringComparison.OrdinalIgnoreCase) >= 0, "Read should include corridor location.");
+            }
+            finally
+            {
+                processor.Dispose();
+            }
+        }
+
+        private static void SqlMemoryFramesHistoricalSupportAndResistanceAfterRestart()
+        {
+            string path = BuildDatabasePath();
+            HeatmapProcessor writer = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot historical = BuildSnapshot(5000m);
+                historical.LocalTimestamp = DateTimeOffset.Now.AddMinutes(-5);
+                AddBid(historical, 0, 4998.5m, 5200m);
+                AddAsk(historical, 0, 5002m, 4700m);
+
+                writer.Start();
+                writer.PostSnapshot(historical);
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 2", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist historical book levels into SQLite.");
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+
+            HeatmapProcessor reader = BuildProcessor(path, true);
+
+            try
+            {
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.SqlMemory != null, "Heatmap should expose an SQL memory summary.");
+                Assert(heatmap.SqlMemory.IsAvailable, "SQL memory should be available when historical levels frame the current price.");
+                AssertEqual(4998.5m, heatmap.SqlMemory.SupportPrice.Value, "SQL memory should expose nearest historical support below price.");
+                AssertEqual(5002m, heatmap.SqlMemory.ResistancePrice.Value, "SQL memory should expose nearest historical resistance above price.");
+                Assert(heatmap.SqlMemory.Read.IndexOf("SQL", StringComparison.OrdinalIgnoreCase) >= 0, "SQL memory read should make the database source explicit.");
+            }
+            finally
+            {
+                reader.Dispose();
+            }
+        }
+
+        private static void SqlMemoryBiasesTowardStrongerHistoricalSupport()
+        {
+            string path = BuildDatabasePath();
+            HeatmapProcessor writer = BuildProcessor(path, true);
+
+            try
+            {
+                MarketSnapshot historical = BuildSnapshot(5000m);
+                historical.LocalTimestamp = DateTimeOffset.Now.AddMinutes(-4);
+                AddBid(historical, 0, 4998.5m, 8000m);
+                AddAsk(historical, 0, 5002m, 4200m);
+
+                writer.Start();
+                writer.PostSnapshot(historical);
+                Assert(WaitUntil(() => writer.StorageStatus.IndexOf("book 2", StringComparison.OrdinalIgnoreCase) >= 0, 3000), "Writer should persist historical support and resistance into SQLite.");
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+
+            HeatmapProcessor reader = BuildProcessor(path, true);
+
+            try
+            {
+                HeatmapSnapshot heatmap = reader.GetSnapshot("WDOFUT_F_0", 5000m, 40);
+
+                Assert(heatmap.SqlMemory != null && heatmap.SqlMemory.IsAvailable, "SQL memory should summarize persisted historical context.");
+                AssertEqual("Compra", heatmap.SqlMemory.Direction, "SQL memory should bias toward the stronger historical support side.");
+                Assert(heatmap.SqlMemory.PressureScore > 10m, "SQL memory pressure should be positive when historical support dominates.");
+                Assert(heatmap.SqlMemory.Read.IndexOf("sup", StringComparison.OrdinalIgnoreCase) >= 0, "SQL memory read should name the support anchor.");
+            }
+            finally
+            {
+                reader.Dispose();
+            }
+        }
+
         private static HeatmapProcessor BuildProcessor()
         {
-            string folder = Path.Combine(Path.GetTempPath(), "heatmap-feature-tests", Guid.NewGuid().ToString("N"));
-            string path = Path.Combine(folder, "heatmap.sqlite");
-            HeatmapProcessor processor = new HeatmapProcessor(0.5m, path, new Logger(null));
-            processor.UseHistoricalContext = false;
+            HeatmapProcessor processor = BuildProcessor(BuildDatabasePath(), false);
             return processor;
+        }
+
+        private static HeatmapProcessor BuildProcessor(string path, bool useHistoricalContext)
+        {
+            HeatmapProcessor processor = new HeatmapProcessor(0.5m, path, new Logger(null));
+            processor.UseHistoricalContext = useHistoricalContext;
+            return processor;
+        }
+
+        private static string BuildDatabasePath()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "heatmap-feature-tests", Guid.NewGuid().ToString("N"));
+            return Path.Combine(folder, "heatmap.sqlite");
         }
 
         private static MarketSnapshot BuildSnapshot(decimal currentPrice)
@@ -142,6 +281,31 @@ namespace HeatmapFeatureTests
             {
                 throw new InvalidOperationException(message + " Expected " + expected.ToString(CultureInfo.InvariantCulture) + ", got " + actual.ToString(CultureInfo.InvariantCulture) + ".");
             }
+        }
+
+        private static void AssertEqual(string expected, string actual, string message)
+        {
+            if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(message + " Expected " + expected + ", got " + actual + ".");
+            }
+        }
+
+        private static bool WaitUntil(Func<bool> predicate, int timeoutMs)
+        {
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+
+            while (DateTime.UtcNow <= deadline)
+            {
+                if (predicate())
+                {
+                    return true;
+                }
+
+                System.Threading.Thread.Sleep(25);
+            }
+
+            return predicate();
         }
     }
 }

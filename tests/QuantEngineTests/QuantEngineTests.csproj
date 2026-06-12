@@ -107,6 +107,15 @@
     <Compile Include="..\..\src\RtdDolarNative\MarketData\IntradayBarAggregator.cs">
       <Link>MarketData\IntradayBarAggregator.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Opportunities\OpportunityJournalSqliteStore.cs">
+      <Link>Opportunities\OpportunityJournalSqliteStore.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Opportunities\OpportunityModels.cs">
+      <Link>Opportunities\OpportunityModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\RtdDolarNative\Opportunities\OpportunityScorer.cs">
+      <Link>Opportunities\OpportunityScorer.cs</Link>
+    </Compile>
     <Compile Include="..\..\src\RtdDolarNative\Quant\QuantModels.cs">
       <Link>Quant\QuantModels.cs</Link>
     </Compile>

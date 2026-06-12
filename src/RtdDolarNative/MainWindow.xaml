@@ -3328,12 +3328,17 @@
                     </Border>
 
                     <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2*" />
+                            <RowDefinition Height="1*" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1.35*" />
                             <ColumnDefinition Width="1*" />
                         </Grid.ColumnDefinitions>
 
                         <DataGrid x:Name="OpportunitiesGrid"
+                                  Grid.Row="0"
                                   AutoGenerateColumns="False"
                                   CellStyle="{StaticResource DirectionalDataGridCellStyle}">
                             <DataGrid.Columns>
@@ -3351,6 +3356,7 @@
                         </DataGrid>
 
                         <DataGrid x:Name="OpportunityLevelsGrid"
+                                  Grid.Row="0"
                                   Grid.Column="1"
                                   AutoGenerateColumns="False"
                                   Margin="10,0,0,0"
@@ -3364,6 +3370,64 @@
                                 <DataGridTextColumn Header="Evidencia" Binding="{Binding Evidence}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <Border Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                Background="{StaticResource Panel}"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="1"
+                                Padding="10"
+                                Margin="0,10,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Diario / Memoria" FontSize="14" FontWeight="Bold" Margin="0,0,14,0" />
+                                        <TextBlock x:Name="OpportunityJournalSummaryText"
+                                                   Text="-"
+                                                   Foreground="{StaticResource Muted}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Ativo" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <ComboBox x:Name="OpportunityJournalAssetFilterCombo" Width="140" Margin="0,0,10,0" />
+                                        <TextBlock Text="Robustez" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <ComboBox x:Name="OpportunityJournalRobustnessFilterCombo" Width="120" Margin="0,0,10,0" />
+                                        <TextBlock Text="Direcao" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <ComboBox x:Name="OpportunityJournalDirectionFilterCombo" Width="90" Margin="0,0,10,0" />
+                                        <Button Content="Atualizar" Click="RefreshOpportunityJournalButton_Click" Margin="0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <DataGrid x:Name="OpportunityJournalGrid"
+                                          Grid.Row="1"
+                                          AutoGenerateColumns="False"
+                                          Margin="0,10,0,0"
+                                          CellStyle="{StaticResource DirectionalDataGridCellStyle}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Hora" Binding="{Binding Time}" Width="75" />
+                                        <DataGridTextColumn Header="Ativo" Binding="{Binding Asset}" Width="115" />
+                                        <DataGridTextColumn Header="Setup" Binding="{Binding Setup}" Width="150" />
+                                        <DataGridTextColumn Header="Direcao" Binding="{Binding Direction}" Width="90" />
+                                        <DataGridTextColumn Header="Preco" Binding="{Binding Price}" Width="90" />
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="70" />
+                                        <DataGridTextColumn Header="Robustez" Binding="{Binding Robustness}" Width="95" />
+                                        <DataGridTextColumn Header="Conf." Binding="{Binding Confidence}" Width="70" />
+                                        <DataGridTextColumn Header="Vezes" Binding="{Binding Seen}" Width="65" />
+                                        <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="75" />
+                                        <DataGridTextColumn Header="Motivos" Binding="{Binding Reasons}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Grid>
             </TabItem>

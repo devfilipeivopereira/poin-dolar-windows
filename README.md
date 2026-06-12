@@ -21,6 +21,7 @@ Este projeto implementa a base nativa low-latency e um porte inicial amplo do da
 - metricas de risco estatistico de retornos, incluindo retorno medio 21, retornos positivos, volatilidade de retornos, downside deviation, Sharpe21, Sortino21, VaR95 e expected shortfall;
 - backtest proxy direcional com compra/venda separadas, taxa de reversao, continuidade, expectancy em pontos, profit factor, confianca Wilson, risco/retorno e edge score;
 - regua de oportunidade robusta em `Scanner` e `Oportunidades`, combinando RTD, CSV, indicadores, fluxo, volume profile, edge direcional, backtest proxy e qualidade dos canais;
+- diario local de oportunidades em SQLite, com cards auditaveis por ativo, setup, direcao, score, robustez, confianca, fonte, motivos e contagem de recorrencia;
 - buffer `latest wins` para a UI consumir apenas o snapshot mais recente.
 
 ## Telas nativas
@@ -101,6 +102,8 @@ A tela `Indicadores` mostra os calculos que sustentam a triagem:
 O caminho esperado de decisao e: cadastrar ativo e canais RTD, conectar, validar qualidade em `Diagnostico`, acompanhar `Mesa`, auditar `DOM / Book` e `Tape`, revisar `Order Flow`, `Heatmap`, `Volume Profile`, `Indicadores`, `Setups`, `Scanner` e `Oportunidades`. Os RTDs alimentam preco/volume, book e prints; o CSV historico alimenta volatilidade, desvios, indicadores, profile proxy, risco estatistico de retornos e backtest proxy.
 
 O `Heatmap` usa o book para mapear liquidez passiva por preco e o times and trades para marcar volume executado e agressao. Os dados sao persistidos em SQLite em `%LOCALAPPDATA%\PoinDolarWindows\data\market_heatmap.sqlite`, com escrita em segundo plano para nao travar RTD ou UI.
+
+O diario de oportunidades fica em `%LOCALAPPDATA%\PoinDolarWindows\data\opportunity_journal.sqlite`. Ele persiste apenas oportunidades acionaveis ou em monitoramento, deduplica repeticoes recentes e aparece na aba `Oportunidades` como `Diario / Memoria`, separado do `Historico` operacional.
 
 O app e uma plataforma de analise e busca de oportunidades. Ele nao envia ordens. Scores sao evidencias operacionais para revisao do trader, nao promessa de resultado. `Robusto` exige RTD fresco, fluxo confirmando, qualidade real de dados, edge direcional positivo, confianca estatistica minima e risco/retorno coerente; com `TopOfBookOnly`, tape derivado, snapshot atrasado, CSV insuficiente ou estatistica conflitante, a UI informa a qualidade do dado e o score fica limitado.
 

@@ -51,7 +51,9 @@ namespace RtdDolarNative.Charts
                 string[] badgeValues = new[]
                 {
                     "CONF " + _snapshot.MaxConfidenceScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxConflictScore.ToString("N0", CultureInfo.InvariantCulture),
-                    "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture),
+                    _snapshot.SqlMemory != null && _snapshot.SqlMemory.IsAvailable
+                        ? "SQL " + Empty(_snapshot.SqlMemory.Direction) + " " + _snapshot.SqlMemory.PressureScore.ToString("+0;-0;0", CultureInfo.InvariantCulture)
+                        : "SQL " + _snapshot.MaxHistoricalScore.ToString("N0", CultureInfo.InvariantCulture) + "/" + _snapshot.MaxHistoricalFlowScore.ToString("N0", CultureInfo.InvariantCulture),
                     "CVD " + _snapshot.CumulativeDelta.ToString("N0", CultureInfo.InvariantCulture),
                     "STAB " + _snapshot.MaxPersistenceScore.ToString("N0", CultureInfo.InvariantCulture),
                     "SPOOF " + _snapshot.MaxSpoofRiskScore.ToString("N0", CultureInfo.InvariantCulture),
@@ -61,7 +63,7 @@ namespace RtdDolarNative.Charts
                 Brush[] badgeBrushes = new[]
                 {
                     _snapshot.MaxConflictScore >= 50m ? sell : _snapshot.MaxConfidenceScore >= 70m ? buy : muted,
-                    _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted,
+                    _snapshot.SqlMemory != null && _snapshot.SqlMemory.IsAvailable ? DirectionBrush(_snapshot.SqlMemory.Direction) : _snapshot.MaxHistoricalFlowScore >= 70m ? flowSql : _snapshot.MaxHistoricalScore >= 70m ? accent : muted,
                     _snapshot.CumulativeDelta >= 0m ? buy : sell,
                     _snapshot.MaxPersistenceScore >= 70m ? buy : muted,
                     _snapshot.MaxSpoofRiskScore >= 70m ? sell : muted,
@@ -196,6 +198,7 @@ namespace RtdDolarNative.Charts
             }
 
             DrawZoneOverlays(dc, plot, rowHeight, readWidth);
+            DrawSqlMemoryOverlay(dc, plot, rowHeight, labelWidth, flowSql, muted);
             DrawCorridorOverlay(dc, plot, rowHeight, labelWidth, accent, muted);
         }
 
@@ -230,6 +233,51 @@ namespace RtdDolarNative.Charts
                 DrawText(dc, "Z" + zone.Score.ToString("N0", CultureInfo.InvariantCulture), plot.Right - readWidth - 42, top + 3, brush, 10, FontWeights.Bold);
                 DrawText(dc, ActionShort(zone), plot.Left + 6, top + 3, brush, 10, FontWeights.Bold);
             }
+        }
+
+        private void DrawSqlMemoryOverlay(DrawingContext dc, Rect plot, double rowHeight, double labelWidth, Brush flowSql, Brush muted)
+        {
+            if (_snapshot == null ||
+                _snapshot.SqlMemory == null ||
+                !_snapshot.SqlMemory.IsAvailable ||
+                _snapshot.Cells == null ||
+                _snapshot.Cells.Count == 0)
+            {
+                return;
+            }
+
+            Pen pen = new Pen(flowSql, 1.2);
+            pen.DashStyle = DashStyles.Dash;
+            double labelX = plot.Left + Math.Max(88d, labelWidth + 4d);
+
+            if (_snapshot.SqlMemory.SupportPrice.HasValue)
+            {
+                DrawSqlMemoryLine(dc, plot, rowHeight, _snapshot.SqlMemory.SupportPrice.Value, "SQL SUP " + _snapshot.SqlMemory.SupportScore.ToString("N0", CultureInfo.InvariantCulture), DirectionBrush("Compra"), pen, labelX);
+            }
+
+            if (_snapshot.SqlMemory.ResistancePrice.HasValue)
+            {
+                DrawSqlMemoryLine(dc, plot, rowHeight, _snapshot.SqlMemory.ResistancePrice.Value, "SQL RES " + _snapshot.SqlMemory.ResistanceScore.ToString("N0", CultureInfo.InvariantCulture), DirectionBrush("Venda"), pen, labelX);
+            }
+
+            DrawText(dc, _snapshot.SqlMemory.PressureScore.ToString("+0;-0;0", CultureInfo.InvariantCulture), plot.Right - 48, plot.Top + 4, DirectionBrush(_snapshot.SqlMemory.Direction), 10, FontWeights.Bold);
+        }
+
+        private void DrawSqlMemoryLine(DrawingContext dc, Rect plot, double rowHeight, decimal price, string label, Brush brush, Pen guidePen, double labelX)
+        {
+            var target = _snapshot.Cells
+                .Select((x, i) => new { Cell = x, Index = i })
+                .OrderBy(x => Math.Abs(x.Cell.Price - price))
+                .FirstOrDefault();
+
+            if (target == null)
+            {
+                return;
+            }
+
+            double y = plot.Top + target.Index * rowHeight + rowHeight / 2d;
+            dc.DrawLine(guidePen, new Point(plot.Left + 2, y), new Point(plot.Right - 2, y));
+            DrawText(dc, label, labelX, y - 7, brush, 10, FontWeights.Bold);
         }
 
         private void DrawCorridorOverlay(DrawingContext dc, Rect plot, double rowHeight, double labelWidth, Brush accent, Brush muted)
@@ -267,8 +315,8 @@ namespace RtdDolarNative.Charts
             dc.DrawLine(pen, new Point(bracketX, top), new Point(bracketX, bottom));
             dc.DrawLine(pen, new Point(bracketX - 8, top), new Point(bracketX + 8, top));
             dc.DrawLine(pen, new Point(bracketX - 8, bottom), new Point(bracketX + 8, bottom));
-            DrawText(dc, "COR " + _snapshot.Corridor.WidthTicks.ToString("N0", CultureInfo.InvariantCulture) + "t " + Empty(_snapshot.Corridor.Bias), bracketX + 12, top + 2, accent, 10, FontWeights.Bold);
-            DrawText(dc, _snapshot.Corridor.CurrentPositionPct.ToString("N0", CultureInfo.InvariantCulture) + "%", bracketX + 12, bottom - 14, muted, 10, FontWeights.Normal);
+            DrawText(dc, "COR " + _snapshot.Corridor.WidthTicks.ToString("N0", CultureInfo.InvariantCulture) + "t " + Empty(_snapshot.Corridor.Phase), bracketX + 12, top + 2, accent, 10, FontWeights.Bold);
+            DrawText(dc, Empty(_snapshot.Corridor.Location) + " " + _snapshot.Corridor.CurrentPositionPct.ToString("N0", CultureInfo.InvariantCulture) + "%", bracketX + 12, bottom - 14, muted, 10, FontWeights.Normal);
         }
 
         private static string ActionShort(HeatmapZone zone)

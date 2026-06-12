@@ -135,6 +135,25 @@ namespace RtdDolarNative.Heatmap
         public decimal SupportActionScore { get; set; }
         public decimal ResistanceActionScore { get; set; }
         public string Bias { get; set; }
+        public string Phase { get; set; }
+        public string Location { get; set; }
+        public string Read { get; set; }
+    }
+
+    public sealed class HeatmapSqlMemory
+    {
+        public bool IsAvailable { get; set; }
+        public string Direction { get; set; }
+        public decimal PressureScore { get; set; }
+        public decimal ConfidenceScore { get; set; }
+        public decimal? SupportPrice { get; set; }
+        public decimal? ResistancePrice { get; set; }
+        public int SupportDistanceTicks { get; set; }
+        public int ResistanceDistanceTicks { get; set; }
+        public decimal SupportScore { get; set; }
+        public decimal ResistanceScore { get; set; }
+        public int BookLevels { get; set; }
+        public int FlowLevels { get; set; }
         public string Read { get; set; }
     }
 
@@ -147,6 +166,7 @@ namespace RtdDolarNative.Heatmap
             Zones = new List<HeatmapZone>();
             Bias = new HeatmapBias();
             Corridor = new HeatmapCorridor();
+            SqlMemory = new HeatmapSqlMemory();
         }
 
         public string Asset { get; set; }
@@ -188,6 +208,7 @@ namespace RtdDolarNative.Heatmap
         public string DominantRead { get; set; }
         public HeatmapBias Bias { get; set; }
         public HeatmapCorridor Corridor { get; set; }
+        public HeatmapSqlMemory SqlMemory { get; set; }
         public string StorageStatus { get; set; }
         public List<HeatmapCell> Cells { get; set; }
         public List<HeatmapCell> InterestCells { get; set; }
